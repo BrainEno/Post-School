@@ -34,6 +34,8 @@ jobs:
 
   editmode-tests:
     name: EditMode tests (local Windows Unity 6000.3.29f1)
+    env:
+      unityVersion: 6000.3.29f1
     # Self-hosted runners in public repositories must never run code from pull requests.
     # PRs still receive the static checks above; Unity tests run after trusted main pushes
     # or when manually dispatched by the repository owner.
@@ -48,7 +50,7 @@ jobs:
       - name: Verify the installed Unity Editor
         shell: pwsh
         run: |
-          $version = '6000.3.29f1'
+          $version = $env:unityVersion
           $key = "HKLM:\SOFTWARE\Unity Technologies\Installer\Unity $version"
           $location = (Get-ItemProperty -Path $key -ErrorAction Stop).'Location x64'
           $editor = Join-Path $location 'Editor\Unity.exe'
@@ -64,7 +66,7 @@ jobs:
       - name: Run EditMode tests using the machine's activated Unity Personal license
         shell: pwsh
         run: |
-          $version = '6000.3.29f1'
+          $version = $env:unityVersion
           $key = "HKLM:\SOFTWARE\Unity Technologies\Installer\Unity $version"
           $location = (Get-ItemProperty -Path $key -ErrorAction Stop).'Location x64'
           $editor = Join-Path $location 'Editor\Unity.exe'
