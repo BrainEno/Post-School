@@ -1,0 +1,290 @@
+using System;
+using System.Collections.Generic;
+using PostSchool.Core;
+using PostSchool.Interaction;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace PostSchool.Tools.VisualCalibration
+{
+    /// <summary>
+    /// Builds the first visual calibration scene from primitives and the shared palette.
+    /// Menu: Post School > Visual Calibration > Build Calibration Scene. Re-running overwrites the scene
+    /// and the materials in <see cref="MaterialFolder"/>. Scene layout is in metres; the room is 8 x 9 m.
+    /// </summary>
+    public static class VisualCalibrationSceneBuilder
+    {
+        public const string ScenePath = "Assets/Scenes/VisualCalibration.unity";
+        public const string MaterialFolder = "Assets/Art/Calibration/Materials";
+
+        private const string LitShader = "Universal Render Pipeline/Lit";
+        private const string UnlitShader = "Universal Render Pipeline/Unlit";
+
+        [MenuItem("Post School/Visual Calibration/Build Calibration Scene")]
+        public static void Build()
+        {
+            Dictionary<string, Material> materials = EnsureMaterials();
+
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            BuildArchitecture(NewGroup("Architecture"), materials);
+            BuildFurniture(NewGroup("Furniture"), materials);
+            BuildStudents(NewGroup("Students"), materials);
+            Transform player = BuildPlayer(materials);
+            BuildCameras(player);
+            BuildLighting();
+
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"Visual calibration scene written to {ScenePath}. Play with Camera_Fixed_Authored (default); to compare, disable it and enable Camera_FollowComparison.");
+        }
+
+        private static Dictionary<string, Material> EnsureMaterials()
+        {
+            EnsureFolder(MaterialFolder);
+
+            Dictionary<string, Material> result = new Dictionary<string, Material>(StringComparer.Ordinal);
+            foreach (CalibrationMaterial spec in VisualCalibrationPalette.Materials)
+            {
+                string shaderName = spec.Unlit ? UnlitShader : LitShader;
+                Shader shader = Shader.Find(shaderName);
+                if (shader == null)
+                {
+                    throw new InvalidOperationException($"Shader '{shaderName}' was not found. Check that the Universal RP package matches the pinned Unity 6000.3.29f1 baseline.");
+                }
+
+                string path = $"{MaterialFolder}/{spec.Name}.mat";
+                Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material == null)
+                {
+                    material = new Material(shader);
+                    AssetDatabase.CreateAsset(material, path);
+                }
+
+                material.shader = shader;
+                material.SetColor("_BaseColor", spec.Color);
+                if (!spec.Unlit)
+                {
+                    material.SetFloat("_Smoothness", spec.Smoothness);
+                }
+
+                EditorUtility.SetDirty(material);
+                result[spec.Name] = material;
+            }
+
+            AssetDatabase.SaveAssets();
+            return result;
+        }
+
+        private static void BuildArchitecture(Transform parent, IReadOnlyDictionary<string, Material> m)
+        {
+            Solid("Floor", parent, PrimitiveType.Cube, new Vector3(0f, -0.05f, 0f), new Vector3(8f, 0.1f, 9f), m[VisualCalibrationPalette.MaterialNames.Concrete], withCollider: true);
+            Solid("Wall_Back", parent, PrimitiveType.Cube, new Vector3(0f, 1.6f, -4.5f), new Vector3(8f, 3.2f, 0.1f), m[VisualCalibrationPalette.MaterialNames.PaintedWall], withCollider: true);
+            Solid("Wall_Front", parent, PrimitiveType.Cube, new Vector3(0f, 1.6f, 4.5f), new Vector3(8f, 3.2f, 0.1f), m[VisualCalibrationPalette.MaterialNames.PaintedWall], withCollider: true);
+            Solid("Wall_Left", parent, PrimitiveType.Cube, new Vector3(-4f, 1.6f, 0f), new Vector3(0.1f, 3.2f, 9f), m[VisualCalibrationPalette.MaterialNames.PaintedSideWall], withCollider: true);
+            Solid("Wall_Right", parent, PrimitiveType.Cube, new Vector3(4f, 1.6f, 0f), new Vector3(0.1f, 3.2f, 9f), m[VisualCalibrationPalette.MaterialNames.PaintedSideWall], withCollider: true);
+            Solid("Ceiling", parent, PrimitiveType.Cube, new Vector3(0f, 3.2f, 0f), new Vector3(8f, 0.1f, 9f), m[VisualCalibrationPalette.MaterialNames.PaintedSideWall], withCollider: true);
+
+            // Blackboard and three chalk-like strokes (paper material, no collider).
+            Solid("Blackboard", parent, PrimitiveType.Cube, new Vector3(0f, 1.4f, 4.44f), new Vector3(3.6f, 1.3f, 0.06f), m[VisualCalibrationPalette.MaterialNames.Board]);
+            Solid("Blackboard_Stroke_A", parent, PrimitiveType.Cube, new Vector3(-0.7f, 1.7f, 4.4f), new Vector3(0.9f, 0.02f, 0.01f), m[VisualCalibrationPalette.MaterialNames.Paper]);
+            Solid("Blackboard_Stroke_B", parent, PrimitiveType.Cube, new Vector3(-0.5f, 1.45f, 4.4f), new Vector3(1.4f, 0.02f, 0.01f), m[VisualCalibrationPalette.MaterialNames.Paper]);
+            Solid("Blackboard_Stroke_C", parent, PrimitiveType.Cube, new Vector3(0.6f, 1.2f, 4.4f), new Vector3(0.5f, 0.02f, 0.01f), m[VisualCalibrationPalette.MaterialNames.Paper]);
+
+            // Door on the left wall with an ink lintel. The door is the exit focal point.
+            Solid("Door", parent, PrimitiveType.Cube, new Vector3(-3.94f, 1.05f, 3.0f), new Vector3(0.06f, 2.1f, 0.95f), m[VisualCalibrationPalette.MaterialNames.Oxblood]);
+            Solid("Door_Lintel_Ink", parent, PrimitiveType.Cube, new Vector3(-3.93f, 2.16f, 3.0f), new Vector3(0.08f, 0.08f, 1.1f), m[VisualCalibrationPalette.MaterialNames.Ink]);
+
+            // Projected imagery: an unlit quad on the right wall, facing into the room (normal -X).
+            Solid("Projection_Image", parent, PrimitiveType.Quad, new Vector3(3.94f, 1.7f, 0.5f), new Vector3(2.2f, 1.4f, 1f), m[VisualCalibrationPalette.MaterialNames.Projection], eulerAngles: new Vector3(0f, 90f, 0f));
+            Solid("Projector_Body_Ink", parent, PrimitiveType.Cube, new Vector3(0f, 2.95f, 1.0f), new Vector3(0.45f, 0.2f, 0.3f), m[VisualCalibrationPalette.MaterialNames.Ink]);
+
+            // Ink contour strips along the back wall and left wall base.
+            Solid("Ink_Contour_Back", parent, PrimitiveType.Cube, new Vector3(0f, 0.01f, -4.44f), new Vector3(8f, 0.02f, 0.03f), m[VisualCalibrationPalette.MaterialNames.Ink]);
+            Solid("Ink_Contour_Left", parent, PrimitiveType.Cube, new Vector3(-3.94f, 0.01f, 0f), new Vector3(0.03f, 0.02f, 9f), m[VisualCalibrationPalette.MaterialNames.Ink]);
+        }
+
+        private static void BuildFurniture(Transform parent, IReadOnlyDictionary<string, Material> m)
+        {
+            float[] columns = { -2.2f, 0f, 2.2f };
+            float[] rows = { -1.6f, 0.4f };
+
+            foreach (float z in rows)
+            {
+                foreach (float x in columns)
+                {
+                    GameObject desk = new GameObject($"Desk_{x:0.0}_{z:0.0}");
+                    desk.transform.SetParent(parent, false);
+                    desk.transform.localPosition = new Vector3(x, 0f, z);
+
+                    Solid("Top", desk.transform, PrimitiveType.Cube, new Vector3(0f, 0.75f, 0f), new Vector3(1.1f, 0.04f, 0.6f), m[VisualCalibrationPalette.MaterialNames.DeskTop], withCollider: true);
+                    foreach (float legX in new[] { -0.5f, 0.5f })
+                    {
+                        foreach (float legZ in new[] { -0.25f, 0.25f })
+                        {
+                            Solid("Leg", desk.transform, PrimitiveType.Cube, new Vector3(legX, 0.37f, legZ), new Vector3(0.05f, 0.74f, 0.05f), m[VisualCalibrationPalette.MaterialNames.Ink]);
+                        }
+                    }
+                }
+            }
+
+            // Teacher's lectern in solid concrete, against the front wall.
+            Solid("Lectern_Concrete", parent, PrimitiveType.Cube, new Vector3(0f, 0.45f, 3.2f), new Vector3(1.2f, 0.9f, 0.6f), m[VisualCalibrationPalette.MaterialNames.Concrete], withCollider: true);
+        }
+
+        private static void BuildStudents(Transform parent, IReadOnlyDictionary<string, Material> m)
+        {
+            // Layered cut-paper silhouettes seated behind each desk, facing the board. No colliders:
+            // these are readability figures for the calibration, not navigation obstacles.
+            float[] columns = { -2.2f, 0f, 2.2f };
+            float[] rows = { -1.6f, 0.4f };
+
+            foreach (float z in rows)
+            {
+                foreach (float x in columns)
+                {
+                    float seatZ = z - 0.42f;
+                    GameObject student = new GameObject($"Student_{x:0.0}_{z:0.0}");
+                    student.transform.SetParent(parent, false);
+                    student.transform.localPosition = new Vector3(x, 0f, seatZ);
+
+                    Solid("Body_Oxblood", student.transform, PrimitiveType.Quad, new Vector3(0f, 0.95f, 0f), new Vector3(0.5f, 0.7f, 1f), m[VisualCalibrationPalette.MaterialNames.Oxblood]);
+                    Solid("Shirt_Paper_Layer", student.transform, PrimitiveType.Quad, new Vector3(0f, 0.95f, -0.02f), new Vector3(0.38f, 0.52f, 1f), m[VisualCalibrationPalette.MaterialNames.Paper]);
+                    Solid("Head_Oxblood", student.transform, PrimitiveType.Sphere, new Vector3(0f, 1.35f, 0f), new Vector3(0.22f, 0.22f, 0.22f), m[VisualCalibrationPalette.MaterialNames.Oxblood]);
+                }
+            }
+        }
+
+        private static Transform BuildPlayer(IReadOnlyDictionary<string, Material> m)
+        {
+            GameObject player = new GameObject("Player");
+            player.transform.position = new Vector3(0f, 0f, -2.8f);
+
+            CharacterController controller = player.AddComponent<CharacterController>();
+            controller.height = 1.7f;
+            controller.radius = 0.3f;
+            controller.center = new Vector3(0f, 0.85f, 0f);
+
+            player.AddComponent<PlayerMovement>();
+            player.AddComponent<PlayerInteractor>();
+
+            // Provisional body: capsule in the ochre accent, the only saturated colour in the room.
+            Solid("Body_Ochre", player.transform, PrimitiveType.Capsule, new Vector3(0f, 0.85f, 0f), new Vector3(0.6f, 0.85f, 0.6f), m[VisualCalibrationPalette.MaterialNames.Ochre]);
+            return player.transform;
+        }
+
+        private static void BuildCameras(Transform player)
+        {
+            GameObject fixedGo = new GameObject("Camera_Fixed_Authored");
+            fixedGo.tag = "MainCamera";
+            Camera fixedCamera = fixedGo.AddComponent<Camera>();
+            fixedCamera.fieldOfView = 50f;
+            fixedCamera.nearClipPlane = 0.1f;
+            fixedGo.transform.position = new Vector3(0f, 1.65f, -4.1f);
+            fixedGo.transform.LookAt(new Vector3(0f, 1.1f, 1.6f));
+
+            // Comparison: a follow camera with the existing FollowCamera component. Disabled by default.
+            GameObject followGo = new GameObject("Camera_FollowComparison");
+            Camera followCamera = followGo.AddComponent<Camera>();
+            followCamera.fieldOfView = 50f;
+            followCamera.enabled = false;
+            FollowCamera follow = followGo.AddComponent<FollowCamera>();
+            SetReference(follow, "_target", player);
+
+            // Player movement is camera-relative to the fixed shot so the default view stays coherent.
+            SetReference(player.GetComponent<PlayerMovement>(), "_cameraAnchor", fixedGo.transform);
+        }
+
+        private static void BuildLighting()
+        {
+            GameObject sun = new GameObject("Key_Light_Directional");
+            Light key = sun.AddComponent<Light>();
+            key.type = LightType.Directional;
+            key.color = VisualCalibrationPalette.Hex("FFE7C2");
+            key.intensity = 1.0f;
+            key.shadows = LightShadows.Soft;
+            sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+            // Projector glow: a spot from the ceiling box onto the projected image on the right wall.
+            GameObject projector = new GameObject("Projector_Spot_Light");
+            projector.transform.position = new Vector3(0f, 2.9f, 1.0f);
+            projector.transform.LookAt(new Vector3(3.9f, 1.7f, 0.5f));
+            Light glow = projector.AddComponent<Light>();
+            glow.type = LightType.Spot;
+            glow.color = VisualCalibrationPalette.Projection;
+            glow.intensity = 2.0f;
+            glow.range = 7f;
+            glow.spotAngle = 40f;
+            glow.shadows = LightShadows.None;
+
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.45f, 0.43f, 0.40f);
+        }
+
+        private static Transform NewGroup(string name)
+        {
+            return new GameObject(name).transform;
+        }
+
+        private static GameObject Solid(
+            string name,
+            Transform parent,
+            PrimitiveType type,
+            Vector3 position,
+            Vector3 scale,
+            Material material,
+            bool withCollider = false,
+            Vector3? eulerAngles = null)
+        {
+            GameObject go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = position;
+            go.transform.localScale = scale;
+            if (eulerAngles.HasValue)
+            {
+                go.transform.localRotation = Quaternion.Euler(eulerAngles.Value);
+            }
+
+            go.GetComponent<Renderer>().sharedMaterial = material;
+
+            if (!withCollider)
+            {
+                UnityEngine.Object.DestroyImmediate(go.GetComponent<Collider>());
+            }
+
+            return go;
+        }
+
+        private static void SetReference(Component owner, string field, UnityEngine.Object value)
+        {
+            SerializedObject serialized = new SerializedObject(owner);
+            SerializedProperty property = serialized.FindProperty(field);
+            if (property == null)
+            {
+                throw new InvalidOperationException($"{owner.GetType().Name} has no serialized field '{field}'. Update VisualCalibrationSceneBuilder to match the component.");
+            }
+
+            property.objectReferenceValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void EnsureFolder(string path)
+        {
+            string[] parts = path.Split('/');
+            string current = parts[0];
+            for (int i = 1; i < parts.Length; i++)
+            {
+                string next = current + "/" + parts[i];
+                if (!AssetDatabase.IsValidFolder(next))
+                {
+                    AssetDatabase.CreateFolder(current, parts[i]);
+                }
+
+                current = next;
+            }
+        }
+    }
+}
