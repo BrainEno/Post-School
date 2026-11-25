@@ -80,7 +80,7 @@ For every code task:
 Suggested batch-mode test command (adapt the test platform to the actual test suite):
 
 ```powershell
-& "E:\Programs\\Unity\\Editors\\6000.3.29f1\\Editor\\Unity.exe" -batchmode -nographics -projectPath "E:\Projects\\Post School" -runTests -testPlatform EditMode -testResults "Temp\\editmode-results.xml" -logFile "Temp\\editmode.log"
+& "E:\Programs\Unity\Editors\6000.3.29f1\Editor\Unity.exe" -batchmode -nographics -projectPath "E:\Projects\Post School" -runTests -testPlatform EditMode -testResults "Temp\editmode-results.xml" -logFile "Temp\editmode.log"
 ```
 
 Do not run tests that write into shipped source data unless the test explicitly uses a temporary copy.
@@ -109,4 +109,5 @@ Do not build all chapters, complex skill trees, voice acting, cinematic facial a
 ## Definition of done
 
 A task is done only when its commits are on the intended branch, acceptance criteria are met, the changed path works in the pinned Unity version, relevant checks are honestly reported, no known regression is concealed, and the PR contains only approved game-production material.
+
 

@@ -6,7 +6,7 @@
 
 - Unity Editor: **6000.3.29f1** (Unity 6.3 LTS; revision `96d2fe17529c`)
 - Template: Unity 3D URP
-- Local project: `E:\Projects\\Post School`
+- Local project: `E:\Projects\Post School`
 - Current scene: `Assets/Scenes/PostSchool_Prototype.unity`
 - Target: Windows PC first; keep the project portable for later Linux/Steam Deck evaluation
 - Current stage: clean Unity project foundation and shared production documentation; gameplay systems have not been ported yet
@@ -22,7 +22,7 @@ See [docs/PROJECT_RELATIONSHIP.md](docs/PROJECT_RELATIONSHIP.md) and [docs/PORTI
 Open the project in Unity Hub or run:
 
 ```powershell
-unity open "E:\Projects\\Post School"
+unity open "E:\Projects\Post School"
 ```
 
 Use the pinned editor version above. Do not upgrade the project version without an explicit owner decision.
@@ -39,4 +39,5 @@ Use the pinned editor version above. Do not upgrade the project version without 
 ## Copyright and assets
 
 The project is not granted a blanket open-source license. Original materials remain reserved unless a specific file states otherwise. Third-party assets and dependencies retain their own terms. Do not import an asset merely because it exists in the Godot repository; check its provenance and commercial/redistribution rights first.
+
 

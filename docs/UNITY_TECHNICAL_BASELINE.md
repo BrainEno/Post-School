@@ -5,7 +5,7 @@
 - Editor: **6000.3.29f1** (Unity 6.3 LTS)
 - Editor revision: **96d2fe17529c**
 - Template: **3D URP**
-- Project: `E:\Projects\\Post School`
+- Project: `E:\Projects\Post School`
 - Local-only project; no Unity Cloud project is required
 - Windows PC first; preserve portability for later Linux/Steam Deck evaluation
 
@@ -46,4 +46,5 @@ The template includes the Unity Input System. Use it as the default input path; 
 ## Validation
 
 Use the exact Editor version pinned above. For automated tests, prefer Unity Test Framework EditMode tests for data/logic and PlayMode tests for scene behavior. Record actual commands, logs, and limitations; do not claim a batch-mode check substitutes for hands-on camera, collision, readability, or interaction playtesting.
+
 
