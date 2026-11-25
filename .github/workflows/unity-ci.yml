@@ -78,7 +78,8 @@ jobs:
           projectPath: .
           unityVersion: 6000.3.29f1
           testMode: EditMode
-          coverageEnabled: false
+          # Keep coverage at the action/CLI default: v4.4.0 currently translates
+          # coverageEnabled: false into a CLI flag rejected by the bundled CLI.
           artifactsPath: artifacts
           checkName: EditMode tests
 
