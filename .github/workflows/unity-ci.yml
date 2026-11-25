@@ -72,9 +72,29 @@ jobs:
           $editor = Join-Path $location 'Editor\Unity.exe'
           $results = Join-Path $env:RUNNER_TEMP 'unity-editmode-results.xml'
           $log = Join-Path $env:RUNNER_TEMP 'unity-editmode.log'
+          Remove-Item $results, $log -Force -ErrorAction SilentlyContinue
 
-          & $editor -batchmode -nographics -projectPath $env:GITHUB_WORKSPACE -runTests -testPlatform EditMode -testResults $results -logFile $log
-          $unityExit = $LASTEXITCODE
+          $arguments = @(
+            '-batchmode'
+            '-nographics'
+            '-projectPath'
+            "`"$env:GITHUB_WORKSPACE`""
+            '-runTests'
+            '-testPlatform'
+            'EditMode'
+            '-testResults'
+            "`"$results`""
+            '-logFile'
+            "`"$log`""
+          )
+
+          try {
+            $unityProcess = Start-Process -FilePath $editor -ArgumentList $arguments -Wait -PassThru
+            $unityExit = $unityProcess.ExitCode
+          } catch {
+            if (Test-Path $log) { Get-Content $log -Tail 200 }
+            throw
+          }
 
           if (-not (Test-Path $results)) {
             if (Test-Path $log) { Get-Content $log -Tail 200 }
