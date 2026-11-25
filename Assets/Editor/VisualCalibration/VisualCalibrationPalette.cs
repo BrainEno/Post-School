@@ -1,0 +1,82 @@
+using System;
+using UnityEngine;
+
+namespace PostSchool.Tools.VisualCalibration
+{
+    /// <summary>One reusable material in the calibration set. Procedural: no external texture or model.</summary>
+    public readonly struct CalibrationMaterial
+    {
+        public CalibrationMaterial(string name, Color color, bool unlit, float smoothness)
+        {
+            Name = name;
+            Color = color;
+            Unlit = unlit;
+            Smoothness = smoothness;
+        }
+
+        public string Name { get; }
+
+        public Color Color { get; }
+
+        /// <summary>True for projected or reproduced imagery, which should not respond to scene lighting.</summary>
+        public bool Unlit { get; }
+
+        public float Smoothness { get; }
+    }
+
+    /// <summary>
+    /// The single shared palette for the calibration scene. Every colour is defined once here, and
+    /// the contrast tests in tests/EditMode check the grey-scale separation of the important pairs.
+    /// </summary>
+    public static class VisualCalibrationPalette
+    {
+        public static class MaterialNames
+        {
+            public const string PaintedWall = "PaintedWall";
+            public const string PaintedSideWall = "PaintedSideWall";
+            public const string Board = "Board";
+            public const string Concrete = "Concrete";
+            public const string Paper = "Paper";
+            public const string DeskTop = "DeskTop";
+            public const string Oxblood = "Oxblood";
+            public const string Ink = "Ink";
+            public const string Ochre = "Ochre";
+            public const string Projection = "Projection";
+        }
+
+        public static readonly Color PaintedWall = Hex("E6DCC6");
+        public static readonly Color PaintedSideWall = Hex("D8CDB4");
+        public static readonly Color Board = Hex("1A1F1D");
+        public static readonly Color Concrete = Hex("7A7772");
+        public static readonly Color Paper = Hex("EDE7D6");
+        public static readonly Color DeskTop = Hex("C2A77C");
+        public static readonly Color Oxblood = Hex("7A2E2A");
+        public static readonly Color Ink = Hex("1A1A18");
+        public static readonly Color Ochre = Hex("D99A2B");
+        public static readonly Color Projection = Hex("F4D58D");
+
+        public static readonly CalibrationMaterial[] Materials =
+        {
+            new CalibrationMaterial(MaterialNames.PaintedWall, PaintedWall, false, 0.10f),
+            new CalibrationMaterial(MaterialNames.PaintedSideWall, PaintedSideWall, false, 0.10f),
+            new CalibrationMaterial(MaterialNames.Board, Board, false, 0.20f),
+            new CalibrationMaterial(MaterialNames.Concrete, Concrete, false, 0.15f),
+            new CalibrationMaterial(MaterialNames.Paper, Paper, false, 0.05f),
+            new CalibrationMaterial(MaterialNames.DeskTop, DeskTop, false, 0.25f),
+            new CalibrationMaterial(MaterialNames.Oxblood, Oxblood, false, 0.20f),
+            new CalibrationMaterial(MaterialNames.Ink, Ink, false, 0.30f),
+            new CalibrationMaterial(MaterialNames.Ochre, Ochre, false, 0.30f),
+            new CalibrationMaterial(MaterialNames.Projection, Projection, true, 0f),
+        };
+
+        public static Color Hex(string rgb)
+        {
+            if (string.IsNullOrWhiteSpace(rgb) || !ColorUtility.TryParseHtmlString("#" + rgb, out Color color))
+            {
+                throw new ArgumentException($"'{rgb}' is not a 6-digit RGB hex value.", nameof(rgb));
+            }
+
+            return color;
+        }
+    }
+}
