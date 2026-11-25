@@ -1,0 +1,108 @@
+name: Unity CI
+
+# Two layers, deliberately separate:
+#
+# 1. `static-checks` needs no Unity Editor. It validates the project tree and the checker's own
+#    verdicts, and it is required on every pull request.
+# 2. `editmode-tests` runs the Unity EditMode suite with the pinned Editor (6000.3.29f1). It needs
+#    the UNITY_LICENSE repository secret. Without that secret the job does not pretend to pass:
+#    it publishes a warning and a step-summary line that says the tests did NOT run.
+#
+# The pinned Editor version is checked against ProjectSettings/ProjectVersion.txt by
+# tools/check_unity_project.py, so a silent upgrade fails the static job.
+
+on:
+  push:
+    branches: [main]
+  # `pull_request` has no branch filter so stacked pull requests are tested too.
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unity-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-checks:
+    name: Project structure and checker verdicts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Check the Unity project tree and pinned Editor version
+        run: python3 tools/check_unity_project.py --check --github
+
+      - name: Test the checker's own verdicts
+        # A checker that always passes would be invisible here, so each rule is pinned by a
+        # case that must fail. See tests/ci/test_check_unity_project.py.
+        run: python3 -m unittest discover -s tests/ci -p 'test_*.py' -v
+
+  editmode-tests:
+    name: EditMode tests (Unity 6000.3.29f1)
+    needs: static-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Check whether a Unity license is configured
+        id: license
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        shell: bash
+        run: |
+          if [ -n "${UNITY_LICENSE}" ]; then
+            echo "available=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+            echo "::warning title=EditMode tests not run::UNITY_LICENSE is not configured. Only the static checks ran."
+          fi
+
+      - name: Run EditMode tests
+        if: steps.license.outputs.available == 'true'
+        # Pinned to the v4.4.0 commit. `unityVersion` is explicit on purpose: `auto` would read
+        # ProjectVersion.txt at run time and hide a drift from the pin.
+        uses: game-ci/unity-test-runner@32e57712352b500e17974b245a6dce9e11a73213 # v4.4.0
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          projectPath: .
+          unityVersion: 6000.3.29f1
+          testMode: EditMode
+          coverageEnabled: false
+          artifactsPath: artifacts
+          checkName: EditMode tests
+
+      - name: Upload test results
+        if: always() && steps.license.outputs.available == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unity-editmode-results
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Write the verdict to the step summary
+        if: always()
+        shell: bash
+        env:
+          AVAILABLE: ${{ steps.license.outputs.available }}
+          OUTCOME: ${{ steps.license.outcome }}
+        run: |
+          {
+            echo "## Unity EditMode tests"
+            if [ "${AVAILABLE}" != "true" ]; then
+              echo "**NOT RUN**: the \`UNITY_LICENSE\` secret is not configured. The static checks in the other job still ran."
+            else
+              echo "Unity EditMode run finished. Its outcome is recorded on the \`Run EditMode tests\` step."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
