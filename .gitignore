@@ -46,3 +46,7 @@ Desktop.ini
 
 *.sln
 *.slnx
+
+# Python bytecode caches from local checker runs
+__pycache__/
+*.pyc
