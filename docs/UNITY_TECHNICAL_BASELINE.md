@@ -32,6 +32,16 @@ Do not change the Editor version, render pipeline, package baseline, or project 
 - Prefer built-in Unity features and packages already in the template. Add dependencies only for a demonstrated need and record exact version and license.
 - Keep game logic testable without requiring a rendered frame where practical.
 
+## Rendering and presentation direction
+
+- URP remains the baseline renderer for the current experiment. Do not switch to HDRP merely to pursue a higher-quality label; evaluate actual visual needs, target hardware, portability, and measured performance first.
+- The intended exploration is a deliberately authored, atmospheric 3D presentation with a readable 2.5D exploration camera—not a default photorealistic or generic horror treatment.
+- Evaluate Shader Graph for a small number of coherent material treatments (for example, painterly surface response, controlled outlines, or selective stylization). A shader is an experiment until it passes scene readability, lighting, performance, and art-direction review.
+- Evaluate Cinemachine for authored camera framing and controlled transitions, and Timeline for specific scripted sequences where they materially improve pacing. These are candidate Unity packages, not blanket requirements; verify package availability/version against the pinned Editor before adoption.
+- Use URP-compatible lighting, fog, color grading, and post-processing selectively. Preserve readable navigation, interaction targets, character silhouettes, and dialogue.
+- Do not add HDRP-only features or assume VFX Graph effects are automatically suitable for the URP target. Check renderer compatibility and target-device cost before committing to an effect.
+- The detailed, provisional visual and technical plan is in [VISUAL_TECHNICAL_DIRECTION.md](VISUAL_TECHNICAL_DIRECTION.md).
+
 ## Input and camera
 
 The template includes the Unity Input System. Use it as the default input path; do not introduce a second input implementation without a clear reason. The camera is expected to support a readable 2.5D exploration view, but its final projection, framing, and movement are intentionally not fixed yet.
