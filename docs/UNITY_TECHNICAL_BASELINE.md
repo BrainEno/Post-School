@@ -1,11 +1,11 @@
-# Unity technical baseline
+﻿# Unity technical baseline
 
 ## Pinned environment
 
 - Editor: **6000.3.29f1** (Unity 6.3 LTS)
 - Editor revision: **96d2fe17529c**
 - Template: **3D URP**
-- Project: `E:\\Projects\\Post School`
+- Project: `E:\Projects\\Post School`
 - Local-only project; no Unity Cloud project is required
 - Windows PC first; preserve portability for later Linux/Steam Deck evaluation
 
@@ -13,14 +13,14 @@ Do not change the Editor version, render pipeline, package baseline, or project 
 
 ## Current foundation
 
-- `Assets/Scenes/PostSchool_Prototype.unity` — initial prototype scene (currently a template/graybox scene, not the playable game)
-- `Assets/Scripts/Core/` — small shared runtime foundations
-- `Assets/Scripts/Interaction/` — interaction ownership
-- `Assets/Scripts/Dialogue/` — dialogue presentation and choice flow
-- `Assets/Scripts/Narrative/` — story state and conditions/effects
-- `Assets/Data/` — data assets and ScriptableObjects
-- `Assets/Art/` — approved art sources and Unity-imported assets
-- `docs/` — production decisions and validation notes
+- `Assets/Scenes/PostSchool_Prototype.unity` 鈥?initial prototype scene (currently a template/graybox scene, not the playable game)
+- `Assets/Scripts/Core/` 鈥?small shared runtime foundations
+- `Assets/Scripts/Interaction/` 鈥?interaction ownership
+- `Assets/Scripts/Dialogue/` 鈥?dialogue presentation and choice flow
+- `Assets/Scripts/Narrative/` 鈥?story state and conditions/effects
+- `Assets/Data/` 鈥?data assets and ScriptableObjects
+- `Assets/Art/` 鈥?approved art sources and Unity-imported assets
+- `docs/` 鈥?production decisions and validation notes
 
 ## Architectural direction (provisional)
 
@@ -46,3 +46,4 @@ The template includes the Unity Input System. Use it as the default input path; 
 ## Validation
 
 Use the exact Editor version pinned above. For automated tests, prefer Unity Test Framework EditMode tests for data/logic and PlayMode tests for scene behavior. Record actual commands, logs, and limitations; do not claim a batch-mode check substitutes for hands-on camera, collision, readability, or interaction playtesting.
+

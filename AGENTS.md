@@ -1,4 +1,4 @@
-# Agent Instructions — Post School
+﻿# Agent Instructions 鈥?Post School
 
 Read this file, [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md), [docs/PROJECT_RELATIONSHIP.md](docs/PROJECT_RELATIONSHIP.md), and [docs/PORTING_MATRIX.md](docs/PORTING_MATRIX.md) before editing. Read the relevant shared reference documents and the Unity technical baseline for the assigned task.
 
@@ -20,11 +20,11 @@ The primary experience is exploration, environmental observation, and literary d
 
 The original Godot repository is canonical for shared approved game facts. The snapshots in this repository are references; when the source changes, report the discrepancy and update the snapshot deliberately. Do not silently resolve conflicting creative decisions.
 
-## Narrative and author protection — mandatory
+## Narrative and author protection 鈥?mandatory
 
 - Preserve uncertainty. Do not confirm that the world is a dream, diagnosis, simulation, conventional parallel universe, or the product of one hidden cause.
 - Separate character claims, protagonist recollection, subjective imagination, and events directly observed in the playable scene.
-- Q is an ordinary, talkative, overfamiliar classmate—not a supernatural guide, deliberate liar, or quest terminal.
+- Q is an ordinary, talkative, overfamiliar classmate鈥攏ot a supernatural guide, deliberate liar, or quest terminal.
 - B is absent from the actual first lesson; substitute N takes the class. Do not bring B onstage early to deliver exposition.
 - Do not diagnose the protagonist or explain the school's anomalies as a confirmed condition.
 - Never copy private manuscript paragraphs, extended descriptions, internal monologues, unpublished endings, or distinctive literary phrasing into source files, prompts, issues, PRs, tests, screenshots, or documentation.
@@ -43,12 +43,12 @@ The original Godot repository is canonical for shared approved game facts. The s
 - Keep the game offline-first. No mandatory online services, analytics, telemetry, paid APIs, or proprietary runtime dependencies.
 - Windows PC is first target. Keep input and file paths portable for later Linux/Steam Deck evaluation.
 
-## Search and reuse before implementation — mandatory
+## Search and reuse before implementation 鈥?mandatory
 
 1. Inspect the current branch, working tree, recent changes, and overlapping open PRs before editing.
-2. Search existing types, components, events, ScriptableObjects, input actions, tests, and behavior synonyms—not only filenames.
+2. Search existing types, components, events, ScriptableObjects, input actions, tests, and behavior synonyms鈥攏ot only filenames.
 3. Reuse the existing owner/API when it fits. If it does not, explain the boundary and reason before adding a parallel implementation.
-4. Record the actual search terms, commands, relevant hits, and reuse decision in the PR's **已检索** section. Never claim a search that was not performed.
+4. Record the actual search terms, commands, relevant hits, and reuse decision in the PR's **宸叉绱?* section. Never claim a search that was not performed.
 5. Keep changes focused. Do not reformat or rewrite unrelated files.
 
 ## Art and asset constraints
@@ -80,7 +80,7 @@ For every code task:
 Suggested batch-mode test command (adapt the test platform to the actual test suite):
 
 ```powershell
-& "E:\\Programs\\Unity\\Editors\\6000.3.29f1\\Editor\\Unity.exe" -batchmode -nographics -projectPath "E:\\Projects\\Post School" -runTests -testPlatform EditMode -testResults "Temp\\editmode-results.xml" -logFile "Temp\\editmode.log"
+& "E:\Programs\\Unity\\Editors\\6000.3.29f1\\Editor\\Unity.exe" -batchmode -nographics -projectPath "E:\Projects\\Post School" -runTests -testPlatform EditMode -testResults "Temp\\editmode-results.xml" -logFile "Temp\\editmode.log"
 ```
 
 Do not run tests that write into shipped source data unless the test explicitly uses a temporary copy.
@@ -109,3 +109,4 @@ Do not build all chapters, complex skill trees, voice acting, cinematic facial a
 ## Definition of done
 
 A task is done only when its commits are on the intended branch, acceptance criteria are met, the changed path works in the pinned Unity version, relevant checks are honestly reported, no known regression is concealed, and the PR contains only approved game-production material.
+
