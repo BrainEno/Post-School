@@ -43,3 +43,6 @@ Desktop.ini
 
 # Keep Packages/manifest.json, Packages/packages-lock.json,
 # ProjectSettings/, Assets/, and all .meta files under version control.
+
+*.sln
+*.slnx
