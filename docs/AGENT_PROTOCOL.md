@@ -1,75 +1,63 @@
 # Agent collaboration and reporting protocol — Post School
 
-This protocol is mandatory for every coding agent, model, Arena session, and task in this repository. It supplements [AGENTS.md](../AGENTS.md).
+Mandatory for every coding agent, model, Arena session, and task. This supplements [AGENTS.md](../AGENTS.md).
 
-## 1. Language
+## Language
 
 - Human-facing progress reports, blockers, PR titles/bodies, review replies, and final handoffs must be in Simplified Chinese.
 - Commit messages must be in English and follow `<type>(<scope>): <imperative summary>`.
-- Keep code identifiers, file paths, API names, command lines, test output, and official product names unchanged where precision requires it.
-- Never infer or invent a model identity from a Git author, branch name, or generic agent metadata. If the platform does not show it, report that it cannot be verified.
+- Keep code identifiers, file paths, API names, commands, test output, and official product names unchanged where precision requires it.
+- Never infer model identity from a Git author or branch. If the platform does not show it, say it cannot be verified.
 
-## 2. Branch and PR
+## Branch and PR
 
-- One dedicated branch per task and per PR; use lowercase English kebab-case, e.g. `agent/<short-task-name>`.
+- One dedicated branch per task/PR; lowercase English kebab-case, e.g. `agent/<short-task-name>`.
 - Target `main` unless the owner explicitly says otherwise.
-- PR titles use a Chinese category prefix: `[功能]`、`[修复]`、`[重构]`、`[测试]`、`[构建]`、`[文档]`、`[资源]`.
-- Do not push directly to main, force-push, rewrite history, merge your own PR, or alter repository protection settings.
+- PR titles use Chinese category prefixes: `[功能]`、`[修复]`、`[重构]`、`[测试]`、`[构建]`、`[文档]`、`[资源]`.
+- Do not push directly to main, force-push, rewrite history, merge your own PR, or alter repository protections.
 - Do not stack on an unmerged branch unless the owner explicitly authorizes it.
 
-## 3. Commit format
+## Commit format
 
 ```text
 <type>(<scope>): <imperative summary>
 ```
 
-Allowed types: `feat`, `fix`, `refactor`, `test`, `build`, `ci`, `docs`, `perf`, `chore`.
-Scope is required, lowercase kebab-case, and names the subsystem. English imperative summary; no trailing period; keep subject at or below 72 characters where practical. Do not add unverified co-author or model attribution.
+Allowed types: `feat`, `fix`, `refactor`, `test`, `build`, `ci`, `docs`, `perf`, `chore`. Scope is required, lowercase kebab-case, and names the subsystem. Use an English imperative summary, no trailing period, preferably <=72 characters. No unverified co-author/model attribution.
 
-## 4. Before editing
+## Before editing
 
-- Inspect the branch and working tree; do not overwrite existing changes.
+- Inspect branch, working tree, recent changes, and PR overlap.
 - Search code, scenes, prefabs, components, ScriptableObjects, input actions, tests, and behavior synonyms.
-- Record the real search commands and relevant hits in the PR's **已检索** section.
-- Reuse existing ownership and APIs. Explain before introducing a parallel controller, state store, or service.
-- Check source-of-truth docs and current project settings before proposing a new architecture.
+- Record actual search commands, hits, and reuse decisions in **已检索**.
+- Reuse current owners/APIs; explain before adding parallel controllers, state stores, or services.
+- Check source-of-truth docs and project settings before proposing architecture.
 
-## 5. Author text and private material
+## Author text and private material
 
-- Owner-edited narrative text is final. Do not rewrite, shorten, reorder, restore deleted text, or "polish" it without explicit approval.
-- New authored dialogue or narration must remain a placeholder or be listed as pending owner text.
-- Never place private manuscripts or distinctive manuscript phrasing in code, documentation, prompts, issues, PRs, tests, or screenshots.
-- Do not send complete manuscripts to external coding agents.
+- Owner-edited narrative is final. Do not rewrite, shorten, reorder, restore deleted text, or polish without explicit approval.
+- New dialogue/narration remains a placeholder or is marked pending owner text.
+- Never place private manuscripts or distinctive manuscript phrasing in code, docs, prompts, issues, PRs, tests, or screenshots.
+- Do not send complete manuscripts to external agents.
 
-## 6. Assets and dependencies
+## Assets and dependencies
 
-- Every imported or generated asset needs a provenance record before it is used in a build.
-- Record creator/source, exact source URL or supplied-file origin, license/terms, commercial-use status, redistribution status, modifications, and approval.
-- Unknown rights means **not cleared for public or store release**.
-- Pin exact dependency versions and record license, maintenance status, and adoption reason. No paid or mandatory online dependencies without owner approval.
+- Every imported/generated asset needs a provenance record before use in a build.
+- Record creator/source, exact URL or supplied-file origin, license, commercial-use and redistribution status, modifications, and owner approval.
+- Unknown rights mean **not cleared for public/store release**.
+- Pin dependency versions and record license, maintenance, and reason. No paid or mandatory online dependencies without approval.
 
-## 7. Validation and reporting
+## Validation and report
 
-Every task report must include:
-- exact Unity Editor version;
-- changed files and implementation summary;
-- commands actually run and their results;
-- relevant logs or test evidence;
-- manual acceptance checklist;
-- known limitations and unverified behavior;
-- remaining decisions, if any.
+Report exact Unity version, changed files, commands/results, logs/tests, manual checks, known limitations, unverified behavior, and owner decisions. Never claim an import/test/build/playtest passed unless it was actually performed. No fake success paths or always-pass tests.
 
-Never claim an import, test, build, screenshot, or manual playtest passed unless it was actually performed. Do not create fake success paths or tests that always pass.
+## PR description must include
 
-## 8. PR template requirement
-
-Every PR description must contain:
 - purpose and scope;
-- implementation summary;
-- files changed;
-- **已检索**: actual search commands, hits, and reuse decision;
+- implementation summary and changed files;
+- **已检索**: actual searches, hits, and reuse decisions;
 - exact validation commands/results;
-- manual checks and evidence;
+- manual checks/evidence;
 - known limitations and pending owner decisions.
 
-If blocked, stop before making a destructive or scope-changing assumption. Report the blocker and the smallest decision required.
+If blocked, stop before destructive or scope-changing assumptions. Report the blocker and the smallest decision required.
