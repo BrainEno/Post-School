@@ -1,26 +1,40 @@
-# Unity Personal License for GitHub Actions
+# Unity CI on the Windows development machine
 
-The Unity Personal license file on a developer workstation is machine-bound and must not be copied directly into this repository's CI secret. The Unity Editor in GitHub Actions runs on a different machine.
+The repository uses a self-hosted Windows runner for Unity EditMode tests. This avoids copying a workstation-bound Unity Personal license into a GitHub-hosted Linux container.
 
-## One-time setup for this repository
+## Runner requirements
 
-1. Open the repository's **Actions** tab.
-2. Select **Request Unity Personal License Activation File**.
-3. Choose **Run workflow** on the `main` branch.
-4. When the run finishes, download the `unity-personal-activation-request` artifact and extract the `.alf` file.
-5. Submit that CI-generated `.alf` file through Unity's manual license activation page: https://license.unity3d.com/.
-6. Select the Unity Personal license option if offered and download the resulting `.ulf` license file.
-7. In **Settings → Secrets and variables → Actions**, replace `UNITY_LICENSE` with the complete contents of that CI-generated `.ulf` file.
-8. Re-run **Unity CI** from the Actions tab. Confirm that the EditMode job actually starts Unity and reports test results.
+- Windows x64 machine with the repository's Unity Editor version, **6000.3.29f1**
+- Unity Hub signed in and Unity Personal activated for the Windows user that runs the runner
+- GitHub Actions runner registered to this repository with the custom label `post-school-unity`
+- Runner started and online before a main-branch push or manual workflow dispatch
 
-**Important:** Do not use `C:\\ProgramData\\Unity\\Unity_lic.ulf` from the local Windows workstation for this GitHub-hosted runner. Its machine binding does not match the GitHub runner.
+The workflow discovers the Editor through this registry key:
 
-If Unity no longer offers Personal manual activation for the generated request file, stop here rather than substituting the local license file. Review the current GameCI activation guidance and Unity's current licensing options before changing secrets.
+`HKLM\SOFTWARE\Unity Technologies\Installer\Unity 6000.3.29f1`
 
-## Why this workflow exists
+and its `Location x64` value. It then runs Unity's built-in command-line Test Runner with `-batchmode -nographics -runTests -testPlatform EditMode`.
 
-GameCI's Personal-license procedure requires the activation request file to be generated on GitHub Actions because the request contains the runner's machine identifiers. A locally generated request file is not interchangeable.
+## Security boundary for this public repository
 
-References:
-- https://game.ci/docs/3/github/activation/
-- https://game.ci/docs/github/activation/
+This repository is public. **The self-hosted Unity job is intentionally skipped on pull requests**, including fork PRs, because untrusted pull-request code must not execute on a personal computer. PRs still run the GitHub-hosted static checks. The Unity test job runs only on trusted pushes to `main` or an owner-triggered `workflow_dispatch`.
+
+Keep the runner assigned only to this repository, use the dedicated `post-school-unity` label, and do not add that label to workflows that execute pull-request code.
+
+## License troubleshooting
+
+The Windows machine's Unity Personal license is activated locally. Do not copy its `Unity_lic.ulf` into GitHub Actions secrets for the hosted Linux runner; that caused the earlier machine-binding mismatch.
+
+If the runner reports an activation error, sign in to Unity Hub under the same Windows account that launches the runner, verify the Personal license in **Preferences → Licenses**, then restart the runner. Never commit a license file or Unity account credentials to the repository.
+
+## Local verification
+
+The EditMode suite can be run from PowerShell:
+
+```powershell
+& 'E:\Programs\Unity\Editors\6000.3.29f1\Editor\Unity.exe' `
+  -batchmode -nographics -projectPath 'E:\Projects\Post School' `
+  -runTests -testPlatform EditMode `
+  -testResults 'E:\temp\PostSchool-EditMode-results.xml' `
+  -logFile 'E:\temp\PostSchool-EditMode-test.log'
+```
