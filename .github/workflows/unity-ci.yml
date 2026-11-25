@@ -77,6 +77,9 @@ jobs:
         with:
           projectPath: .
           unityVersion: 6000.3.29f1
+          # The default StandaloneLinux64 image variant is not published for this Editor patch.
+          # EditMode runs in the Editor, so use the published Linux-hosted Windows Mono image.
+          customImage: unityci/editor:ubuntu-6000.3.29f1-windows-mono-4
           testMode: EditMode
           # Keep coverage at the action/CLI default: v4.4.0 currently translates
           # coverageEnabled: false into a CLI flag rejected by the bundled CLI.
