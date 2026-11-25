@@ -1,0 +1,147 @@
+"""Pins the verdicts of tools/check_unity_project.py with synthetic trees.
+
+A checker that always passes would be invisible in CI, so each rule has a case that must fail
+and a case that must pass. Run with: python3 -m unittest discover -s tests/ci -t . -v
+"""
+
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+
+import check_unity_project as checker  # noqa: E402
+
+GUID_A = "0123456789abcdef0123456789abcdef"
+GUID_B = "fedcba9876543210fedcba9876543210"
+
+
+def meta(guid: str) -> bytes:
+    return f"fileFormatVersion: 2\nguid: {guid}\n".encode()
+
+
+def pinned_project(**extra: bytes) -> dict[str, bytes]:
+    files = {
+        "ProjectSettings/ProjectVersion.txt": (
+            b"m_EditorVersion: 6000.3.29f1\n"
+            b"m_EditorVersionWithRevision: 6000.3.29f1 (96d2fe17529c)\n"
+        ),
+        ".github/workflows/unity-ci.yml": b"        with:\n          unityVersion: 6000.3.29f1\n",
+        "Assets/Scripts/Core/Player.cs": b"class Player {}\n",
+        "Assets/Scripts/Core/Player.cs.meta": meta(GUID_A),
+        "Assets/Scripts/Core.meta": meta(GUID_B),
+    }
+    files.update({k: v for k, v in extra.items()})
+    return files
+
+
+def messages(problems: list[checker.Problem]) -> str:
+    return "\n".join(f"{p.path}: {p.message}" for p in problems)
+
+
+class MetaPairTests(unittest.TestCase):
+    def test_minimal_pinned_project_passes(self) -> None:
+        self.assertEqual([], checker.run_checks(pinned_project()))
+
+    def test_asset_without_meta_fails(self) -> None:
+        files = pinned_project()
+        del files["Assets/Scripts/Core/Player.cs.meta"]
+        problems = checker.check_meta_pairs(files)
+        self.assertEqual(["Assets/Scripts/Core/Player.cs"], [p.path for p in problems])
+
+    def test_orphan_meta_fails(self) -> None:
+        files = pinned_project()
+        files["Assets/Old.cs.meta"] = meta("00000000000000000000000000000001")
+        problems = checker.check_meta_pairs(files)
+        self.assertEqual(["Assets/Old.cs.meta"], [p.path for p in problems])
+
+    def test_folder_meta_for_tracked_directory_is_not_an_orphan(self) -> None:
+        files = pinned_project()
+        self.assertEqual([], checker.check_meta_pairs(files))
+
+
+class GuidTests(unittest.TestCase):
+    def test_duplicate_guid_fails(self) -> None:
+        files = pinned_project()
+        files["Assets/Scripts/Core/Other.cs"] = b"class Other {}\n"
+        files["Assets/Scripts/Core/Other.cs.meta"] = meta(GUID_A)
+        problems = checker.check_guids(files)
+        self.assertEqual(1, len(problems))
+        self.assertIn("duplicates", problems[0].message)
+
+    def test_malformed_guid_fails(self) -> None:
+        files = pinned_project()
+        files["Assets/Scripts/Core/Player.cs.meta"] = b"guid: NOT-A-GUID\n"
+        self.assertEqual(1, len(checker.check_guids(files)))
+
+
+class ForbiddenAndFormatTests(unittest.TestCase):
+    def test_library_and_solution_files_fail(self) -> None:
+        files = pinned_project(**{
+            "Library/ScriptAssemblies/x.dll": b"",
+            "PostSchool.csproj": b"<Project/>",
+        })
+        paths = {p.path for p in checker.check_forbidden_paths(files)}
+        self.assertEqual({"Library/ScriptAssemblies/x.dll", "PostSchool.csproj"}, paths)
+
+    def test_crlf_in_unity_script_fails(self) -> None:
+        files = pinned_project(**{"Assets/Scripts/Core/Player.cs": b"class Player {}\r\n"})
+        self.assertEqual(1, len(checker.check_line_endings(files)))
+
+    def test_invalid_asmdef_json_fails(self) -> None:
+        files = pinned_project(**{"Assets/Scripts/PostSchool.Runtime.asmdef": b"{ \"name\": "})
+        problems = checker.check_json_files(files)
+        self.assertEqual(["Assets/Scripts/PostSchool.Runtime.asmdef"], [p.path for p in problems])
+
+
+class EditorPinTests(unittest.TestCase):
+    def test_workflow_version_mismatch_fails(self) -> None:
+        files = pinned_project(**{".github/workflows/unity-ci.yml": b"          unityVersion: 6000.0.1f1\n"})
+        self.assertIn("does not match", messages(checker.check_editor_pin(files)))
+
+    def test_auto_version_fails(self) -> None:
+        files = pinned_project(**{".github/workflows/unity-ci.yml": b"          unityVersion: auto\n"})
+        self.assertEqual(1, len(checker.check_editor_pin(files)))
+
+    def test_missing_workflow_version_fails(self) -> None:
+        files = pinned_project(**{".github/workflows/unity-ci.yml": b"name: x\n"})
+        self.assertIn("no unityVersion", messages(checker.check_editor_pin(files)))
+
+
+class DialogueDataTests(unittest.TestCase):
+    PATH = "Assets/Data/Dialogue/sample.json"
+
+    def _run(self, text: str) -> list[checker.Problem]:
+        return checker.check_dialogue_data({self.PATH: text.encode("utf-8")})
+
+    def test_valid_graph_passes(self) -> None:
+        text = """{
+          "startNode": "a",
+          "nodes": [
+            {"id": "a", "kind": "line", "presentation": "narration", "text": "x", "next": "e", "effects": ["objective:f"]},
+            {"id": "e", "kind": "end", "effects": []}
+          ]
+        }"""
+        self.assertEqual([], self._run(text))
+
+    def test_dangling_next_fails(self) -> None:
+        text = """{"startNode": "a", "nodes": [
+          {"id": "a", "kind": "line", "presentation": "narration", "text": "x", "next": "nowhere"}]}"""
+        self.assertIn("missing node 'nowhere'", messages(self._run(text)))
+
+    def test_unknown_effect_prefix_fails(self) -> None:
+        text = """{"startNode": "a", "nodes": [
+          {"id": "a", "kind": "end", "effects": ["memory:x"]}]}"""
+        self.assertIn("unknown effect", messages(self._run(text)))
+
+    def test_choice_without_choices_fails(self) -> None:
+        text = """{"startNode": "a", "nodes": [
+          {"id": "a", "kind": "choice", "presentation": "narration", "choices": []}]}"""
+        self.assertIn("no choices", messages(self._run(text)))
+
+
+if __name__ == "__main__":
+    unittest.main()
