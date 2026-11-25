@@ -32,6 +32,7 @@ Use the pinned Editor version above. Do not upgrade the project version without 
 - [AGENTS.md](AGENTS.md) — mandatory agent entry point
 - [docs/AGENT_PROTOCOL.md](docs/AGENT_PROTOCOL.md) — collaboration, branch, reporting, and review rules
 - [docs/UNITY_TECHNICAL_BASELINE.md](docs/UNITY_TECHNICAL_BASELINE.md) — Unity-specific project conventions
+- [docs/VISUAL_TECHNICAL_DIRECTION.md](docs/VISUAL_TECHNICAL_DIRECTION.md) — provisional visual target, rendering choices, camera, lighting, and validation plan
 - [docs/ART_DIRECTION_EXPERIMENT.md](docs/ART_DIRECTION_EXPERIMENT.md) — what can differ in the Unity visual experiment
 - [docs/PORTING_MATRIX.md](docs/PORTING_MATRIX.md) — what to reuse and what to reimplement
 - [docs/reference/where-is-school/](docs/reference/where-is-school/) — dated snapshots of shared source docs; the original repository remains canonical
