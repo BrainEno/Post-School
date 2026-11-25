@@ -1,20 +1,12 @@
 name: Unity CI
 
-# Two layers, deliberately separate:
-#
-# 1. `static-checks` needs no Unity Editor. It validates the project tree and the checker's own
-#    verdicts, and it is required on every pull request.
-# 2. `editmode-tests` runs the Unity EditMode suite with the pinned Editor (6000.3.29f1). It needs
-#    the UNITY_LICENSE repository secret. Without that secret the job does not pretend to pass:
-#    it publishes a warning and a step-summary line that says the tests did NOT run.
-#
-# The pinned Editor version is checked against ProjectSettings/ProjectVersion.txt by
-# tools/check_unity_project.py, so a silent upgrade fails the static job.
+# Public pull requests run only the unprivileged static checks on GitHub-hosted runners.
+# The Unity Editor job runs on the owner's Windows machine only for trusted main pushes
+# and manual dispatches; never execute untrusted fork PR code on a self-hosted runner.
 
 on:
   push:
     branches: [main]
-  # `pull_request` has no branch filter so stacked pull requests are tested too.
   pull_request:
   workflow_dispatch:
 
@@ -38,75 +30,86 @@ jobs:
         run: python3 tools/check_unity_project.py --check --github
 
       - name: Test the checker's own verdicts
-        # A checker that always passes would be invisible here, so each rule is pinned by a
-        # case that must fail. See tests/ci/test_check_unity_project.py.
         run: python3 -m unittest discover -s tests/ci -p 'test_*.py' -v
 
   editmode-tests:
-    name: EditMode tests (Unity 6000.3.29f1)
+    name: EditMode tests (local Windows Unity 6000.3.29f1)
+    # Self-hosted runners in public repositories must never run code from pull requests.
+    # PRs still receive the static checks above; Unity tests run after trusted main pushes
+    # or when manually dispatched by the repository owner.
+    if: github.event_name != 'pull_request'
     needs: static-checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: read
-      checks: write
+    runs-on: [self-hosted, windows, x64, post-school-unity]
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      - name: Check whether a Unity license is configured
-        id: license
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-        shell: bash
+      - name: Verify the installed Unity Editor
+        shell: pwsh
         run: |
-          if [ -n "${UNITY_LICENSE}" ]; then
-            echo "available=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "available=false" >> "${GITHUB_OUTPUT}"
-            echo "::warning title=EditMode tests not run::UNITY_LICENSE is not configured. Only the static checks ran."
-          fi
+          $version = '6000.3.29f1'
+          $key = "HKLM:\SOFTWARE\Unity Technologies\Installer\Unity $version"
+          $location = (Get-ItemProperty -Path $key -ErrorAction Stop).'Location x64'
+          $editor = Join-Path $location 'Editor\Unity.exe'
+          if (-not (Test-Path $editor)) {
+            throw "Unity Editor $version not found at $editor"
+          }
+          $actual = (& $editor -version | Select-Object -First 1).Trim()
+          if ($actual -ne $version) {
+            throw "Unity version mismatch. Expected $version; got $actual"
+          }
+          "Unity Editor verified: $editor ($actual)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
-      - name: Run EditMode tests
-        if: steps.license.outputs.available == 'true'
-        # Pinned to the v4.4.0 commit. `unityVersion` is explicit on purpose: `auto` would read
-        # ProjectVersion.txt at run time and hide a drift from the pin.
-        uses: game-ci/unity-test-runner@32e57712352b500e17974b245a6dce9e11a73213 # v4.4.0
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-        with:
-          projectPath: .
-          unityVersion: 6000.3.29f1
-          # The default StandaloneLinux64 image variant is not published for this Editor patch.
-          # EditMode runs in the Editor, so use the published Linux-hosted Windows Mono image.
-          customImage: unityci/editor:ubuntu-6000.3.29f1-windows-mono-4
-          testMode: EditMode
-          # Keep coverage at the action/CLI default: v4.4.0 currently translates
-          # coverageEnabled: false into a CLI flag rejected by the bundled CLI.
-          artifactsPath: artifacts
-          checkName: EditMode tests
+      - name: Run EditMode tests using the machine's activated Unity Personal license
+        shell: pwsh
+        run: |
+          $version = '6000.3.29f1'
+          $key = "HKLM:\SOFTWARE\Unity Technologies\Installer\Unity $version"
+          $location = (Get-ItemProperty -Path $key -ErrorAction Stop).'Location x64'
+          $editor = Join-Path $location 'Editor\Unity.exe'
+          $results = Join-Path $env:RUNNER_TEMP 'unity-editmode-results.xml'
+          $log = Join-Path $env:RUNNER_TEMP 'unity-editmode.log'
 
-      - name: Upload test results
-        if: always() && steps.license.outputs.available == 'true'
+          & $editor -batchmode -nographics -projectPath $env:GITHUB_WORKSPACE -runTests -testPlatform EditMode -testResults $results -logFile $log
+          $unityExit = $LASTEXITCODE
+
+          if (-not (Test-Path $results)) {
+            if (Test-Path $log) { Get-Content $log -Tail 200 }
+            throw "Unity did not produce test results (exit code $unityExit)."
+          }
+
+          [xml]$xml = Get-Content $results -Raw
+          $run = $xml.SelectSingleNode('/test-run')
+          if ($null -eq $run) {
+            if (Test-Path $log) { Get-Content $log -Tail 200 }
+            throw 'Unity test result XML is missing the test-run root.'
+          }
+
+          $summary = @(
+            '## Unity EditMode tests'
+            ''
+            "- Result: **$($run.result)**"
+            "- Total: $($run.total)"
+            "- Passed: $($run.passed)"
+            "- Failed: $($run.failed)"
+            "- Skipped: $($run.skipped)"
+            "- Unity exit code: $unityExit"
+          ) -join "`n"
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+          if ($unityExit -ne 0 -or $run.result -ne 'Passed' -or [int]$run.failed -gt 0) {
+            if (Test-Path $log) { Get-Content $log -Tail 200 }
+            exit 1
+          }
+
+      - name: Upload Unity test results and editor log
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: unity-editmode-results
-          path: artifacts/
+          path: |
+            ${{ runner.temp }}/unity-editmode-results.xml
+            ${{ runner.temp }}/unity-editmode.log
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Write the verdict to the step summary
-        if: always()
-        shell: bash
-        env:
-          AVAILABLE: ${{ steps.license.outputs.available }}
-          OUTCOME: ${{ steps.license.outcome }}
-        run: |
-          {
-            echo "## Unity EditMode tests"
-            if [ "${AVAILABLE}" != "true" ]; then
-              echo "**NOT RUN**: the \`UNITY_LICENSE\` secret is not configured. The static checks in the other job still ran."
-            else
-              echo "Unity EditMode run finished. Its outcome is recorded on the \`Run EditMode tests\` step."
-            fi
-          } >> "${GITHUB_STEP_SUMMARY}"
