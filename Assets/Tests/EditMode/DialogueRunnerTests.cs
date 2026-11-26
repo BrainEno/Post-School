@@ -11,25 +11,50 @@ namespace PostSchool.Tests.EditMode
     [TestFixture]
     public sealed class DialogueRunnerTests
     {
-        private const string PlaceholderRelativePath = "Data/Dialogue/classroom_opening_placeholder.json";
+        private const string OpeningRelativePath = "Data/Dialogue/classroom_opening.json";
 
         [Test]
-        public void PlaceholderOpening_LoadsAndReachesEnd_SettingObjectiveFlags()
+        public void ClassroomOpening_LoadsAuthoredWakeExcerptAndReachesEnd()
         {
-            string path = Path.Combine(Application.dataPath, PlaceholderRelativePath);
-            Assert.IsTrue(File.Exists(path), $"Placeholder dialogue missing at '{path}'.");
+            string path = Path.Combine(Application.dataPath, OpeningRelativePath);
+            Assert.IsTrue(File.Exists(path), $"Classroom opening dialogue missing at '{path}'.");
 
             DialogueScript script = DialogueScript.FromJson(File.ReadAllText(path));
+            Assert.AreEqual("owner_authored_excerpt", script.status);
+            Assert.AreEqual("q_1", script.startNode);
+            TextAsset runtimeAsset = Resources.Load<TextAsset>("Dialogue/classroom_opening");
+            Assert.IsNotNull(runtimeAsset, "The same opening graph must be available through Resources for runtime use.");
+            Assert.AreEqual(File.ReadAllText(path), runtimeAsset.text, "The authored data file and runtime resource copy must stay identical.");
+
             StoryState state = new StoryState();
             DialogueRunner runner = new DialogueRunner(script, state);
-
             RunToEnd(runner, choiceIndex: 1);
 
             Assert.IsTrue(runner.IsFinished);
-            Assert.IsTrue(state.IsSet(StoryNamespace.Objective, "textbook_missing"));
-            Assert.IsTrue(state.IsSet(StoryNamespace.Objective, "substitute_n_present"));
-            Assert.IsTrue(state.IsSet(StoryNamespace.Objective, "opening_complete"));
-            Assert.IsFalse(state.IsSet(StoryNamespace.Objective, "asked_about_class"));
+            Assert.IsTrue(HasText(runner, "怎么样？刚才睡爽了吧，做了什么美梦？"));
+            Assert.IsTrue(HasText(runner, "Q。怎么？睡傻了？装不认识我？"));
+            Assert.IsTrue(HasText(runner, "我看你是怕上这学期的生物课吧？别慌，B老师来上课也得等打铃呢，就算她要抽你你也还有时间清醒清醒。但她肯定会打你手板的，用那个"));
+            Assert.AreEqual(0, state.ObjectiveFlags.Count, "The excerpt does not import the source project's story-state effects.");
+        }
+
+        [Test]
+        public void ClassroomOpening_AllThreeWakeResponsesReachTheSharedConversation()
+        {
+            string path = Path.Combine(Application.dataPath, OpeningRelativePath);
+            DialogueScript script = DialogueScript.FromJson(File.ReadAllText(path));
+
+            for (int firstChoice = 0; firstChoice < 3; firstChoice++)
+            {
+                DialogueRunner runner = new DialogueRunner(script, new StoryState());
+                runner.Begin();
+                runner.Advance();
+                runner.Advance();
+                runner.Choose(firstChoice);
+                if (runner.Current.id != "q_who_1") runner.Advance();
+                Assert.AreEqual("q_who_1", runner.Current.id);
+                RunUntilEndChoosingFirstOption(runner);
+                Assert.IsTrue(runner.IsFinished, $"Wake response {firstChoice} did not reach the end.");
+            }
         }
 
         [Test]
@@ -181,6 +206,28 @@ namespace PostSchool.Tests.EditMode
 
             InvalidDataException error = Assert.Throws<InvalidDataException>(() => new DialogueRunner(DialogueScript.FromJson(json), new StoryState(), new CharacterBuild()));
             StringAssert.Contains("unknown attribute", error.Message);
+        }
+
+        private static bool HasText(DialogueRunner runner, string text)
+        {
+            foreach (DialogueHistoryEntry entry in runner.History)
+            {
+                if (entry.Text == text) return true;
+            }
+
+            return false;
+        }
+
+        private static void RunUntilEndChoosingFirstOption(DialogueRunner runner)
+        {
+            int guard = 0;
+            while (!runner.IsFinished)
+            {
+                guard++;
+                Assert.Less(guard, 100, "Dialogue did not finish; check for a loop in the opening graph.");
+                if (runner.Current.kind == DialogueKinds.Choice) runner.Choose(0);
+                else runner.Advance();
+            }
         }
 
         private static bool HasPresentation(DialogueRunner runner, string presentation)

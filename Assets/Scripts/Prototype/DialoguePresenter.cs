@@ -43,7 +43,7 @@ namespace PostSchool.Prototype
                 new Color(0.075f, 0.078f, 0.085f, 0.97f));
             Transform root = _panel.transform;
 
-            PrototypeUiFactory.CreateText(root, "Dialogue Title", new Vector2(0.045f, 0.91f), new Vector2(0.65f, 0.99f), "对话记录 · 占位文本", 24, Color.white);
+            PrototypeUiFactory.CreateText(root, "Dialogue Title", new Vector2(0.045f, 0.91f), new Vector2(0.65f, 0.99f), "序章 · 教室", 24, Color.white);
             PrototypeUiFactory.CreateButton(root, "Smaller Text", new Vector2(0.70f, 0.92f), new Vector2(0.80f, 0.985f), "A−", () => ChangeFontSize(-2), 18);
             PrototypeUiFactory.CreateButton(root, "Larger Text", new Vector2(0.82f, 0.92f), new Vector2(0.92f, 0.985f), "A+", () => ChangeFontSize(2), 18);
             _status = PrototypeUiFactory.CreateText(root, "Attribute Check Status", new Vector2(0.045f, 0.85f), new Vector2(0.95f, 0.92f), string.Empty, 18, new Color(1f, 0.82f, 0.46f, 1f));
@@ -198,7 +198,7 @@ namespace PostSchool.Prototype
             string safeText = Escape(entry.Text);
             if (entry.Presentation == DialoguePresentations.Speech)
             {
-                string speaker = string.IsNullOrWhiteSpace(entry.Speaker) ? "说话者" : Escape(entry.Speaker);
+                string speaker = string.IsNullOrWhiteSpace(entry.Speaker) ? "说话者" : Escape(DisplaySpeaker(entry.Speaker));
                 output.Append("<b>").Append(speaker).Append("</b>\n").Append(safeText).Append("\n\n");
             }
             else if (entry.Presentation == DialoguePresentations.PlayerChoice)
@@ -220,6 +220,19 @@ namespace PostSchool.Prototype
             else
             {
                 output.Append(safeText).Append("\n\n");
+            }
+        }
+
+        private static string DisplaySpeaker(string speaker)
+        {
+            switch (speaker)
+            {
+                case "q": return "Q";
+                case "protagonist": return "主角";
+                case "n": return "N";
+                case "b": return "B";
+                case "student": return "同学";
+                default: return speaker;
             }
         }
 

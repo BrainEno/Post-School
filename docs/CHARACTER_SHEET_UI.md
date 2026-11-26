@@ -99,7 +99,7 @@ Issue #10 要求「制作最小可用角色构建 UI」。上一轮的 `Characte
 | `Assets/Tests/EditMode/CharacterSheetRulesTests.cs` | 刻度、预览、上限、等级词、预算句、阈值文案、换行 |
 | `Assets/Tests/EditMode/CharacterSheetContentTests.cs` | 占位文案校验、每项五格梯与文案长度、颜色对灰度对比 |
 
-`Assets/Scripts/Prototype/CharacterCreationView.cs` 已删除（由 `CharacterSheetView` 取代）。
+`Assets/Scripts/Prototype/CharacterCreationView.cs` 已删除（由 `CharacterSheetView` 取代）。同步 `main` 时保留了 `main` 新增的序章动画、`ProceduralStudentModelFactory` 与 `PrototypeSaveStore` 存档流程：读档后调用 `CharacterSheetView.RefreshFromModel()` 重建显示，保存/读取结果通过 `SetFeedback()` 显示在页脚预留的一行状态位（不再像旧面板那样多出一条调试文字）。
 
 ## 验证状态
 

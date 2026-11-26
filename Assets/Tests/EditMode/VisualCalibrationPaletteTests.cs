@@ -25,6 +25,7 @@ namespace PostSchool.Tests.EditMode
             }
 
             // Painted planes, paper, ink, concrete, and projected imagery are the five families the issue asks for.
+            // The paper-world additions (grid paper, graphite, red-pen, hatch, collage photo) are required too.
             CollectionAssert.IsSupersetOf(names, new[]
             {
                 VisualCalibrationPalette.MaterialNames.PaintedWall,
@@ -32,6 +33,11 @@ namespace PostSchool.Tests.EditMode
                 VisualCalibrationPalette.MaterialNames.Ink,
                 VisualCalibrationPalette.MaterialNames.Concrete,
                 VisualCalibrationPalette.MaterialNames.Projection,
+                VisualCalibrationPalette.MaterialNames.GridPaper,
+                VisualCalibrationPalette.MaterialNames.Graphite,
+                VisualCalibrationPalette.MaterialNames.RedPen,
+                VisualCalibrationPalette.MaterialNames.Hatch,
+                VisualCalibrationPalette.MaterialNames.CollagePhoto,
             });
         }
 
@@ -61,6 +67,12 @@ namespace PostSchool.Tests.EditMode
         [TestCase("Board", "PaintedWall")]
         [TestCase("DeskTop", "Concrete")]
         [TestCase("DeskTop", "PaintedWall")]
+        [TestCase("RedPen", "PaintedWall")]
+        [TestCase("RedPen", "Board")]
+        [TestCase("Graphite", "PaintedWall")]
+        [TestCase("Graphite", "Concrete")]
+        [TestCase("Graphite", "Paper")]
+        [TestCase("Hatch", "Concrete")]
         public void ImportantPairs_SeparateInGreyScale(string foregroundName, string backgroundName)
         {
             Color foreground = ColorOf(foregroundName);

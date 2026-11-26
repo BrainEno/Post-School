@@ -58,6 +58,7 @@ namespace PostSchool.Ui
         private Text _cardSkills;
         private Text _cardNotes;
         private Text _budgetDetail;
+        private Text _feedback;
         private Text _remainingNumerals;
         private Button _confirmButton;
         private Button _resetButton;
@@ -107,6 +108,25 @@ namespace PostSchool.Ui
         {
             if (_overlay == null) return;
             _overlay.gameObject.SetActive(visible);
+        }
+
+        /// <summary>
+        /// Re-reads the model after an external change (for example loading a save from the scene).
+        /// Selection and interaction state are preserved so the sheet does not jump while open.
+        /// </summary>
+        public void RefreshFromModel()
+        {
+            if (_rows[0] == null) return;
+            Refresh();
+        }
+
+        /// <summary>
+        /// Short status note in the sheet footer, used by the scene for save/load results. Passing an
+        /// empty string clears it. This is the sheet's equivalent of the old debug panel's feedback line.
+        /// </summary>
+        public void SetFeedback(string message)
+        {
+            if (_feedback != null) _feedback.text = SheetWidgets.SpaceOut(message ?? string.Empty);
         }
 
         /// <summary>Locks the sheet while it applies the build so a second Enter cannot double-apply.</summary>
@@ -413,19 +433,24 @@ namespace PostSchool.Ui
 
         private void BuildFooter(Transform sheet)
         {
-            _budgetDetail = SheetWidgets.CreateLabel(sheet, "Budget Detail", new Rect(0.618f, 0.268f, 0.948f, 0.310f),
+            _budgetDetail = SheetWidgets.CreateLabel(sheet, "Budget Detail", new Rect(0.618f, 0.272f, 0.948f, 0.312f),
                 string.Empty, 11, CharacterSheetPalette.WithAlpha(CharacterSheetPalette.Ink, 0.55f));
 
-            _resetButton = SheetWidgets.CreateButton(sheet, "Reset Sheet", new Rect(0.618f, 0.196f, 0.772f, 0.258f),
+            _resetButton = SheetWidgets.CreateButton(sheet, "Reset Sheet", new Rect(0.618f, 0.202f, 0.772f, 0.264f),
                 _text.resetLabel, ResetBuild, 13, CharacterSheetPalette.Ink);
 
-            _confirmButton = SheetWidgets.CreateButton(sheet, "Confirm Sheet", new Rect(0.782f, 0.196f, 0.948f, 0.258f),
+            _confirmButton = SheetWidgets.CreateButton(sheet, "Confirm Sheet", new Rect(0.782f, 0.202f, 0.948f, 0.264f),
                 _text.confirmLabel, Confirm, 16, CharacterSheetPalette.Ochre, filled: true);
 
-            SheetWidgets.CreateLabel(sheet, "Catalogue", new Rect(0.618f, 0.148f, 0.948f, 0.188f),
+            // One reserved line for scene-level status (save/load), so the printed layout never shifts.
+            _feedback = SheetWidgets.CreateText(sheet, "Status Note", new Rect(0.618f, 0.168f, 0.948f, 0.198f),
+                string.Empty, 11, CharacterSheetPalette.WithAlpha(CharacterSheetPalette.Oxblood, 0.9f),
+                TextAnchor.MiddleLeft);
+
+            SheetWidgets.CreateLabel(sheet, "Catalogue", new Rect(0.618f, 0.130f, 0.948f, 0.166f),
                 _text.catalogueLabel, 11, CharacterSheetPalette.WithAlpha(CharacterSheetPalette.Ink, 0.42f));
 
-            SheetWidgets.CreateText(sheet, "Catalogue Note", new Rect(0.618f, 0.100f, 0.948f, 0.150f),
+            SheetWidgets.CreateText(sheet, "Catalogue Note", new Rect(0.618f, 0.086f, 0.948f, 0.128f),
                 _text.catalogueNote, 10, CharacterSheetPalette.WithAlpha(CharacterSheetPalette.Ink, 0.4f),
                 TextAnchor.UpperLeft);
         }

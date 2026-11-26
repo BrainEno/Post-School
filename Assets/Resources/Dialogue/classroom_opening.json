@@ -1,0 +1,220 @@
+{
+  "id": "classroom_opening",
+  "status": "owner_authored_excerpt",
+  "startNode": "q_1",
+  "nodes": [
+    {
+      "id": "q_1",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "怎么样？刚才睡爽了吧，做了什么美梦？",
+      "next": "p_who",
+      "effects": []
+    },
+    {
+      "id": "p_who",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "……这个人是谁？",
+      "next": "q_3",
+      "effects": []
+    },
+    {
+      "id": "q_3",
+      "kind": "choice",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "Q。怎么？睡傻了？装不认识我？",
+      "choices": [
+        {
+          "text": "抱歉，我没想起来。",
+          "next": "q_who_1",
+          "effects": []
+        },
+        {
+          "text": "现在几点了？",
+          "next": "p_day",
+          "effects": []
+        },
+        {
+          "text": "（没接话。）",
+          "next": "p_silent",
+          "effects": []
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "p_day",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "现在几点了？",
+      "next": "q_who_1",
+      "effects": []
+    },
+    {
+      "id": "p_silent",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "protagonist",
+      "text": "（没接话。）",
+      "next": "q_who_1",
+      "effects": []
+    },
+    {
+      "id": "q_who_1",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "哎呀，别装蒜了！平时找我借东西的时候你可不这样。",
+      "next": "q_who_2",
+      "effects": []
+    },
+    {
+      "id": "q_who_2",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "我看你是怕上这学期的生物课吧？别慌，B老师来上课也得等打铃呢，就算她要抽你你也还有时间清醒清醒。但她肯定会打你手板的，用那个",
+      "next": "q_who_look",
+      "effects": []
+    },
+    {
+      "id": "q_who_look",
+      "kind": "choice",
+      "presentation": "narration",
+      "speaker": "protagonist",
+      "text": "（Q看向讲台上的三角尺）",
+      "choices": [
+        {
+          "text": "跟着他看向三角尺。",
+          "next": "p_why",
+          "effects": []
+        },
+        {
+          "text": "观察一下Q。",
+          "next": "p_why",
+          "effects": []
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "p_why",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "抽我？为什么",
+      "next": "q_zero",
+      "effects": []
+    },
+    {
+      "id": "q_zero",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "听说你上学期生物考了零分啊！怎么？搞忘了？就算你在梦里忘了，下节生物课还是逃不掉啊。",
+      "next": "p_zero",
+      "effects": []
+    },
+    {
+      "id": "p_zero",
+      "kind": "choice",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "什么？零分？",
+      "choices": [
+        {
+          "text": "难道我交了白卷？",
+          "next": "p_blank",
+          "effects": []
+        },
+        {
+          "text": "难道我没去考试？",
+          "next": "p_absent",
+          "effects": []
+        },
+        {
+          "text": "我一点印象也没有。",
+          "next": "p_none",
+          "effects": []
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "p_blank",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "零分？我交了白卷？",
+      "next": "q_blank_1",
+      "effects": []
+    },
+    {
+      "id": "q_blank_1",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "是啊，一般人可考不了零分，随便蒙几道选择题顶多也就是不及格。你应该就是一个字也没写吧。",
+      "next": "q_exam_end",
+      "effects": []
+    },
+    {
+      "id": "p_absent",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "我是不是没去考试？",
+      "next": "q_absent_1",
+      "effects": []
+    },
+    {
+      "id": "q_absent_1",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "我不知道，我们又不在一个考场，我们学校考场可是按照前一次的考试名次来安排的，我怎么可能碰到你。",
+      "next": "q_exam_end",
+      "effects": []
+    },
+    {
+      "id": "p_none",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "protagonist",
+      "text": "关于那次考试你没有任何印象。所以你一句话也没说，显得不是很在乎。",
+      "next": "q_none_1",
+      "effects": []
+    },
+    {
+      "id": "q_none_1",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "不跟你说了，我要背生物知识点了，听说要抽查。",
+      "next": "q_exam_end",
+      "effects": []
+    },
+    {
+      "id": "q_exam_end",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "你怎么还不拿书出来背？是放弃了？",
+      "next": "opening_end",
+      "effects": []
+    },
+    {
+      "id": "opening_end",
+      "kind": "end",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "",
+      "effects": []
+    }
+  ]
+}

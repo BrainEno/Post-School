@@ -1,4 +1,5 @@
 using System;
+using PostSchool.Character;
 using UnityEngine;
 
 namespace PostSchool.Tools.VisualCalibration
@@ -42,6 +43,18 @@ namespace PostSchool.Tools.VisualCalibration
             public const string Ink = "Ink";
             public const string Ochre = "Ochre";
             public const string Projection = "Projection";
+            public const string StudentSkin = "StudentSkin";
+            public const string StudentHair = "StudentHair";
+            public const string StudentCardigan = "StudentCardigan";
+            public const string StudentOvershirt = "StudentOvershirt";
+            public const string StudentTrousers = "StudentTrousers";
+            public const string StudentShoes = "StudentShoes";
+            public const string StudentAccent = "StudentAccent";
+            public const string GridPaper = "GridPaper";
+            public const string Graphite = "Graphite";
+            public const string RedPen = "RedPen";
+            public const string Hatch = "Hatch";
+            public const string CollagePhoto = "CollagePhoto";
         }
 
         public static readonly Color PaintedWall = Hex("E6DCC6");
@@ -54,6 +67,21 @@ namespace PostSchool.Tools.VisualCalibration
         public static readonly Color Ink = Hex("1A1A18");
         public static readonly Color Ochre = Hex("D99A2B");
         public static readonly Color Projection = Hex("F4D58D");
+        public static readonly Color StudentSkin = StudentModelColorPalette.Skin;
+        public static readonly Color StudentHair = StudentModelColorPalette.Hair;
+        public static readonly Color StudentCardigan = StudentModelColorPalette.MossCardigan;
+        public static readonly Color StudentOvershirt = StudentModelColorPalette.ClayOvershirt;
+        public static readonly Color StudentTrousers = StudentModelColorPalette.Trousers;
+        public static readonly Color StudentShoes = StudentModelColorPalette.Shoes;
+        public static readonly Color StudentAccent = StudentModelColorPalette.Accent;
+
+        // Paper-world additions (see docs/VISUAL_CALIBRATION.md, section "纸面化规则"):
+        // squared paper, pencil ruling, red-pen correction marks, hatched shadow, and one cut-out photo.
+        public static readonly Color GridPaper = Hex("F2F1EA");
+        public static readonly Color Graphite = Hex("3A3C3E");
+        public static readonly Color RedPen = Hex("C8312A");
+        public static readonly Color Hatch = Hex("B5AE9E");
+        public static readonly Color CollagePhoto = Hex("8A9BA8");
 
         public static readonly CalibrationMaterial[] Materials =
         {
@@ -67,6 +95,18 @@ namespace PostSchool.Tools.VisualCalibration
             new CalibrationMaterial(MaterialNames.Ink, Ink, false, 0.30f),
             new CalibrationMaterial(MaterialNames.Ochre, Ochre, false, 0.30f),
             new CalibrationMaterial(MaterialNames.Projection, Projection, true, 0f),
+            new CalibrationMaterial(MaterialNames.StudentSkin, StudentSkin, false, 0.18f),
+            new CalibrationMaterial(MaterialNames.StudentHair, StudentHair, false, 0.12f),
+            new CalibrationMaterial(MaterialNames.StudentCardigan, StudentCardigan, false, 0.10f),
+            new CalibrationMaterial(MaterialNames.StudentOvershirt, StudentOvershirt, false, 0.10f),
+            new CalibrationMaterial(MaterialNames.StudentTrousers, StudentTrousers, false, 0.05f),
+            new CalibrationMaterial(MaterialNames.StudentShoes, StudentShoes, false, 0.12f),
+            new CalibrationMaterial(MaterialNames.StudentAccent, StudentAccent, false, 0.12f),
+            new CalibrationMaterial(MaterialNames.GridPaper, GridPaper, false, 0.05f),
+            new CalibrationMaterial(MaterialNames.Graphite, Graphite, false, 0.20f),
+            new CalibrationMaterial(MaterialNames.RedPen, RedPen, false, 0.30f),
+            new CalibrationMaterial(MaterialNames.Hatch, Hatch, false, 0.05f),
+            new CalibrationMaterial(MaterialNames.CollagePhoto, CollagePhoto, false, 0.10f),
         };
 
         public static Color Hex(string rgb)

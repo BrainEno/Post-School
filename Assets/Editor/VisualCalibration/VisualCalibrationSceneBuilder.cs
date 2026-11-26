@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PostSchool.Character;
 using PostSchool.Core;
 using PostSchool.Interaction;
 using UnityEditor;
@@ -101,6 +102,24 @@ namespace PostSchool.Tools.VisualCalibration
             Solid("Projection_Image", parent, PrimitiveType.Quad, new Vector3(3.94f, 1.7f, 0.5f), new Vector3(2.2f, 1.4f, 1f), m[VisualCalibrationPalette.MaterialNames.Projection], eulerAngles: new Vector3(0f, 90f, 0f));
             Solid("Projector_Body_Ink", parent, PrimitiveType.Cube, new Vector3(0f, 2.95f, 1.0f), new Vector3(0.45f, 0.2f, 0.3f), m[VisualCalibrationPalette.MaterialNames.Ink]);
 
+            // Paper sheet pinned to the front wall beside the board: squared paper with pencil rulings.
+            // Rulings sit slightly nearer the camera than the sheet (z 4.41 < 4.42) so they stay visible.
+            Solid("GridPaper_Sheet", parent, PrimitiveType.Quad, new Vector3(2.9f, 1.7f, 4.42f), new Vector3(1.4f, 1.8f, 1f), m[VisualCalibrationPalette.MaterialNames.GridPaper]);
+            Solid("GridPaper_Ruling_A", parent, PrimitiveType.Cube, new Vector3(2.9f, 1.25f, 4.41f), new Vector3(1.2f, 0.012f, 0.005f), m[VisualCalibrationPalette.MaterialNames.Graphite]);
+            Solid("GridPaper_Ruling_B", parent, PrimitiveType.Cube, new Vector3(2.9f, 1.7f, 4.41f), new Vector3(1.2f, 0.012f, 0.005f), m[VisualCalibrationPalette.MaterialNames.Graphite]);
+            Solid("GridPaper_Ruling_C", parent, PrimitiveType.Cube, new Vector3(2.9f, 2.15f, 4.41f), new Vector3(1.2f, 0.012f, 0.005f), m[VisualCalibrationPalette.MaterialNames.Graphite]);
+
+            // Red-pen correction tick on the board, drawn in front of the board's face (z 4.39 < 4.41).
+            Solid("Board_RedPen_Tick_A", parent, PrimitiveType.Cube, new Vector3(1.25f, 1.55f, 4.39f), new Vector3(0.45f, 0.03f, 0.01f), m[VisualCalibrationPalette.MaterialNames.RedPen], eulerAngles: new Vector3(0f, 0f, 35f));
+            Solid("Board_RedPen_Tick_B", parent, PrimitiveType.Cube, new Vector3(1.55f, 1.42f, 4.39f), new Vector3(0.75f, 0.03f, 0.01f), m[VisualCalibrationPalette.MaterialNames.RedPen], eulerAngles: new Vector3(0f, 0f, -50f));
+
+            // Hatched shadow bands along the floor at the front wall and the left wall: flat tone, no texture.
+            Solid("Hatch_Base_Front", parent, PrimitiveType.Cube, new Vector3(0f, 0.004f, 4.2f), new Vector3(7.8f, 0.01f, 0.45f), m[VisualCalibrationPalette.MaterialNames.Hatch]);
+            Solid("Hatch_Base_Left", parent, PrimitiveType.Cube, new Vector3(-3.7f, 0.004f, 0f), new Vector3(0.45f, 0.01f, 8.0f), m[VisualCalibrationPalette.MaterialNames.Hatch]);
+
+            // One cut-out photograph on the right wall, away from the projection. Faces into the room (normal -X).
+            Solid("Collage_Photo", parent, PrimitiveType.Quad, new Vector3(3.93f, 1.5f, -2.9f), new Vector3(1.1f, 0.8f, 1f), m[VisualCalibrationPalette.MaterialNames.CollagePhoto], eulerAngles: new Vector3(0f, 90f, 0f));
+
             // Ink contour strips along the back wall and left wall base.
             Solid("Ink_Contour_Back", parent, PrimitiveType.Cube, new Vector3(0f, 0.01f, -4.44f), new Vector3(8f, 0.02f, 0.03f), m[VisualCalibrationPalette.MaterialNames.Ink]);
             Solid("Ink_Contour_Left", parent, PrimitiveType.Cube, new Vector3(-3.94f, 0.01f, 0f), new Vector3(0.03f, 0.02f, 9f), m[VisualCalibrationPalette.MaterialNames.Ink]);
@@ -136,8 +155,35 @@ namespace PostSchool.Tools.VisualCalibration
 
         private static void BuildStudents(Transform parent, IReadOnlyDictionary<string, Material> m)
         {
-            // Layered cut-paper silhouettes seated behind each desk, facing the board. No colliders:
-            // these are readability figures for the calibration, not navigation obstacles.
+            StudentModelMaterials cardiganMaterials = new StudentModelMaterials(
+                m[VisualCalibrationPalette.MaterialNames.StudentSkin],
+                m[VisualCalibrationPalette.MaterialNames.StudentHair],
+                m[VisualCalibrationPalette.MaterialNames.StudentCardigan],
+                m[VisualCalibrationPalette.MaterialNames.Paper],
+                m[VisualCalibrationPalette.MaterialNames.StudentTrousers],
+                m[VisualCalibrationPalette.MaterialNames.StudentShoes],
+                m[VisualCalibrationPalette.MaterialNames.StudentAccent],
+                m[VisualCalibrationPalette.MaterialNames.Ink]);
+            StudentModelMaterials overshirtMaterials = new StudentModelMaterials(
+                m[VisualCalibrationPalette.MaterialNames.StudentSkin],
+                m[VisualCalibrationPalette.MaterialNames.StudentHair],
+                m[VisualCalibrationPalette.MaterialNames.StudentOvershirt],
+                m[VisualCalibrationPalette.MaterialNames.Paper],
+                m[VisualCalibrationPalette.MaterialNames.StudentTrousers],
+                m[VisualCalibrationPalette.MaterialNames.StudentShoes],
+                m[VisualCalibrationPalette.MaterialNames.StudentAccent],
+                m[VisualCalibrationPalette.MaterialNames.Ink]);
+
+            // Original, fully 3D student figures use distinct silhouettes, clothing blocks and accessories.
+            // Their proportions and muted, paper-like palette are informed by the owner's references,
+            // but no reference model, image, name or mesh is copied or imported.
+            ProceduralStudentModelFactory.Create("Student_Original_A", parent, new Vector3(-1.25f, 0f, 0.9f), 158f,
+                1.60f, StudentModelStyle.MossCardigan, cardiganMaterials);
+            ProceduralStudentModelFactory.Create("Student_Original_B", parent, new Vector3(1.25f, 0f, 1.05f), 202f,
+                1.68f, StudentModelStyle.ClayOvershirt, overshirtMaterials);
+
+            // Supporting cut-paper pupils keep the collage language in the classroom background.
+            // The center seats are left open so the original 3D figures read clearly in the authored shot.
             float[] columns = { -2.2f, 0f, 2.2f };
             float[] rows = { -1.6f, 0.4f };
 
@@ -145,8 +191,10 @@ namespace PostSchool.Tools.VisualCalibration
             {
                 foreach (float x in columns)
                 {
+                    if (Mathf.Approximately(x, 0f)) continue;
+
                     float seatZ = z - 0.42f;
-                    GameObject student = new GameObject($"Student_{x:0.0}_{z:0.0}");
+                    GameObject student = new GameObject($"Student_CutPaper_{x:0.0}_{z:0.0}");
                     student.transform.SetParent(parent, false);
                     student.transform.localPosition = new Vector3(x, 0f, seatZ);
 
@@ -204,7 +252,8 @@ namespace PostSchool.Tools.VisualCalibration
             key.type = LightType.Directional;
             key.color = VisualCalibrationPalette.Hex("FFE7C2");
             key.intensity = 1.0f;
-            key.shadows = LightShadows.Soft;
+            // Hard shadows: the room is lit as a paper cut-out, with edges kept crisp rather than softened.
+            key.shadows = LightShadows.Hard;
             sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
             // Projector glow: a spot from the ceiling box onto the projected image on the right wall.
@@ -220,7 +269,8 @@ namespace PostSchool.Tools.VisualCalibration
             glow.shadows = LightShadows.None;
 
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.45f, 0.43f, 0.40f);
+            // Lower flat ambient so the hatched bands and wall-floor seams read as shadow.
+            RenderSettings.ambientLight = new Color(0.40f, 0.38f, 0.36f);
         }
 
         private static Transform NewGroup(string name)

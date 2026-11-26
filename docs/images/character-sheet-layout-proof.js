@@ -308,19 +308,22 @@ function drawScene(width, height, outPath) {
     'rgba(26,26,24,0.5)', { name: 'cardNotes', maxLines: 5, lineHeight: 1.25 });
 
   // ---- footer ---------------------------------------------------------------
-  text(sub(S, 0.618, 0.268, 0.948, 0.310), spaceOut(budgetSentence(remaining) + `　总 ${total} / 12`), 11,
+  text(sub(S, 0.618, 0.272, 0.948, 0.312), spaceOut(budgetSentence(remaining) + `　总 ${total} / 12`), 11,
     'rgba(26,26,24,0.55)', { name: 'budgetDetail', maxLines: 2 });
 
-  const reset = sub(S, 0.618, 0.196, 0.772, 0.258);
+  const feedback = sub(S, 0.618, 0.168, 0.948, 0.198);
+  text(feedback, '', 11, 'rgba(122,46,42,0.9)', { name: 'statusNote' });
+
+  const reset = sub(S, 0.618, 0.202, 0.772, 0.264);
   fill(reset, C.paperShade);
   text(reset, spaceOut(data.resetLabel), 13, C.ink, { align: 'center', name: 'resetButton' });
 
-  const confirm = sub(S, 0.782, 0.196, 0.948, 0.258);
+  const confirm = sub(S, 0.782, 0.202, 0.948, 0.264);
   fill(confirm, remaining === 0 ? C.ochre : 'rgba(217,154,43,0.45)');
   text(confirm, spaceOut(data.confirmLabel), 16, C.paper, { align: 'center', name: 'confirmButton' });
 
-  text(sub(S, 0.618, 0.148, 0.948, 0.188), spaceOut(data.catalogueLabel), 11, 'rgba(26,26,24,0.42)', { name: 'catalogue' });
-  text(sub(S, 0.618, 0.100, 0.948, 0.150), spaceOut(data.catalogueNote), 10, 'rgba(26,26,24,0.4)', { name: 'catalogueNote', lineHeight: 1.2, maxLines: 3 });
+  text(sub(S, 0.618, 0.130, 0.948, 0.166), spaceOut(data.catalogueLabel), 11, 'rgba(26,26,24,0.42)', { name: 'catalogue' });
+  text(sub(S, 0.618, 0.086, 0.948, 0.128), spaceOut(data.catalogueNote), 10, 'rgba(26,26,24,0.4)', { name: 'catalogueNote', lineHeight: 1.2, maxLines: 3 });
 
   fs.writeFileSync(outPath, canvas.toBuffer('image/png'));
   console.log(`${outPath.split('/').pop()}: uiScale ${uiScale.toFixed(2)}, ${problems.length} layout problem(s)`);

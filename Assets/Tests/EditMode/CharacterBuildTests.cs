@@ -60,6 +60,36 @@ namespace PostSchool.Tests.EditMode
         }
 
         [Test]
+        public void SnapshotIsDetachedAndRestoreValidatesBudget()
+        {
+            CharacterBuild original = new CharacterBuild();
+            original.TryAdjust(CoreAttribute.Physique, 1);
+            int[] snapshot = original.CopyValues();
+            snapshot[0] = CharacterBuild.BaseValue;
+
+            Assert.AreEqual(2, original.GetValue(CoreAttribute.Physique));
+
+            CharacterBuild restored = new CharacterBuild();
+            Assert.IsTrue(restored.TryRestoreValues(original.CopyValues(), out string restoreError), restoreError);
+            Assert.AreEqual(2, restored.GetValue(CoreAttribute.Physique));
+
+            int[] overBudget = { 5, 5, 5, 1, 1 };
+            Assert.IsFalse(restored.TryRestoreValues(overBudget, out string error));
+            Assert.IsNotEmpty(error);
+            Assert.AreEqual(2, restored.GetValue(CoreAttribute.Physique), "Invalid restores must leave the existing build untouched.");
+        }
+
+        [Test]
+        public void RestoreRejectsMissingOrOutOfRangeValues()
+        {
+            CharacterBuild build = new CharacterBuild();
+
+            Assert.IsFalse(build.TryRestoreValues(null, out _));
+            Assert.IsFalse(build.TryRestoreValues(new[] { 1, 1, 1, 1 }, out _));
+            Assert.IsFalse(build.TryRestoreValues(new[] { 1, 1, 1, 1, 6 }, out _));
+        }
+
+        [Test]
         public void CheckResolverIsDeterministicAndReportsThreshold()
         {
             CharacterBuild build = new CharacterBuild();
