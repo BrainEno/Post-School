@@ -1,0 +1,88 @@
+{
+  "id": "character_build_dialogue_placeholder",
+  "status": "placeholder_pending_owner_text",
+  "startNode": "q_opening",
+  "nodes": [
+    {
+      "id": "q_opening",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "Q",
+      "text": "【占位，待作者审定】Q以日常同学的口吻开始一对一交谈。",
+      "next": "q_choice",
+      "effects": []
+    },
+    {
+      "id": "q_choice",
+      "kind": "choice",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "【占位，待作者审定】选择一种回应方式。",
+      "choices": [
+        {
+          "text": "【占位】询问眼前的情况",
+          "next": "ask_result",
+          "effects": ["objective:asked_q_a_question"]
+        },
+        {
+          "text": "【占位】凭想象补足一段模糊印象",
+          "next": "imagination_success",
+          "checkAttribute": "Imagination",
+          "minimumValue": 3,
+          "failureNext": "imagination_failure",
+          "effects": ["recollection:attempted_imaginative_association"]
+        },
+        {
+          "text": "【占位】暂时不追问，继续观察",
+          "next": "observe_result",
+          "effects": ["objective:chose_to_observe"]
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "ask_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "【占位，待作者审定】回应结果：玩家选择了直接询问。",
+      "next": "conversation_end",
+      "effects": []
+    },
+    {
+      "id": "imagination_success",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "【占位，待作者审定】想象检定达到暂定阈值；这只是主观联想，不是已证实的记忆。",
+      "next": "conversation_end",
+      "effects": []
+    },
+    {
+      "id": "imagination_failure",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "【占位，待作者审定】想象检定未达到暂定阈值；结果提供另一种观察角度，不阻断对话。",
+      "next": "conversation_end",
+      "effects": []
+    },
+    {
+      "id": "observe_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "【占位，待作者审定】回应结果：对话保留空间，让玩家留意周围。",
+      "next": "conversation_end",
+      "effects": []
+    },
+    {
+      "id": "conversation_end",
+      "kind": "end",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "",
+      "effects": ["objective:placeholder_conversation_completed"]
+    }
+  ]
+}

@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 VERSION_FILE = "ProjectSettings/ProjectVersion.txt"
 WORKFLOW_FILE = ".github/workflows/unity-ci.yml"
-DIALOGUE_DIR = "Assets/Data/Dialogue"
+DIALOGUE_DIRS = ("Assets/Data/Dialogue/", "Assets/Resources/Dialogue/")
 
 FORBIDDEN_PREFIXES = (
     "Library/",
@@ -59,6 +59,7 @@ UNITY_VERSION_KEY = re.compile(r"^\s*unityVersion:\s*(\S+)\s*$", re.MULTILINE)
 
 DIALOGUE_KINDS = {"line", "choice", "end"}
 DIALOGUE_PRESENTATIONS = {"speech", "narration", "recollection", "imagination"}
+DIALOGUE_ATTRIBUTES = {"Physique", "Psyche", "Intellect", "Perception", "Imagination"}
 EFFECT_PREFIXES = ("objective:", "recollection:")
 
 
@@ -180,7 +181,7 @@ def check_editor_pin(files: dict[str, bytes]) -> list[Problem]:
 def check_dialogue_data(files: dict[str, bytes]) -> list[Problem]:
     problems = []
     for path, content in files.items():
-        if not (_is_under(path, DIALOGUE_DIR + "/") and path.endswith(".json")):
+        if not (any(_is_under(path, prefix) for prefix in DIALOGUE_DIRS) and path.endswith(".json")):
             continue
         try:
             data = json.loads(content.decode("utf-8"))
@@ -232,6 +233,18 @@ def _check_one_dialogue(path: str, data: object) -> list[Problem]:
                     continue
                 if choice.get("next") not in nodes:
                     problems.append(Problem(path, f"choice in '{node_id}' points to missing node '{choice.get('next')}'"))
+                check_attribute = choice.get("checkAttribute")
+                failure_next = choice.get("failureNext")
+                minimum_value = choice.get("minimumValue", 0)
+                if check_attribute is not None:
+                    if not isinstance(check_attribute, str) or check_attribute not in DIALOGUE_ATTRIBUTES:
+                        problems.append(Problem(path, f"choice in '{node_id}' has unknown check attribute '{check_attribute}'"))
+                    if not isinstance(minimum_value, int) or isinstance(minimum_value, bool) or not 1 <= minimum_value <= 5:
+                        problems.append(Problem(path, f"choice in '{node_id}' check target must be an integer from 1 to 5"))
+                    if failure_next not in nodes:
+                        problems.append(Problem(path, f"check choice in '{node_id}' points to missing failure node '{failure_next}'"))
+                elif failure_next is not None or minimum_value != 0:
+                    problems.append(Problem(path, f"choice in '{node_id}' has check fields without checkAttribute"))
                 problems.extend(_check_effects(path, node_id, choice.get("effects")))
     return problems
 

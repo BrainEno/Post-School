@@ -20,6 +20,18 @@ namespace PostSchool.Interaction
 
         public string Description => _placeholderDescription;
 
+        public void Configure(string propId, string displayName, string placeholderDescription)
+        {
+            if (string.IsNullOrWhiteSpace(propId))
+            {
+                throw new ArgumentException("Inspectable ids must be non-empty.", nameof(propId));
+            }
+
+            _propId = propId;
+            _displayName = displayName ?? string.Empty;
+            _placeholderDescription = placeholderDescription ?? string.Empty;
+        }
+
         private void Awake()
         {
             if (string.IsNullOrWhiteSpace(_propId))

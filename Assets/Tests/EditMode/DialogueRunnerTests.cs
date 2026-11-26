@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using NUnit.Framework;
+using PostSchool.Character;
 using PostSchool.Dialogue;
 using PostSchool.Narrative;
 using UnityEngine;
@@ -118,6 +119,80 @@ namespace PostSchool.Tests.EditMode
             Assert.Throws<ArgumentException>(() => DialogueScript.FromJson(string.Empty));
         }
 
+        [Test]
+        public void AttributeCheckChoiceUsesBuildAndRoutesToSuccess()
+        {
+            CharacterBuild build = new CharacterBuild();
+            build.TryAdjust(CoreAttribute.Imagination, 1);
+            build.TryAdjust(CoreAttribute.Imagination, 1);
+            StoryState state = new StoryState();
+            DialogueRunner runner = new DialogueRunner(DialogueScript.FromJson(AttributeCheckJson), state, build);
+            runner.Begin();
+
+            runner.Choose(0);
+
+            Assert.IsTrue(runner.HasLastAttributeCheck);
+            Assert.IsTrue(runner.LastAttributeCheck.Passed);
+            Assert.AreEqual(3, runner.LastAttributeCheck.Value);
+            Assert.AreEqual("success", runner.Current.id);
+            Assert.IsTrue(state.IsSet(StoryNamespace.Objective, "attempted_attribute_check"));
+            Assert.IsTrue(HasPresentation(runner, DialoguePresentations.AttributeCheck));
+        }
+
+        [Test]
+        public void AttributeCheckFailureHasItsOwnValidOutcomeAndDoesNotBlockConversation()
+        {
+            CharacterBuild build = new CharacterBuild();
+            DialogueRunner runner = new DialogueRunner(DialogueScript.FromJson(AttributeCheckJson), new StoryState(), build);
+            runner.Begin();
+
+            runner.Choose(0);
+
+            Assert.IsTrue(runner.HasLastAttributeCheck);
+            Assert.IsFalse(runner.LastAttributeCheck.Passed);
+            Assert.AreEqual("failure", runner.Current.id);
+            runner.Advance();
+            Assert.IsTrue(runner.IsFinished);
+        }
+
+        [Test]
+        public void AttributeCheckWithoutBuildFailsBeforeApplyingChoiceEffects()
+        {
+            DialogueRunner runner = new DialogueRunner(DialogueScript.FromJson(AttributeCheckJson), new StoryState());
+            runner.Begin();
+
+            Assert.Throws<InvalidOperationException>(() => runner.Choose(0));
+            Assert.AreEqual("pick", runner.Current.id);
+            Assert.AreEqual(0, runner.History.Count);
+        }
+
+        [Test]
+        public void InvalidAttributeCheckDataFailsAtLoad()
+        {
+            const string json = @"{
+              ""id"": ""broken_check"", ""startNode"": ""pick"",
+              ""nodes"": [
+                { ""id"": ""pick"", ""kind"": ""choice"", ""presentation"": ""narration"", ""choices"": [
+                  { ""text"": ""try"", ""next"": ""success"", ""checkAttribute"": ""Luck"", ""minimumValue"": 2, ""failureNext"": ""failure"" }] },
+                { ""id"": ""success"", ""kind"": ""end"" },
+                { ""id"": ""failure"", ""kind"": ""end"" }
+              ]
+            }";
+
+            InvalidDataException error = Assert.Throws<InvalidDataException>(() => new DialogueRunner(DialogueScript.FromJson(json), new StoryState(), new CharacterBuild()));
+            StringAssert.Contains("unknown attribute", error.Message);
+        }
+
+        private static bool HasPresentation(DialogueRunner runner, string presentation)
+        {
+            foreach (DialogueHistoryEntry entry in runner.History)
+            {
+                if (entry.Presentation == presentation) return true;
+            }
+
+            return false;
+        }
+
         private static void RunToEnd(DialogueRunner runner, int choiceIndex)
         {
             runner.Begin();
@@ -163,6 +238,18 @@ namespace PostSchool.Tests.EditMode
             { ""id"": ""recall"", ""kind"": ""line"", ""presentation"": ""recollection"", ""speaker"": ""protagonist"", ""text"": ""r"", ""next"": ""imagine"", ""effects"": [""recollection:remembered_sound""] },
             { ""id"": ""imagine"", ""kind"": ""line"", ""presentation"": ""imagination"", ""speaker"": ""protagonist"", ""text"": ""i"", ""next"": ""done"", ""effects"": [] },
             { ""id"": ""done"", ""kind"": ""end"", ""effects"": [] }
+          ]
+        }";
+
+        private const string AttributeCheckJson = @"{
+          ""id"": ""attribute_check"", ""startNode"": ""pick"",
+          ""nodes"": [
+            { ""id"": ""pick"", ""kind"": ""choice"", ""presentation"": ""narration"", ""choices"": [
+              { ""text"": ""try"", ""next"": ""success"", ""checkAttribute"": ""Imagination"", ""minimumValue"": 3, ""failureNext"": ""failure"", ""effects"": [""objective:attempted_attribute_check""] }
+            ] },
+            { ""id"": ""success"", ""kind"": ""line"", ""presentation"": ""imagination"", ""text"": ""s"", ""next"": ""done"" },
+            { ""id"": ""failure"", ""kind"": ""line"", ""presentation"": ""imagination"", ""text"": ""f"", ""next"": ""done"" },
+            { ""id"": ""done"", ""kind"": ""end"" }
           ]
         }";
     }
