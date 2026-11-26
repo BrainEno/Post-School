@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PostSchool.Character;
 using PostSchool.Core;
 using PostSchool.Interaction;
 using UnityEditor;
@@ -154,8 +155,35 @@ namespace PostSchool.Tools.VisualCalibration
 
         private static void BuildStudents(Transform parent, IReadOnlyDictionary<string, Material> m)
         {
-            // Layered cut-paper silhouettes seated behind each desk, facing the board. No colliders:
-            // these are readability figures for the calibration, not navigation obstacles.
+            StudentModelMaterials cardiganMaterials = new StudentModelMaterials(
+                m[VisualCalibrationPalette.MaterialNames.StudentSkin],
+                m[VisualCalibrationPalette.MaterialNames.StudentHair],
+                m[VisualCalibrationPalette.MaterialNames.StudentCardigan],
+                m[VisualCalibrationPalette.MaterialNames.Paper],
+                m[VisualCalibrationPalette.MaterialNames.StudentTrousers],
+                m[VisualCalibrationPalette.MaterialNames.StudentShoes],
+                m[VisualCalibrationPalette.MaterialNames.StudentAccent],
+                m[VisualCalibrationPalette.MaterialNames.Ink]);
+            StudentModelMaterials overshirtMaterials = new StudentModelMaterials(
+                m[VisualCalibrationPalette.MaterialNames.StudentSkin],
+                m[VisualCalibrationPalette.MaterialNames.StudentHair],
+                m[VisualCalibrationPalette.MaterialNames.StudentOvershirt],
+                m[VisualCalibrationPalette.MaterialNames.Paper],
+                m[VisualCalibrationPalette.MaterialNames.StudentTrousers],
+                m[VisualCalibrationPalette.MaterialNames.StudentShoes],
+                m[VisualCalibrationPalette.MaterialNames.StudentAccent],
+                m[VisualCalibrationPalette.MaterialNames.Ink]);
+
+            // Original, fully 3D student figures use distinct silhouettes, clothing blocks and accessories.
+            // Their proportions and muted, paper-like palette are informed by the owner's references,
+            // but no reference model, image, name or mesh is copied or imported.
+            ProceduralStudentModelFactory.Create("Student_Original_A", parent, new Vector3(-1.25f, 0f, 0.9f), 158f,
+                1.60f, StudentModelStyle.MossCardigan, cardiganMaterials);
+            ProceduralStudentModelFactory.Create("Student_Original_B", parent, new Vector3(1.25f, 0f, 1.05f), 202f,
+                1.68f, StudentModelStyle.ClayOvershirt, overshirtMaterials);
+
+            // Supporting cut-paper pupils keep the collage language in the classroom background.
+            // The center seats are left open so the original 3D figures read clearly in the authored shot.
             float[] columns = { -2.2f, 0f, 2.2f };
             float[] rows = { -1.6f, 0.4f };
 
@@ -163,8 +191,10 @@ namespace PostSchool.Tools.VisualCalibration
             {
                 foreach (float x in columns)
                 {
+                    if (Mathf.Approximately(x, 0f)) continue;
+
                     float seatZ = z - 0.42f;
-                    GameObject student = new GameObject($"Student_{x:0.0}_{z:0.0}");
+                    GameObject student = new GameObject($"Student_CutPaper_{x:0.0}_{z:0.0}");
                     student.transform.SetParent(parent, false);
                     student.transform.localPosition = new Vector3(x, 0f, seatZ);
 

@@ -25,6 +25,7 @@ namespace PostSchool.Prototype
         private Action _onComplete;
         private Text _totalLabel;
         private Text _remainingLabel;
+        private Text _feedbackLabel;
         private Button _confirmButton;
         private Image _root;
 
@@ -43,7 +44,7 @@ namespace PostSchool.Prototype
 
             Transform root = _root.transform;
             PrototypeUiFactory.CreateText(root, "Title", new Vector2(0.06f, 0.82f), new Vector2(0.94f, 0.98f), "角色倾向", 38, Color.white, TextAnchor.MiddleLeft);
-            PrototypeUiFactory.CreateText(root, "Instructions", new Vector2(0.06f, 0.74f), new Vector2(0.94f, 0.84f), "每项基础值 1 · 暂定上限 5 · 自由分配 7 点", 20, new Color(0.84f, 0.85f, 0.86f, 1f));
+            PrototypeUiFactory.CreateText(root, "Instructions", new Vector2(0.06f, 0.74f), new Vector2(0.94f, 0.84f), "每项基础值 1 · 暂定上限 5 · 自由分配 7 点\nF5 保存 · F9 读取", 20, new Color(0.84f, 0.85f, 0.86f, 1f));
 
             for (int i = 0; i < DisplayOrder.Length; i++)
             {
@@ -60,12 +61,23 @@ namespace PostSchool.Prototype
             _remainingLabel = PrototypeUiFactory.CreateText(root, "Remaining Points", new Vector2(0.07f, 0.06f), new Vector2(0.55f, 0.14f), string.Empty, 22, new Color(1f, 0.82f, 0.46f, 1f));
             PrototypeUiFactory.CreateButton(root, "Reset Build", new Vector2(0.57f, 0.055f), new Vector2(0.75f, 0.14f), "重置", Reset, 20);
             _confirmButton = PrototypeUiFactory.CreateButton(root, "Confirm Build", new Vector2(0.77f, 0.055f), new Vector2(0.94f, 0.14f), "开始", Confirm, 20);
+            _feedbackLabel = PrototypeUiFactory.CreateText(root, "Save Load Feedback", new Vector2(0.06f, 0.005f), new Vector2(0.94f, 0.055f), string.Empty, 15, new Color(1f, 0.82f, 0.46f, 1f));
             Refresh();
         }
 
         public void SetVisible(bool visible)
         {
             if (_root != null) _root.gameObject.SetActive(visible);
+        }
+
+        public void RefreshFromModel()
+        {
+            if (_build != null && _root != null) Refresh();
+        }
+
+        public void SetFeedback(string message)
+        {
+            if (_feedbackLabel != null) _feedbackLabel.text = message ?? string.Empty;
         }
 
         private void Adjust(int index, int delta)

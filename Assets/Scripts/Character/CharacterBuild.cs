@@ -114,6 +114,47 @@ namespace PostSchool.Character
             return true;
         }
 
+        public int[] CopyValues()
+        {
+            if (!IsValid(out string error))
+            {
+                throw new InvalidOperationException("Cannot snapshot an invalid character build: " + error);
+            }
+
+            return (int[])_values.Clone();
+        }
+
+        public bool TryRestoreValues(int[] values, out string error)
+        {
+            if (values == null || values.Length != AttributeCount)
+            {
+                error = "A saved character build must contain exactly five attribute values.";
+                return false;
+            }
+
+            int total = 0;
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (values[i] < BaseValue || values[i] > AttributeCap)
+                {
+                    error = $"Saved attribute at index {i} must be between {BaseValue} and {AttributeCap}.";
+                    return false;
+                }
+
+                total += values[i];
+            }
+
+            if (total > StartingTotal)
+            {
+                error = $"Saved character total {total} exceeds the starting budget {StartingTotal}.";
+                return false;
+            }
+
+            _values = (int[])values.Clone();
+            error = string.Empty;
+            return true;
+        }
+
         public void Reset()
         {
             for (int i = 0; i < _values.Length; i++)
