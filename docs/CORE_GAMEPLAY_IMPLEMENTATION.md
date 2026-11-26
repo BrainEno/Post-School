@@ -38,6 +38,12 @@
 - EditMode 测试已更新以验证 `q_wake` 摘录、原文关键句、三种醒来回应及分支可达性；本轮环境没有 Unity 6000.3.29f1，因此 C# 导入/编译、EditMode、Play Mode 均未运行。
 - 需要在锁定版本 Unity Editor 人工确认：主角趴桌/起身动作、Q 走近的路径和步态、对话开始时序、右侧连续滚动文本、中文字体、布局/点击、暂停恢复和原有交互范围。没有提交未经运行的截图或视觉通过声明。
 
+## 开场教室与主角（本次追加）
+
+教室不再由 `PrototypeSceneBootstrap` 硬编码生成：布局唯一真源是 `Assets/Resources/World/classroom_layout.json`，运行时由 `Assets/Scripts/World/ClassroomBuilder.cs` 装配（24 套桌椅、黑板、讲桌、2 窗 2 门、4 盏吊灯、地面粉笔圆、悬空桌与下沉椅、粉笔与墙面手绘线），颜色收在 `ClassroomArtPalette`，材质统一由 `WorldSurfaceLibrary` 创建与释放。主角换成 `ProtagonistModelFactory` 的新造型（7 头身、窄肩成年胸廓、外套配校衫、脸部错位裂缝、红袖标），待机由 `ProtagonistIdleMotion` 驱动，序章起身动画的五个枢轴名保持不变。原来的 14 槽 `MaterialAt` 调色板、`BuildProtagonistPoseRig` 与 `CreateDesk` 已删除。
+
+新增静态验收：`tools/check_unity_project.py` 增加 `check_classroom_layout`，把 `ClassroomLayout.Validate` 的规则（24 座、2 窗、2 门、开口不出墙不入角、门不撞黑板与主角桌、主角桌前 0.70 m 站位）在 CI 里复算一遍；`docs/images/classroom-plan-proof.js` 从同一 JSON 画平面与正立面，供人眼复核。完整说明见 `docs/CLASSROOM_ART.md`。
+
 ## 已知限制
 
 - 属性上限 5 和确定性阈值比较只是原型；没有随机检定、技能树或属性描述文案。
@@ -45,4 +51,5 @@
 - 存档目前只含五项属性与两类 story flag，不恢复对白节点、对白历史、场景位置或 UI 设置；存档版本不兼容时需由未来迁移实现处理。
 - 仍无场景转场、文本速度设置、完整可访问性、本地化字体资产和多轮对话 backlog 持久化。
 - 只有本次明确授权的 `q_wake` 开场摘录使用作者原文；未复用部分的新增对白/检视文案仍是占位，不是作者最终文本。
-- Unity Editor 未运行，场景导入、脚本编译、真实 Play Mode 和视觉体验都尚未验证。
+- Unity Editor 未运行，场景导入、脚本编译、真实 Play Mode 和视觉体验都尚未验证。本次新增的教室构建器、主角模型与其材质库因此**只经过静态审查与离线平面打样**，未经过编译或观感确认。
+- 24 套桌椅在原型期不加碰撞（只有讲桌旁的教师椅是实体），因此玩家可以穿过课桌；这是为了不让交互射线与走位被家具卡住，属于待作者确认的取舍。

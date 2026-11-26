@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.IO;
 using PostSchool.Character;
 using PostSchool.Core;
@@ -8,6 +9,7 @@ using PostSchool.Interaction;
 using PostSchool.Narrative;
 using PostSchool.Persistence;
 using PostSchool.Ui;
+using PostSchool.World;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -15,16 +17,19 @@ using UnityEngine.UI;
 namespace PostSchool.Prototype
 {
     /// <summary>
-    /// Wires the first playable graybox slice in the prototype scene. Geometry is deliberately
-    /// temporary; character rules and dialogue content live in their own model/data files.
+    /// Wires the first playable slice in the prototype scene. The classroom itself is composed from
+    /// Assets/Resources/World/classroom_layout.json by ClassroomBuilder; the protagonist is built by
+    /// ProtagonistModelFactory. Character rules and dialogue content live in their own model/data files.
     /// </summary>
     public sealed class PrototypeSceneBootstrap : MonoBehaviour
     {
         private const string DialogueResourcePath = "Dialogue/classroom_opening";
         private const string SheetTextResourcePath = "CharacterSheet/character_sheet_text_placeholder";
         private const string SaveFileName = "prototype-save.json";
+        private const string ClassroomLayoutResourcePath = "World/classroom_layout";
 
-        private readonly Material[] _materials = new Material[14];
+        private WorldSurfaceLibrary _surfaces;
+        private ClassroomLayout _layout;
         private CharacterBuild _characterBuild;
         private StoryState _storyState;
         private CharacterSheetView _characterSheet;
@@ -32,7 +37,8 @@ namespace PostSchool.Prototype
         private PlayerMovement _playerMovement;
         private PlayerInteractor _playerInteractor;
         private CharacterController _playerCharacterController;
-        private ProtagonistPoseRig _protagonistRig;
+        private ProtagonistRig _protagonistRig;
+        private ProtagonistIdleMotion _protagonistIdle;
         private Transform _qStudentRoot;
         private Text _interactionPrompt;
         private Inspectable _conversationTarget;
@@ -45,18 +51,21 @@ namespace PostSchool.Prototype
 
         private void Start()
         {
-            BuildClassroomGraybox();
+            _surfaces = new WorldSurfaceLibrary();
+            BuildClassroom();
             CreatePlayerAndCamera();
+
+            // The cast stands in the empty front band, never inside the seating grid.
             CreateInspectable("classmate_q", "Q", "【占位说明】靠近并按 E 开始一对一对话。", PrimitiveType.Capsule,
-                new Vector3(-3.2f, 0f, 0.7f), Vector3.one, MaterialAt(1));
-            CreateOriginalStudent("Unlabeled Student Placeholder", new Vector3(-2.35f, 0f, 4.35f), 150f,
-                1.68f, StudentModelStyle.ClayOvershirt);
+                new Vector3(-2.9f, 0f, 1.1f), Vector3.one, null);
+            CreateOriginalStudent("Unlabeled Student Placeholder", new Vector3(3.5f, 0f, 1.7f), 205f,
+                1.66f, StudentModelStyle.ClayOvershirt);
             CreateInspectable("schoolbag", "书包（占位）", "【占位说明，待作者审定】这里可以检查书包。", PrimitiveType.Cube,
-                new Vector3(-2.1f, 0.4f, 1.7f), new Vector3(0.8f, 0.8f, 0.55f), MaterialAt(2));
+                new Vector3(-1.62f, 0.24f, 0.5f), new Vector3(0.5f, 0.42f, 0.34f), _surfaces.Surface(SurfaceRole.Ink));
             CreateInspectable("set_square", "三角尺（占位）", "【占位说明，待作者审定】这里可以检查一件课堂物品。", PrimitiveType.Cube,
-                new Vector3(2.1f, 0.48f, 2.2f), new Vector3(0.9f, 0.08f, 0.16f), MaterialAt(3));
+                new Vector3(2.1f, 0.79f, 2.9f), new Vector3(0.62f, 0.05f, 0.14f), _surfaces.Surface(SurfaceRole.Paper));
             CreateInspectable("classroom_exit", "教室出口（占位）", "【占位】已到达本次纵切片的出口。", PrimitiveType.Cube,
-                new Vector3(0f, 1f, -3.55f), new Vector3(1.8f, 2f, 0.12f), MaterialAt(4));
+                new Vector3(-4.0f, 1.1f, -4.4f), new Vector3(1.3f, 2.2f, 0.22f), _surfaces.Surface(SurfaceRole.Ink));
 
             TextAsset dialogueAsset = Resources.Load<TextAsset>(DialogueResourcePath);
             if (dialogueAsset == null)
@@ -133,33 +142,35 @@ namespace PostSchool.Prototype
         private void OnDestroy()
         {
             RestoreWorldState();
-            for (int i = 0; i < _materials.Length; i++)
+            if (_surfaces != null)
             {
-                if (_materials[i] != null) Destroy(_materials[i]);
+                _surfaces.Dispose();
+                _surfaces = null;
             }
         }
 
-        private void BuildClassroomGraybox()
+        private void BuildClassroom()
         {
-            Material floor = MaterialAt(0);
-            Material wall = MaterialAt(4);
-            CreateBox("Graybox Floor", new Vector3(0f, -0.15f, 3.3f), new Vector3(12f, 0.3f, 14f), floor);
-            CreateBox("Left Classroom Wall", new Vector3(-6f, 1.5f, 3.3f), new Vector3(0.25f, 3f, 14f), wall);
-            CreateBox("Right Classroom Wall", new Vector3(6f, 1.5f, 3.3f), new Vector3(0.25f, 3f, 14f), wall);
-            CreateBox("Back Classroom Wall", new Vector3(0f, 1.5f, 10.25f), new Vector3(12f, 3f, 0.25f), wall);
-            CreateBox("Front Classroom Wall Left", new Vector3(-4.25f, 1.5f, -3.65f), new Vector3(3.5f, 3f, 0.25f), wall);
-            CreateBox("Front Classroom Wall Right", new Vector3(4.25f, 1.5f, -3.65f), new Vector3(3.5f, 3f, 0.25f), wall);
-            CreateBox("Blackboard Placeholder", new Vector3(0f, 2f, 10.05f), new Vector3(3.8f, 1.2f, 0.08f), MaterialAt(1));
-            CreateBox("Prologue Wake Desk Top", new Vector3(0f, 0.82f, 0.8f), new Vector3(2.2f, 0.12f, 1.5f), MaterialAt(2));
-            CreateBox("Prologue Wake Desk Leg Left Front", new Vector3(-0.95f, 0.4f, 0.2f), new Vector3(0.12f, 0.8f, 0.12f), MaterialAt(3));
-            CreateBox("Prologue Wake Desk Leg Right Front", new Vector3(0.95f, 0.4f, 0.2f), new Vector3(0.12f, 0.8f, 0.12f), MaterialAt(3));
-            CreateBox("Prologue Wake Desk Leg Left Back", new Vector3(-0.95f, 0.4f, 1.4f), new Vector3(0.12f, 0.8f, 0.12f), MaterialAt(3));
-            CreateBox("Prologue Wake Desk Leg Right Back", new Vector3(0.95f, 0.4f, 1.4f), new Vector3(0.12f, 0.8f, 0.12f), MaterialAt(3));
+            TextAsset layoutAsset = Resources.Load<TextAsset>(ClassroomLayoutResourcePath);
+            if (layoutAsset == null)
+            {
+                throw new InvalidOperationException(
+                    $"Missing classroom layout '{ClassroomLayoutResourcePath}'. Check Assets/Resources/{ClassroomLayoutResourcePath}.json.");
+            }
 
-            CreateDesk("Desk A", new Vector3(-3.2f, 0f, 5.6f));
-            CreateDesk("Desk B", new Vector3(3.2f, 0f, 5.6f));
-            CreateDesk("Desk C", new Vector3(-3.2f, 0f, 7.8f));
-            CreateDesk("Desk D", new Vector3(3.2f, 0f, 7.8f));
+            _layout = ClassroomLayout.FromJson(layoutAsset.text, ClassroomLayoutResourcePath);
+            ClassroomBuilder.Build(_layout, _surfaces, transform);
+
+            // The exit trigger must sit in a doorway the layout actually cut, or the prologue has no end.
+            if (Array.Find(_layout.doors, door => door.id == ClassroomBuilder.ExitDoorId) == null)
+            {
+                throw new InvalidOperationException("The classroom layout has no front exit door; the prologue cannot end.");
+            }
+
+            if (ClassroomBuilder.SeatPositions(_layout).Count() != 24)
+            {
+                throw new InvalidOperationException("The classroom layout must place exactly 24 seats.");
+            }
         }
 
         private void CreatePlayerAndCamera()
@@ -170,7 +181,12 @@ namespace PostSchool.Prototype
             _playerCharacterController.height = 2f;
             _playerCharacterController.radius = 0.42f;
             _playerCharacterController.center = Vector3.zero;
-            _protagonistRig = BuildProtagonistPoseRig(player.transform);
+            // The controller is a 2 m capsule centred on its transform, so the feet sit one metre below.
+            _protagonistRig = ProtagonistModelFactory.Build(
+                player.transform, _surfaces.CreateProtagonistMaterials(), new Vector3(0f, -1f, 0f));
+            _protagonistIdle = player.AddComponent<ProtagonistIdleMotion>();
+            _protagonistIdle.Initialize(_protagonistRig);
+            _protagonistIdle.Suspend();
             _playerMovement = player.AddComponent<PlayerMovement>();
             _playerMovement.InputEnabled = false;
             _playerInteractor = player.AddComponent<PlayerInteractor>();
@@ -187,101 +203,6 @@ namespace PostSchool.Prototype
             followCamera.SetTarget(player.transform);
         }
 
-        private ProtagonistPoseRig BuildProtagonistPoseRig(Transform parent)
-        {
-            Transform visual = new GameObject("Protagonist Pose Rig").transform;
-            visual.SetParent(parent, false);
-
-            CreateVisualPart("Torso", visual, PrimitiveType.Capsule, Vector3.zero,
-                new Vector3(0.34f, 0.36f, 0.24f), MaterialAt(3));
-            CreateVisualPart("Shirt Panel", visual, PrimitiveType.Cube, new Vector3(0f, 0f, 0.19f),
-                new Vector3(0.18f, 0.34f, 0.025f), MaterialAt(7));
-            CreateVisualPart("Neck", visual, PrimitiveType.Cylinder, new Vector3(0f, 0.35f, 0f),
-                new Vector3(0.085f, 0.1f, 0.085f), MaterialAt(5));
-
-            Transform head = NewPosePivot("Head Pivot", visual, new Vector3(0f, 0.42f, 0f));
-            CreateVisualPart("Face", head, PrimitiveType.Sphere, new Vector3(0f, 0.17f, 0.02f),
-                new Vector3(0.19f, 0.22f, 0.17f), MaterialAt(5));
-            CreateVisualPart("Hair", head, PrimitiveType.Sphere, new Vector3(0f, 0.33f, -0.015f),
-                new Vector3(0.2f, 0.1f, 0.18f), MaterialAt(6));
-            CreateVisualPart("Eye Left", head, PrimitiveType.Sphere, new Vector3(-0.06f, 0.18f, 0.177f),
-                new Vector3(0.022f, 0.025f, 0.014f), MaterialAt(12));
-            CreateVisualPart("Eye Right", head, PrimitiveType.Sphere, new Vector3(0.06f, 0.18f, 0.177f),
-                new Vector3(0.022f, 0.025f, 0.014f), MaterialAt(12));
-
-            Transform leftArm = NewPosePivot("Arm Left Pivot", visual, new Vector3(-0.27f, 0.24f, 0f));
-            Transform rightArm = NewPosePivot("Arm Right Pivot", visual, new Vector3(0.27f, 0.24f, 0f));
-            BuildArm(leftArm, "Left");
-            BuildArm(rightArm, "Right");
-
-            Transform leftLeg = NewPosePivot("Leg Left Pivot", visual, new Vector3(-0.12f, -0.34f, 0f));
-            Transform rightLeg = NewPosePivot("Leg Right Pivot", visual, new Vector3(0.12f, -0.34f, 0f));
-            BuildLeg(leftLeg, "Left");
-            BuildLeg(rightLeg, "Right");
-
-            return new ProtagonistPoseRig(head, leftArm, rightArm, leftLeg, rightLeg);
-        }
-
-        private void BuildArm(Transform pivot, string side)
-        {
-            CreateVisualPart("Arm " + side + " Upper", pivot, PrimitiveType.Capsule, new Vector3(0f, -0.15f, 0f),
-                new Vector3(0.095f, 0.16f, 0.095f), MaterialAt(3));
-            CreateVisualPart("Arm " + side + " Forearm", pivot, PrimitiveType.Capsule, new Vector3(0f, -0.38f, 0.01f),
-                new Vector3(0.08f, 0.15f, 0.08f), MaterialAt(3));
-            CreateVisualPart("Hand " + side, pivot, PrimitiveType.Sphere, new Vector3(0f, -0.54f, 0.035f),
-                new Vector3(0.06f, 0.07f, 0.055f), MaterialAt(5));
-        }
-
-        private void BuildLeg(Transform pivot, string side)
-        {
-            CreateVisualPart("Leg " + side, pivot, PrimitiveType.Capsule, new Vector3(0f, -0.22f, 0f),
-                new Vector3(0.12f, 0.2f, 0.12f), MaterialAt(10));
-            CreateVisualPart("Shoe " + side, pivot, PrimitiveType.Sphere, new Vector3(0f, -0.54f, 0.05f),
-                new Vector3(0.14f, 0.08f, 0.22f), MaterialAt(11));
-        }
-
-        private static Transform NewPosePivot(string name, Transform parent, Vector3 localPosition)
-        {
-            Transform pivot = new GameObject(name).transform;
-            pivot.SetParent(parent, false);
-            pivot.localPosition = localPosition;
-            return pivot;
-        }
-
-        private static GameObject CreateVisualPart(
-            string name,
-            Transform parent,
-            PrimitiveType primitiveType,
-            Vector3 localPosition,
-            Vector3 localScale,
-            Material material)
-        {
-            GameObject part = GameObject.CreatePrimitive(primitiveType);
-            part.name = name;
-            part.transform.SetParent(parent, false);
-            part.transform.localPosition = localPosition;
-            part.transform.localScale = localScale;
-            part.GetComponent<Renderer>().sharedMaterial = material;
-
-            Collider collider = part.GetComponent<Collider>();
-            if (collider != null)
-            {
-                if (Application.isPlaying) UnityEngine.Object.Destroy(collider);
-                else UnityEngine.Object.DestroyImmediate(collider);
-            }
-
-            return part;
-        }
-
-        private void CreateDesk(string objectName, Vector3 position)
-        {
-            CreateBox(objectName + " Top", position + new Vector3(0f, 0.82f, 0f), new Vector3(1.7f, 0.12f, 1.1f), MaterialAt(2));
-            CreateBox(objectName + " Leg 1", position + new Vector3(-0.68f, 0.4f, -0.42f), new Vector3(0.12f, 0.8f, 0.12f), MaterialAt(3));
-            CreateBox(objectName + " Leg 2", position + new Vector3(0.68f, 0.4f, -0.42f), new Vector3(0.12f, 0.8f, 0.12f), MaterialAt(3));
-            CreateBox(objectName + " Leg 3", position + new Vector3(-0.68f, 0.4f, 0.42f), new Vector3(0.12f, 0.8f, 0.12f), MaterialAt(3));
-            CreateBox(objectName + " Leg 4", position + new Vector3(0.68f, 0.4f, 0.42f), new Vector3(0.12f, 0.8f, 0.12f), MaterialAt(3));
-        }
-
         private void CreateInspectable(string id, string displayName, string description, PrimitiveType primitiveType, Vector3 position, Vector3 scale, Material material)
         {
             GameObject prop;
@@ -294,7 +215,7 @@ namespace PostSchool.Prototype
                     165f,
                     1.60f,
                     StudentModelStyle.MossCardigan,
-                    CreateStudentMaterials(MaterialAt(8)));
+                    CreateStudentMaterials(StudentModelStyle.MossCardigan));
                 CapsuleCollider characterTrigger = prop.AddComponent<CapsuleCollider>();
                 characterTrigger.center = new Vector3(0f, 0.84f, 0f);
                 characterTrigger.height = 1.68f;
@@ -328,21 +249,12 @@ namespace PostSchool.Prototype
 
         private void CreateOriginalStudent(string objectName, Vector3 position, float yaw, float height, StudentModelStyle style)
         {
-            Material outerwear = style == StudentModelStyle.MossCardigan ? MaterialAt(8) : MaterialAt(13);
-            ProceduralStudentModelFactory.Create(objectName, transform, position, yaw, height, style, CreateStudentMaterials(outerwear));
+            ProceduralStudentModelFactory.Create(objectName, transform, position, yaw, height, style, CreateStudentMaterials(style));
         }
 
-        private StudentModelMaterials CreateStudentMaterials(Material outerwear)
+        private StudentModelMaterials CreateStudentMaterials(StudentModelStyle style)
         {
-            return new StudentModelMaterials(
-                MaterialAt(5),
-                MaterialAt(6),
-                outerwear,
-                MaterialAt(7),
-                MaterialAt(10),
-                MaterialAt(11),
-                MaterialAt(9),
-                MaterialAt(12));
+            return _surfaces.CreateStudentMaterials(style);
         }
 
         private IEnumerator PlayClassroomOpening()
@@ -358,13 +270,16 @@ namespace PostSchool.Prototype
                 throw new InvalidOperationException("The classroom opening sequence requires the protagonist pose rig.");
             }
 
-            Vector3 sleepingPosition = new Vector3(0f, 1.02f, 0.8f);
+            // Lying face-down on the wake desk: the model's origin is at its feet, so the desk-side
+            // position is offset along +z and the body spans the desk top.
+            Vector3 sleepingPosition = new Vector3(0f, 1.02f, 1.4f);
             Vector3 standingPosition = new Vector3(0f, 1f, -0.55f);
             Vector3 qDestination = new Vector3(-1.7f, 0f, -0.15f);
             Vector3 facingQ = qDestination - standingPosition;
             facingQ.y = 0f;
             Quaternion standingRotation = Quaternion.LookRotation(facingQ.normalized, Vector3.up);
 
+            _protagonistIdle.Suspend();
             player.SetPositionAndRotation(sleepingPosition, Quaternion.Euler(90f, 0f, 0f));
             _protagonistRig.HeadPivot.localRotation = Quaternion.Euler(18f, 0f, 0f);
             _protagonistRig.LeftArmPivot.localRotation = Quaternion.Euler(30f, 0f, -24f);
@@ -376,12 +291,15 @@ namespace PostSchool.Prototype
             yield return new WaitForSecondsRealtime(0.2f);
             yield return AnimateQApproach(_qStudentRoot, qDestination, player.position, 1.8f);
 
+            // Idle motion takes over the pose once the protagonist is on their feet; the wake pose has
+            // already set every pivot to its resting value.
+            _protagonistIdle.Resume();
             _openingSequenceActive = false;
             _dialoguePresenter.Begin();
         }
 
         private static IEnumerator AnimateWakePose(
-            ProtagonistPoseRig rig,
+            ProtagonistRig rig,
             Transform player,
             Vector3 startPosition,
             Vector3 endPosition,
@@ -573,8 +491,9 @@ namespace PostSchool.Prototype
                 if (_playerInteractor != null) _playerInteractor.enabled = true;
                 if (_playerCharacterController != null) _playerCharacterController.enabled = true;
             }
-            else if (_characterCreation != null)
+            else if (_characterSheet != null)
             {
+                // Character build is still unfinished, so the paper sheet comes back with the world.
                 _characterSheet.SetVisible(true);
             }
         }
@@ -605,69 +524,6 @@ namespace PostSchool.Prototype
             text.anchor = TextAnchor.MiddleCenter;
             text.alignment = TextAlignment.Center;
             text.color = new Color(0.12f, 0.1f, 0.08f, 1f);
-        }
-
-        private GameObject CreateBox(string objectName, Vector3 position, Vector3 scale, Material material)
-        {
-            GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            box.name = objectName;
-            box.transform.position = position;
-            box.transform.localScale = scale;
-            box.GetComponent<Renderer>().sharedMaterial = material;
-            return box;
-        }
-
-        private Material MaterialAt(int index)
-        {
-            if (_materials[index] != null) return _materials[index];
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            if (shader == null) throw new InvalidOperationException("Neither URP/Lit nor the built-in Standard shader is available in this project.");
-
-            Material material = new Material(shader);
-            Color color;
-            switch (index)
-            {
-                case 0: color = new Color32(184, 170, 144, 255); break;
-                case 1: color = new Color32(82, 104, 89, 255); break;
-                case 2: color = new Color32(196, 183, 151, 255); break;
-                case 3: color = new Color32(156, 104, 69, 255); break;
-                case 4: color = new Color32(126, 118, 111, 255); break;
-                case 5: color = StudentModelColorPalette.Skin; break;
-                case 6: color = StudentModelColorPalette.Hair; break;
-                case 7: color = StudentModelColorPalette.Shirt; break;
-                case 8: color = StudentModelColorPalette.MossCardigan; break;
-                case 9: color = StudentModelColorPalette.Accent; break;
-                case 10: color = StudentModelColorPalette.Trousers; break;
-                case 11: color = StudentModelColorPalette.Shoes; break;
-                case 12: color = StudentModelColorPalette.Detail; break;
-                case 13: color = StudentModelColorPalette.ClayOvershirt; break;
-                default: throw new ArgumentOutOfRangeException(nameof(index), index, "Unknown prototype material index.");
-            }
-
-            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
-            if (material.HasProperty("_Color")) material.SetColor("_Color", color);
-            material.name = "Prototype Graybox Material " + index;
-            _materials[index] = material;
-            return material;
-        }
-
-        private sealed class ProtagonistPoseRig
-        {
-            public ProtagonistPoseRig(Transform headPivot, Transform leftArmPivot, Transform rightArmPivot, Transform leftLegPivot, Transform rightLegPivot)
-            {
-                HeadPivot = headPivot;
-                LeftArmPivot = leftArmPivot;
-                RightArmPivot = rightArmPivot;
-                LeftLegPivot = leftLegPivot;
-                RightLegPivot = rightLegPivot;
-            }
-
-            public Transform HeadPivot { get; }
-            public Transform LeftArmPivot { get; }
-            public Transform RightArmPivot { get; }
-            public Transform LeftLegPivot { get; }
-            public Transform RightLegPivot { get; }
         }
     }
 }

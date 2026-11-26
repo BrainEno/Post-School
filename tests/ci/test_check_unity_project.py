@@ -6,6 +6,7 @@ and a case that must pass. Run with: python3 -m unittest discover -s tests/ci -t
 
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -15,8 +16,12 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import check_unity_project as checker  # noqa: E402
 
+LAYOUT = json.loads((ROOT / checker.CLASSROOM_LAYOUT_FILE).read_text())
+
 GUID_A = "0123456789abcdef0123456789abcdef"
 GUID_B = "fedcba9876543210fedcba9876543210"
+GUID_C = "00112233445566778899001122334455"
+GUID_D = "55443322110099887766554433221100"
 
 
 def meta(guid: str) -> bytes:
@@ -33,6 +38,9 @@ def pinned_project(**extra: bytes) -> dict[str, bytes]:
         "Assets/Scripts/Core/Player.cs": b"class Player {}\n",
         "Assets/Scripts/Core/Player.cs.meta": meta(GUID_A),
         "Assets/Scripts/Core.meta": meta(GUID_B),
+        checker.CLASSROOM_LAYOUT_FILE: json.dumps(LAYOUT).encode(),
+        checker.CLASSROOM_LAYOUT_FILE + ".meta": meta(GUID_C),
+        "Assets/Resources/World.meta": meta(GUID_D),
     }
     files.update({k: v for k, v in extra.items()})
     return files
@@ -176,3 +184,74 @@ class DialogueDataTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def classroom_layout(**overrides: object) -> dict:
+    """A copy of the real classroom layout with targeted edits applied to a dotted path."""
+    import copy
+
+    data = copy.deepcopy(LAYOUT)
+    for key, value in overrides.items():
+        target = data
+        parts = key.split("__")
+        for part in parts[:-1]:
+            target = target[int(part)] if isinstance(target, list) else target[part]
+        last = parts[-1]
+        if isinstance(target, list):
+            target[int(last)] = value
+        else:
+            target[last] = value
+    return data
+
+
+def layout_files(**overrides: object) -> dict[str, bytes]:
+    files = pinned_project()
+    files[checker.CLASSROOM_LAYOUT_FILE] = json.dumps(classroom_layout(**overrides)).encode()
+    return files
+
+
+class ClassroomLayoutTests(unittest.TestCase):
+    def test_shipped_layout_passes(self) -> None:
+        self.assertEqual([], checker.check_classroom_layout(pinned_project()))
+
+    def test_missing_layout_fails(self) -> None:
+        files = pinned_project()
+        del files[checker.CLASSROOM_LAYOUT_FILE]
+        problems = checker.check_classroom_layout(files)
+        self.assertEqual([checker.CLASSROOM_LAYOUT_FILE], [p.path for p in problems])
+
+    def test_seat_count_must_be_24(self) -> None:
+        files = layout_files()
+        layout = json.loads(files[checker.CLASSROOM_LAYOUT_FILE])
+        layout["seating"]["columns"] = layout["seating"]["columns"][:5]
+        files[checker.CLASSROOM_LAYOUT_FILE] = json.dumps(layout).encode()
+        problems = checker.check_classroom_layout(files)
+        self.assertIn("24", messages(problems))
+        self.assertIn("implies 20 seats", messages(problems))
+
+    def test_two_windows_and_two_doors_are_required(self) -> None:
+        files = layout_files()
+        layout = json.loads(files[checker.CLASSROOM_LAYOUT_FILE])
+        layout["doors"] = layout["doors"][:1]
+        files[checker.CLASSROOM_LAYOUT_FILE] = json.dumps(layout).encode()
+        self.assertIn("two doors", messages(checker.check_classroom_layout(files)))
+
+    def test_opening_running_into_a_corner_fails(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(windows__1__centerAlong=0.4))
+        self.assertIn("runs into a corner", messages(problems))
+
+    def test_door_onto_the_blackboard_fails(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(doors__0__centerAlong=6.2))
+        self.assertIn("opens onto the blackboard", messages(problems))
+
+    def test_door_onto_the_protagonist_desk_fails(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(doors__1__centerAlong=6.2))
+        self.assertIn("opens onto the protagonist's desk", messages(problems))
+
+    def test_crowded_wake_desk_fails(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(wakeDesk__positionZ=2.0))
+        self.assertIn("standing room is the minimum", messages(problems))
+
+    def test_layout_without_status_fails(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(status=""))
+        self.assertIn("no 'status' field", messages(problems))
+

@@ -10,7 +10,9 @@ that are cheap to see in the tree and expensive to see in an Editor import:
 - JSON and `.asmdef` files that do not parse;
 - CRLF line endings in Unity text assets (`.gitattributes` expects LF);
 - the pinned Editor version drifting away from `ProjectSettings/ProjectVersion.txt`;
-- dialogue data whose node references or effect strings would fail at runtime.
+- dialogue data whose node references or effect strings would fail at runtime;
+- the classroom layout drifting away from the brief (24 seats, 2 windows, 2 doors, a blackboard,
+  a podium, openings that stay inside their wall and don't open onto furniture).
 
 Usage:
     python3 tools/check_unity_project.py --check            # read the tracked files
@@ -56,6 +58,9 @@ GUID_VALUE = re.compile(r"^[0-9a-f]{32}$")
 VERSION_LINE = re.compile(r"^m_EditorVersion:\s*(\S+)\s*$", re.MULTILINE)
 REVISION_LINE = re.compile(r"^m_EditorVersionWithRevision:\s*(\S+)\s+\(([0-9a-f]+)\)\s*$", re.MULTILINE)
 UNITY_VERSION_KEY = re.compile(r"^\s*unityVersion:\s*(\S+)\s*$", re.MULTILINE)
+
+CLASSROOM_LAYOUT_FILE = "Assets/Resources/World/classroom_layout.json"
+CLASSROOM_WALLS = ("front", "back", "west", "east")
 
 DIALOGUE_KINDS = {"line", "choice", "end"}
 DIALOGUE_PRESENTATIONS = {"speech", "narration", "recollection", "imagination"}
@@ -249,6 +254,147 @@ def _check_one_dialogue(path: str, data: object) -> list[Problem]:
     return problems
 
 
+def check_classroom_layout(files: dict[str, bytes]) -> list[Problem]:
+    """The classroom composition must keep the shape the runtime builder and the brief assume.
+
+    Mirrors ClassroomLayout.Validate in Assets/Scripts/World/ClassroomLayout.cs. Keep the two in step:
+    a rule that exists only in C# cannot run in CI without an Editor.
+    """
+    if CLASSROOM_LAYOUT_FILE not in files:
+        return [Problem(CLASSROOM_LAYOUT_FILE, "the classroom layout is not tracked")]
+
+    try:
+        data = json.loads(files[CLASSROOM_LAYOUT_FILE].decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return []  # reported by check_json_files
+
+    problems: list[Problem] = []
+
+    def fail(message: str) -> None:
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, message))
+
+    if not isinstance(data, dict):
+        return [Problem(CLASSROOM_LAYOUT_FILE, "layout must be a JSON object")]
+
+    if not data.get("status"):
+        fail("layout has no 'status' field; prototype data must stay identifiable")
+
+    room = data.get("room") or {}
+    width = room.get("width", 0)
+    depth = room.get("depth", 0)
+    height = room.get("height", 0)
+    if width < 6 or depth < 8 or height < 2.6 or room.get("wallThickness", 0) <= 0:
+        fail("room is missing or too small for a 24-seat classroom (needs >= 6 x 8 x 2.6 m)")
+        return problems
+    min_x, max_x = -width / 2, width / 2
+    center_z = room.get("centerZ", 0)
+    min_z, max_z = center_z - depth / 2, center_z + depth / 2
+
+    seating = data.get("seating") or {}
+    columns = seating.get("columns") or []
+    rows = seating.get("rows") or []
+    seat_count = len(columns) * len(rows)
+    if seat_count != seating.get("expectedSeatCount"):
+        fail(f"seating grid implies {seat_count} seats but expectedSeatCount is {seating.get('expectedSeatCount')}")
+    if seat_count != 24:
+        fail(f"the brief asks for 24 seats; layout declares {seat_count}")
+
+    desk_width = seating.get("deskWidth", 0)
+    desk_depth = seating.get("deskDepth", 0)
+    for column in columns:
+        if column - desk_width / 2 < min_x + 0.35 or column + desk_width / 2 > max_x - 0.35:
+            fail(f"seat column {column} leaves no aisle against the wall")
+    for index, row in enumerate(rows):
+        if row < min_z + 1.2 or row > max_z - 1.6:
+            fail(f"seat row {row} leaves no room for the blackboard or the front aisle")
+        if index and abs(row - rows[index - 1]) < desk_depth + 0.55:
+            fail(f"seat rows {rows[index - 1]} and {row} leave no legroom")
+
+    blackboard = data.get("blackboard") or {}
+    if blackboard.get("width", 0) > width - 1.6:
+        fail("blackboard does not fit the back wall")
+    if blackboard.get("sillHeight", 0) + blackboard.get("height", 0) > height - 0.3:
+        fail("blackboard is too tall for the room")
+
+    podium = data.get("podium") or {}
+    if not podium:
+        fail("layout has no podium")
+    wake_desk = data.get("wakeDesk") or {}
+    if not wake_desk:
+        fail("layout has no wake desk; the protagonist has nowhere to wake up")
+    elif rows:
+        first_chair_front = rows[0] + seating.get("chairOffsetZ", 0) - seating.get("chairSize", 0) / 2
+        wake_desk_back = wake_desk.get("positionZ", 0) + wake_desk.get("depth", 0) / 2
+        if first_chair_front - wake_desk_back < 0.7 - 1e-4:
+            fail(
+                f"only {first_chair_front - wake_desk_back:.2f} m between the protagonist's desk and the "
+                "first chair; 0.70 m of standing room is the minimum"
+            )
+
+    windows = data.get("windows") or []
+    doors = data.get("doors") or []
+    if len(windows) != 2:
+        fail(f"the brief asks for two windows; layout declares {len(windows)}")
+    if len(doors) != 2:
+        fail(f"the brief asks for two doors; layout declares {len(doors)}")
+    if not data.get("ceilingLights"):
+        fail("layout has no ceiling lights")
+
+    wall_length = lambda wall: depth if wall in ("west", "east") else width
+    along_origin = lambda wall: min_z if wall in ("west", "east") else min_x
+
+    for kind, openings in (("window", windows), ("door", doors)):
+        ids = set()
+        for opening in openings:
+            if not isinstance(opening, dict) or not opening.get("id"):
+                fail(f"a {kind} has no id")
+                continue
+            opening_id = opening["id"]
+            if opening_id in ids:
+                fail(f"{kind} id '{opening_id}' is used twice")
+            ids.add(opening_id)
+            wall = opening.get("wall")
+            if wall not in CLASSROOM_WALLS:
+                fail(f"{kind} '{opening_id}' names unknown wall '{wall}'")
+                continue
+            length = wall_length(wall)
+            opening_width = opening.get("width", 0)
+            center = opening.get("centerAlong", 0)
+            if opening_width <= 0.4 or opening_width >= length - 0.6:
+                fail(f"{kind} '{opening_id}' is too wide for its wall")
+            if center - opening_width / 2 < 0.3 or center + opening_width / 2 > length - 0.3:
+                fail(f"{kind} '{opening_id}' runs into a corner")
+            if opening.get("sillHeight", 0) + opening.get("height", 0) > height - 0.15:
+                fail(f"{kind} '{opening_id}' is taller than the room")
+
+            if kind != "door" or wall not in ("front", "back"):
+                continue
+            world_from = along_origin(wall) + center - opening_width / 2
+            world_to = along_origin(wall) + center + opening_width / 2
+            if wall == "back":
+                board_from = -blackboard.get("width", 0) / 2
+                board_to = blackboard.get("width", 0) / 2
+                if world_from < board_to + 0.3 and world_to > board_from - 0.3:
+                    fail(f"door '{opening_id}' opens onto the blackboard")
+            else:
+                desk_from = wake_desk.get("positionX", 0) - wake_desk.get("width", 0) / 2 - 0.4
+                desk_to = wake_desk.get("positionX", 0) + wake_desk.get("width", 0) / 2 + 0.4
+                if world_from < desk_to and world_to > desk_from:
+                    fail(f"door '{opening_id}' opens onto the protagonist's desk")
+
+    for wall in CLASSROOM_WALLS:
+        on_wall = sorted(
+            (o for o in windows + doors if isinstance(o, dict) and o.get("wall") == wall),
+            key=lambda o: o.get("centerAlong", 0),
+        )
+        for previous, current in zip(on_wall, on_wall[1:]):
+            gap = (current["centerAlong"] - current["width"] / 2) - (previous["centerAlong"] + previous["width"] / 2)
+            if gap < 0.4:
+                fail(f"{previous['id']} and {current['id']} are only {gap:.2f} m apart on the {wall} wall")
+
+    return problems
+
+
 def _check_effects(path: str, node_id: str, effects: object) -> list[Problem]:
     if effects is None:
         return []
@@ -274,6 +420,7 @@ def run_checks(files: dict[str, bytes]) -> list[Problem]:
     problems += check_line_endings(files)
     problems += check_editor_pin(files)
     problems += check_dialogue_data(files)
+    problems += check_classroom_layout(files)
     return problems
 
 
