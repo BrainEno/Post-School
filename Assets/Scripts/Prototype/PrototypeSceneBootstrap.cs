@@ -3,6 +3,7 @@ using PostSchool.Character;
 using PostSchool.Dialogue;
 using PostSchool.Interaction;
 using PostSchool.Narrative;
+using PostSchool.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,11 +16,12 @@ namespace PostSchool.Prototype
     public sealed class PrototypeSceneBootstrap : MonoBehaviour
     {
         private const string DialogueResourcePath = "Dialogue/character_build_placeholder";
+        private const string SheetTextResourcePath = "CharacterSheet/character_sheet_text_placeholder";
 
         private readonly Material[] _materials = new Material[5];
         private CharacterBuild _characterBuild;
         private StoryState _storyState;
-        private CharacterCreationView _characterCreation;
+        private CharacterSheetView _characterSheet;
         private DialoguePresenter _dialoguePresenter;
         private PlayerMovement _playerMovement;
         private PlayerInteractor _playerInteractor;
@@ -52,11 +54,12 @@ namespace PostSchool.Prototype
             DialogueScript script = DialogueScript.FromJson(dialogueAsset.text);
             _storyState = new StoryState();
             _characterBuild = new CharacterBuild();
+            CharacterSheetText sheetText = LoadSheetText();
 
             Canvas canvas = PrototypeUiFactory.CreateCanvas();
             CreateInteractionPrompt(canvas.transform);
-            _characterCreation = canvas.gameObject.AddComponent<CharacterCreationView>();
-            _characterCreation.Initialize(canvas.transform, _characterBuild, CompleteCharacterBuild);
+            _characterSheet = canvas.gameObject.AddComponent<CharacterSheetView>();
+            _characterSheet.Initialize(canvas.transform, _characterBuild, sheetText, CompleteCharacterBuild);
             _dialoguePresenter = canvas.gameObject.AddComponent<DialoguePresenter>();
             DialogueRunner runner = new DialogueRunner(script, _storyState, _characterBuild);
             _dialoguePresenter.Initialize(canvas.transform, runner, PauseWorldForDialogue, ResumeWorldAfterDialogue);
@@ -65,6 +68,7 @@ namespace PostSchool.Prototype
         private void Update()
         {
             if (_interactionPrompt == null || _dialoguePresenter == null || _dialoguePresenter.IsActive) return;
+            if (_characterSheet != null && _characterSheet.IsVisible) return;
             if (!_buildComplete)
             {
                 _interactionPrompt.text = "先完成五项属性的点数分配。";
@@ -192,6 +196,18 @@ namespace PostSchool.Prototype
             _temporaryPromptUntil = Time.unscaledTime + 3.5f;
         }
 
+        private static CharacterSheetText LoadSheetText()
+        {
+            TextAsset sheetAsset = Resources.Load<TextAsset>(SheetTextResourcePath);
+            if (sheetAsset == null)
+            {
+                throw new InvalidOperationException(
+                    $"Missing character sheet text '{SheetTextResourcePath}'. Check Assets/Resources/{SheetTextResourcePath}.json and its import status.");
+            }
+
+            return CharacterSheetText.FromJson(sheetAsset.text, SheetTextResourcePath);
+        }
+
         private void CompleteCharacterBuild()
         {
             _buildComplete = true;
@@ -235,7 +251,7 @@ namespace PostSchool.Prototype
             markerObject.transform.SetParent(parent, false);
             markerObject.transform.localPosition = new Vector3(0f, 1.25f, 0f);
             TextMesh text = markerObject.GetComponent<TextMesh>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = UiTypeface.Sans;
             text.text = marker;
             text.fontSize = 48;
             text.characterSize = 0.08f;

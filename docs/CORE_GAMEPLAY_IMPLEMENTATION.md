@@ -11,7 +11,7 @@ Issue #3 已有开放 Draft PR #5，且其视觉校准场景代码与本切片�
 - `PostSchool.Character.CharacterBuild` 独立拥有五属性、点数预算、基础值和上限规则；UI 不能直接改内部数值。
 - `AttributeCheckResolver` 实施可重复的阈值判定（属性值大于等于目标即达成），不掷随机骰。规则明确、可单测；它是原型规则，不宣称为最终数值设计。
 - 现有 `DialogueScript` / `DialogueRunner` / `StoryState` 继续分别拥有 JSON 数据、图运行与客观/回忆标记。选择项可声明 `checkAttribute`、`minimumValue` 和 `failureNext`；`next` 是达成分支。旧无检定构造函数及普通对话图保持兼容。
-- `CharacterCreationView` 和 `DialoguePresenter` 是独立的 UGUI 呈现组件。对话列固定在右侧，保留滚动历史并提供字号调整；`PrototypeSceneBootstrap` 负责场景交互接线、暂停/恢复 `Time.timeScale` 与已有移动/交互组件。
+- `CharacterSheetView`（取代上一轮的 `CharacterCreationView`）和 `DialoguePresenter` 是独立的 UGUI 呈现组件；属性面板的设计与验收说明见 `docs/CHARACTER_SHEET_UI.md`。对话列固定在右侧，保留滚动历史并提供字号调整；`PrototypeSceneBootstrap` 负责场景交互接线、暂停/恢复 `Time.timeScale` 与已有移动/交互组件。
 - `Assets/Resources/Dialogue/character_build_placeholder.json` 是唯一新增示例对白数据；所有叙述/选项均标为待作者审定的占位文本。
 - `PostSchool_Prototype.unity` 挂载启动组件。当前教室、玩家、Q 和少量检视物使用临时 primitive graybox 便于验证回路，不是最终美术或生产场景资产。未引入包或外部资源。
 
