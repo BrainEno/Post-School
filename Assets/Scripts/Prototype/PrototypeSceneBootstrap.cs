@@ -1,9 +1,13 @@
 using System;
+using System.IO;
 using PostSchool.Character;
+using PostSchool.Core;
 using PostSchool.Dialogue;
 using PostSchool.Interaction;
 using PostSchool.Narrative;
+using PostSchool.Persistence;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace PostSchool.Prototype
@@ -15,6 +19,7 @@ namespace PostSchool.Prototype
     public sealed class PrototypeSceneBootstrap : MonoBehaviour
     {
         private const string DialogueResourcePath = "Dialogue/character_build_placeholder";
+        private const string SaveFileName = "prototype-save.json";
 
         private readonly Material[] _materials = new Material[5];
         private CharacterBuild _characterBuild;
@@ -29,6 +34,7 @@ namespace PostSchool.Prototype
         private float _previousTimeScale = 1f;
         private bool _worldPaused;
         private bool _buildComplete;
+        private bool _saveLoadFeedbackActive;
 
         private void Start()
         {
@@ -65,10 +71,11 @@ namespace PostSchool.Prototype
         private void Update()
         {
             if (_interactionPrompt == null || _dialoguePresenter == null || _dialoguePresenter.IsActive) return;
-            if (!_buildComplete)
+            HandleSaveLoadShortcuts();
+            if (_saveLoadFeedbackActive && Time.unscaledTime >= _temporaryPromptUntil)
             {
-                _interactionPrompt.text = "先完成五项属性的点数分配。";
-                return;
+                _characterCreation.SetFeedback(string.Empty);
+                _saveLoadFeedbackActive = false;
             }
 
             if (Time.unscaledTime < _temporaryPromptUntil)
@@ -76,10 +83,16 @@ namespace PostSchool.Prototype
                 return;
             }
 
+            if (!_buildComplete)
+            {
+                _interactionPrompt.text = "先完成五项属性的点数分配。\nF5 保存 · F9 读取";
+                return;
+            }
+
             Inspectable target = _playerInteractor != null ? _playerInteractor.Target : null;
             _interactionPrompt.text = target != null
-                ? $"按 E 互动：{target.DisplayName}"
-                : "WASD / 方向键移动 · 靠近人物或物件后按 E 互动";
+                ? $"按 E 互动：{target.DisplayName}\nF5 保存 · F9 读取"
+                : "WASD / 方向键移动 · 靠近人物或物件后按 E 互动\nF5 保存 · F9 读取";
         }
 
         private void OnDisable()
@@ -189,6 +202,53 @@ namespace PostSchool.Prototype
             }
 
             _interactionPrompt.text = inspectable.DisplayName + "\n" + inspectable.Description;
+            _temporaryPromptUntil = Time.unscaledTime + 3.5f;
+        }
+
+        private void HandleSaveLoadShortcuts()
+        {
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null) return;
+
+            if (keyboard.f5Key.wasPressedThisFrame)
+            {
+                string path = Path.Combine(Application.persistentDataPath, SaveFileName);
+                bool saved = PrototypeSaveStore.TrySave(path, _characterBuild, _storyState, out string error);
+                ShowTemporaryPrompt(saved ? "原型存档已保存。" : "保存失败：" + error);
+                return;
+            }
+
+            if (keyboard.f9Key.wasPressedThisFrame)
+            {
+                string path = Path.Combine(Application.persistentDataPath, SaveFileName);
+                if (!PrototypeSaveStore.TryLoad(path, _characterBuild, _storyState, out string error))
+                {
+                    ShowTemporaryPrompt("读取失败：" + error);
+                    return;
+                }
+
+                _characterCreation.RefreshFromModel();
+                _buildComplete = _characterBuild.IsComplete;
+                _characterCreation.SetVisible(!_buildComplete);
+                if (_buildComplete)
+                {
+                    CompleteCharacterBuild();
+                }
+                else
+                {
+                    _playerMovement.InputEnabled = false;
+                    _playerInteractor.enabled = false;
+                }
+
+                ShowTemporaryPrompt("原型存档已读取；不恢复对白位置或历史。");
+            }
+        }
+
+        private void ShowTemporaryPrompt(string message)
+        {
+            _interactionPrompt.text = message;
+            _characterCreation.SetFeedback(message);
+            _saveLoadFeedbackActive = true;
             _temporaryPromptUntil = Time.unscaledTime + 3.5f;
         }
 

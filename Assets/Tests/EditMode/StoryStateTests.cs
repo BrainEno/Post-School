@@ -58,6 +58,34 @@ namespace PostSchool.Tests.EditMode
         }
 
         [Test]
+        public void RestoreReplacesNamespacesWithoutEventsAndCopiesInStableOrder()
+        {
+            StoryState state = new StoryState();
+            state.Set(StoryNamespace.Objective, "old");
+            int events = 0;
+            state.FlagChanged += _ => events++;
+
+            Assert.IsTrue(state.TryRestoreFlags(new[] { "zeta", "alpha" }, new[] { "memory" }, out string error), error);
+
+            CollectionAssert.AreEqual(new[] { "alpha", "zeta" }, state.CopyObjectiveFlags());
+            CollectionAssert.AreEqual(new[] { "memory" }, state.CopyRecollectionFlags());
+            Assert.IsFalse(state.IsSet(StoryNamespace.Objective, "old"));
+            Assert.AreEqual(0, events, "Loading state must not impersonate gameplay flag changes.");
+        }
+
+        [Test]
+        public void RestoreRejectsInvalidFlagsAtomically()
+        {
+            StoryState state = new StoryState();
+            state.Set(StoryNamespace.Objective, "keep_me");
+
+            Assert.IsFalse(state.TryRestoreFlags(new[] { "replace_me" }, new[] { " " }, out string error));
+            Assert.IsNotEmpty(error);
+            Assert.IsTrue(state.IsSet(StoryNamespace.Objective, "keep_me"));
+            Assert.IsFalse(state.IsSet(StoryNamespace.Objective, "replace_me"));
+        }
+
+        [Test]
         public void StoryEffect_ParsesBothPrefixes()
         {
             StoryEffect.Parse("objective:textbook_missing", out StoryNamespace objective, out string objectiveFlag);
