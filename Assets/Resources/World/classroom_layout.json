@@ -1,0 +1,88 @@
+{
+  "id": "prototype_classroom_layout",
+  "status": "prototype_layout_pending_visual_review",
+  "note": "Coordinate frame: +z is the blackboard wall, -z is the exit wall, +x is east, y is up. Units are metres. Openings are measured along their wall from that wall's low corner: front/back walls start at minX and run +x, west/east walls start at minZ and run +z. This file is the single source of truth for the classroom composition: the runtime builder and the offline plan proof both read it.",
+  "room": {
+    "width": 12.4,
+    "depth": 16.0,
+    "height": 3.5,
+    "centerZ": 3.5,
+    "wallThickness": 0.26
+  },
+  "blackboard": {
+    "width": 5.6,
+    "height": 1.45,
+    "sillHeight": 1.0,
+    "chalkTrayDepth": 0.16
+  },
+  "podium": {
+    "positionX": 0.0,
+    "positionZ": 9.9,
+    "width": 1.7,
+    "depth": 0.8,
+    "height": 1.02
+  },
+  "seating": {
+    "columns": [-4.9, -3.5, -2.1, 2.1, 3.5, 4.9],
+    "rows": [2.9, 4.5, 6.1, 7.7],
+    "deskWidth": 1.15,
+    "deskDepth": 0.55,
+    "deskHeight": 0.74,
+    "chairOffsetZ": -0.62,
+    "chairSize": 0.46,
+    "expectedSeatCount": 24
+  },
+  "wakeDesk": {
+    "positionX": 0.0,
+    "positionZ": 0.5,
+    "width": 2.2,
+    "depth": 1.6,
+    "height": 0.82
+  },
+  "windows": [
+    {
+      "id": "window_west_north",
+      "wall": "west",
+      "centerAlong": 11.0,
+      "width": 2.3,
+      "sillHeight": 0.95,
+      "height": 1.9
+    },
+    {
+      "id": "window_west_south",
+      "wall": "west",
+      "centerAlong": 7.0,
+      "width": 2.3,
+      "sillHeight": 0.95,
+      "height": 1.9
+    }
+  ],
+  "doors": [
+    {
+      "id": "door_back_staff",
+      "wall": "back",
+      "centerAlong": 1.7,
+      "width": 1.05,
+      "height": 2.2
+    },
+    {
+      "id": "door_front_exit",
+      "wall": "front",
+      "centerAlong": 2.2,
+      "width": 1.35,
+      "height": 2.35
+    }
+  ],
+  "ceilingLights": [
+    { "x": -3.2, "z": 3.2, "length": 2.6, "tiltDegrees": 0.0, "height": 3.42 },
+    { "x": 3.2, "z": 3.2, "length": 2.6, "tiltDegrees": 0.0, "height": 3.42 },
+    { "x": -3.2, "z": 7.4, "length": 2.6, "tiltDegrees": 0.0, "height": 3.42 },
+    { "x": 3.2, "z": 7.4, "length": 2.6, "tiltDegrees": 4.5, "height": 3.05 }
+  ],
+  "chalkCircle": {
+    "centerX": 0.0,
+    "centerZ": 0.5,
+    "radius": 1.45,
+    "segments": 16
+  }
+}

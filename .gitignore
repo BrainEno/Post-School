@@ -50,3 +50,6 @@ Desktop.ini
 # Python bytecode caches from local checker runs
 __pycache__/
 *.pyc
+
+# Owner art references pulled from Google Drive for review only; never part of the build
+/google_drive/
