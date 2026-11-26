@@ -7,6 +7,7 @@ using PostSchool.Dialogue;
 using PostSchool.Interaction;
 using PostSchool.Narrative;
 using PostSchool.Persistence;
+using PostSchool.Ui;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -20,12 +21,13 @@ namespace PostSchool.Prototype
     public sealed class PrototypeSceneBootstrap : MonoBehaviour
     {
         private const string DialogueResourcePath = "Dialogue/classroom_opening";
+        private const string SheetTextResourcePath = "CharacterSheet/character_sheet_text_placeholder";
         private const string SaveFileName = "prototype-save.json";
 
         private readonly Material[] _materials = new Material[14];
         private CharacterBuild _characterBuild;
         private StoryState _storyState;
-        private CharacterCreationView _characterCreation;
+        private CharacterSheetView _characterSheet;
         private DialoguePresenter _dialoguePresenter;
         private PlayerMovement _playerMovement;
         private PlayerInteractor _playerInteractor;
@@ -65,11 +67,12 @@ namespace PostSchool.Prototype
             DialogueScript script = DialogueScript.FromJson(dialogueAsset.text);
             _storyState = new StoryState();
             _characterBuild = new CharacterBuild();
+            CharacterSheetText sheetText = LoadSheetText();
 
             Canvas canvas = PrototypeUiFactory.CreateCanvas();
             CreateInteractionPrompt(canvas.transform);
-            _characterCreation = canvas.gameObject.AddComponent<CharacterCreationView>();
-            _characterCreation.Initialize(canvas.transform, _characterBuild, CompleteCharacterBuild);
+            _characterSheet = canvas.gameObject.AddComponent<CharacterSheetView>();
+            _characterSheet.Initialize(canvas.transform, _characterBuild, sheetText, CompleteCharacterBuild);
             _dialoguePresenter = canvas.gameObject.AddComponent<DialoguePresenter>();
             DialogueRunner runner = new DialogueRunner(script, _storyState, _characterBuild);
             _dialoguePresenter.Initialize(canvas.transform, runner, PauseWorldForDialogue, ResumeWorldAfterDialogue);
@@ -78,7 +81,7 @@ namespace PostSchool.Prototype
             _playerMovement.enabled = false;
             _playerInteractor.enabled = false;
             _playerCharacterController.enabled = false;
-            _characterCreation.SetVisible(false);
+            _characterSheet.SetVisible(false);
             _interactionPrompt.text = string.Empty;
             _openingSequenceActive = true;
             StartCoroutine(PlayClassroomOpening());
@@ -94,10 +97,14 @@ namespace PostSchool.Prototype
             }
 
             if (_dialoguePresenter.IsActive) return;
+
+            // The paper sheet owns the screen while it is open: no prompt churn, no save shortcuts.
+            if (_characterSheet != null && _characterSheet.IsVisible) return;
+
             HandleSaveLoadShortcuts();
             if (_saveLoadFeedbackActive && Time.unscaledTime >= _temporaryPromptUntil)
             {
-                _characterCreation.SetFeedback(string.Empty);
+                if (_characterSheet != null) _characterSheet.SetFeedback(string.Empty);
                 _saveLoadFeedbackActive = false;
             }
 
@@ -474,6 +481,18 @@ namespace PostSchool.Prototype
             _temporaryPromptUntil = Time.unscaledTime + 3.5f;
         }
 
+        private static CharacterSheetText LoadSheetText()
+        {
+            TextAsset sheetAsset = Resources.Load<TextAsset>(SheetTextResourcePath);
+            if (sheetAsset == null)
+            {
+                throw new InvalidOperationException(
+                    $"Missing character sheet text '{SheetTextResourcePath}'. Check Assets/Resources/{SheetTextResourcePath}.json and its import status.");
+            }
+
+            return CharacterSheetText.FromJson(sheetAsset.text, SheetTextResourcePath);
+        }
+
         private void HandleSaveLoadShortcuts()
         {
             Keyboard keyboard = Keyboard.current;
@@ -496,9 +515,9 @@ namespace PostSchool.Prototype
                     return;
                 }
 
-                _characterCreation.RefreshFromModel();
+                if (_characterSheet != null) _characterSheet.RefreshFromModel();
                 _buildComplete = _characterBuild.IsComplete;
-                _characterCreation.SetVisible(!_buildComplete);
+                _characterSheet.SetVisible(!_buildComplete);
                 if (_buildComplete)
                 {
                     CompleteCharacterBuild();
@@ -516,7 +535,7 @@ namespace PostSchool.Prototype
         private void ShowTemporaryPrompt(string message)
         {
             _interactionPrompt.text = message;
-            _characterCreation.SetFeedback(message);
+            if (_characterSheet != null) _characterSheet.SetFeedback(message);
             _saveLoadFeedbackActive = true;
             _temporaryPromptUntil = Time.unscaledTime + 3.5f;
         }
@@ -556,7 +575,7 @@ namespace PostSchool.Prototype
             }
             else if (_characterCreation != null)
             {
-                _characterCreation.SetVisible(true);
+                _characterSheet.SetVisible(true);
             }
         }
 
@@ -579,7 +598,7 @@ namespace PostSchool.Prototype
             markerObject.transform.SetParent(parent, false);
             markerObject.transform.localPosition = new Vector3(0f, 1.9f, 0f);
             TextMesh text = markerObject.GetComponent<TextMesh>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = UiTypeface.Sans;
             text.text = marker;
             text.fontSize = 48;
             text.characterSize = 0.08f;

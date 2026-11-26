@@ -1,4 +1,5 @@
 using System;
+using PostSchool.Ui;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -56,7 +57,7 @@ namespace PostSchool.Prototype
             rect.offsetMax = new Vector2(-6f, -2f);
 
             Text text = textObject.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = UiTypeface.Sans;
             text.fontSize = fontSize;
             text.color = color;
             text.alignment = alignment;

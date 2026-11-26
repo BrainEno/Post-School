@@ -11,11 +11,12 @@
 - `PostSchool.Character.CharacterBuild` 独立拥有五属性、点数预算、基础值和上限规则；UI 不能直接改内部数值。
 - `AttributeCheckResolver` 实施可重复的阈值判定（属性值大于等于目标即达成），不掷随机骰。规则明确、可单测；它是原型规则，不宣称为最终数值设计。
 - 现有 `DialogueScript` / `DialogueRunner` / `StoryState` 继续分别拥有 JSON 数据、图运行与客观/回忆标记。选择项可声明 `checkAttribute`、`minimumValue` 和 `failureNext`；`next` 是达成分支。旧无检定构造函数及普通对话图保持兼容。
-- `CharacterCreationView` 和 `DialoguePresenter` 是独立的 UGUI 呈现组件。对白、选项和叙述以单一可滚动长文本流呈现在屏幕右侧，不使用气泡；字号可调。`PrototypeSceneBootstrap` 负责序章接线、暂停/恢复 `Time.timeScale` 与已有移动/交互组件。
+- `CharacterSheetView`（取代上一轮的 `CharacterCreationView`）和 `DialoguePresenter` 是独立的 UGUI 呈现组件；属性面板的设计与验收说明见 `docs/CHARACTER_SHEET_UI.md`。对白、选项和叙述以单一可滚动长文本流呈现在屏幕右侧，不使用气泡；字号可调。`PrototypeSceneBootstrap` 负责序章接线、存档快捷键、暂停/恢复 `Time.timeScale` 与已有移动/交互组件。
+- 属性面板的全部文案、叙述与声音标题都在 `Assets/Resources/CharacterSheet/character_sheet_text_placeholder.json`，标为待作者审定；面板中的纸、胶带、铅笔圈等图形由 `SheetGraphic` 程序化生成，未引入贴图或字体文件。
 - `Assets/Resources/Dialogue/classroom_opening.json` 收录经作者明确要求复用的 `q_wake` 开场摘录；台词与选项逐字保留，原 Godot 旗标和镜头效果未移植。其余序章新增对白仍待作者编写。
 - 开场先让带头部、双臂和双腿枢轴的临时主角灰盒趴在新建课桌上，再以程序化变换动画逐步起身；Q 从教室过道走到桌边，带轻微摆臂、起伏与偏摆，停下后才开始首句对白。这是原型 Transform rig/动作，不是骨骼蒙皮或最终 Humanoid rig。
 - `PostSchool_Prototype.unity` 挂载启动组件。当前教室仍由 Bootstrap 生成；玩家保留灰盒，Q 与一名未命名同学由 `ProceduralStudentModelFactory` 生成两套有不同发型、服饰和配件的 3D 原创占位角色。模型用 Unity 基元组合，无新增依赖，也不是最终美术。
-- `PostSchool.Persistence.PrototypeSaveStore` 提供离线 JSON 存档 schema v1，仅保存五项属性、客观 flag 与回忆 flag；写入 `Application.persistentDataPath/prototype-save.json`，通过临时文件替换正式文件。场景内 F5 保存、F9 读取；拒绝不兼容版本/非法数据且先验证整个快照。对白节点、对白历史、场景位置和 UI 设置不在本版本存档范围内。
+- `PostSchool.Persistence.PrototypeSaveStore` 提供离线 JSON 存档 schema v1，仅保存五项属性、客观 flag 与回忆 flag；写入 `Application.persistentDataPath/prototype-save.json`，通过临时文件替换正式文件。场景内 F5 保存、F9 读取；拒绝不兼容版本/非法数据且先验证整个快照。读档后面板通过 `RefreshFromModel()` 重建显示、通过 `SetFeedback()` 复用页脚提示。对白节点、对白历史、场景位置和 UI 设置不在本版本存档范围内。
 
 ## 已检索与复用
 

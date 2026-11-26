@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using PostSchool.Dialogue;
+using PostSchool.Ui;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -112,7 +113,7 @@ namespace PostSchool.Prototype
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             Text stream = contentObject.GetComponent<Text>();
-            stream.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            stream.font = UiTypeface.Sans;
             stream.fontSize = 25;
             stream.color = new Color(0.94f, 0.92f, 0.87f, 1f);
             stream.alignment = TextAnchor.UpperLeft;
