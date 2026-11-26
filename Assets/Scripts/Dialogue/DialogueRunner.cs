@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using PostSchool.Character;
 using PostSchool.Narrative;
 
 namespace PostSchool.Dialogue
@@ -42,15 +43,23 @@ namespace PostSchool.Dialogue
             DialoguePresentations.Imagination,
         };
 
+
         private readonly DialogueScript _script;
         private readonly StoryState _state;
+        private readonly CharacterBuild _characterBuild;
         private readonly Dictionary<string, DialogueNode> _nodes = new Dictionary<string, DialogueNode>(StringComparer.Ordinal);
         private readonly List<DialogueHistoryEntry> _history = new List<DialogueHistoryEntry>();
 
         public DialogueRunner(DialogueScript script, StoryState state)
+            : this(script, state, null)
+        {
+        }
+
+        public DialogueRunner(DialogueScript script, StoryState state, CharacterBuild characterBuild)
         {
             _script = script ?? throw new ArgumentNullException(nameof(script));
             _state = state ?? throw new ArgumentNullException(nameof(state));
+            _characterBuild = characterBuild;
 
             IndexNodes();
             Validate();
@@ -62,11 +71,17 @@ namespace PostSchool.Dialogue
 
         public bool IsFinished => Current != null && Current.kind == DialogueKinds.End;
 
+        public bool HasLastAttributeCheck { get; private set; }
+
+        public AttributeCheckResult LastAttributeCheck { get; private set; }
+
         public IReadOnlyList<DialogueHistoryEntry> History => _history;
 
         public void Begin()
         {
             _history.Clear();
+            HasLastAttributeCheck = false;
+            LastAttributeCheck = default;
             Current = null;
             Enter(_script.startNode);
         }
@@ -88,9 +103,28 @@ namespace PostSchool.Dialogue
             }
 
             DialogueChoice choice = choices[index];
-            _history.Add(new DialogueHistoryEntry(string.Empty, DialoguePresentations.Speech, choice.text));
+            if (!string.IsNullOrWhiteSpace(choice.checkAttribute) && _characterBuild == null)
+            {
+                throw new InvalidOperationException($"Choice in node '{Current.id}' requires an attribute build. Pass the character build to DialogueRunner.");
+            }
+
+            _history.Add(new DialogueHistoryEntry(string.Empty, DialoguePresentations.PlayerChoice, choice.text));
             ApplyEffects(choice.effects);
-            Enter(choice.next);
+
+            string destination = choice.next;
+            HasLastAttributeCheck = false;
+            if (!string.IsNullOrWhiteSpace(choice.checkAttribute))
+            {
+                CoreAttributeNames.TryParse(choice.checkAttribute, out CoreAttribute attribute);
+                LastAttributeCheck = AttributeCheckResolver.Resolve(_characterBuild, attribute, choice.minimumValue);
+                HasLastAttributeCheck = true;
+                destination = LastAttributeCheck.Passed ? choice.next : choice.failureNext;
+                string outcome = LastAttributeCheck.Passed ? "达到" : "未达到";
+                string resultText = $"{CoreAttributeNames.DisplayName(attribute)}检定：{LastAttributeCheck.Value} / {LastAttributeCheck.MinimumValue}（{outcome}）";
+                _history.Add(new DialogueHistoryEntry(string.Empty, DialoguePresentations.AttributeCheck, resultText));
+            }
+
+            Enter(destination);
         }
 
         private void Enter(string nodeId)
@@ -100,7 +134,7 @@ namespace PostSchool.Dialogue
 
             ApplyEffects(node.effects);
 
-            if (node.kind == DialogueKinds.Line)
+            if (node.kind == DialogueKinds.Line || (node.kind == DialogueKinds.Choice && !string.IsNullOrWhiteSpace(node.text)))
             {
                 _history.Add(new DialogueHistoryEntry(node.speaker, node.presentation, node.text));
             }
@@ -217,6 +251,29 @@ namespace PostSchool.Dialogue
 
                 ValidateEffects(node.id, choice.effects);
                 Lookup(choice.next);
+
+                bool hasCheck = !string.IsNullOrWhiteSpace(choice.checkAttribute);
+                if (!hasCheck)
+                {
+                    if (choice.minimumValue != 0 || !string.IsNullOrWhiteSpace(choice.failureNext))
+                    {
+                        throw new InvalidDataException($"Choice in node '{node.id}' has check fields but no checkAttribute.");
+                    }
+
+                    continue;
+                }
+
+                if (!CoreAttributeNames.TryParse(choice.checkAttribute, out _))
+                {
+                    throw new InvalidDataException($"Choice in node '{node.id}' references unknown attribute '{choice.checkAttribute}'.");
+                }
+
+                if (choice.minimumValue < CharacterBuild.BaseValue || choice.minimumValue > CharacterBuild.AttributeCap)
+                {
+                    throw new InvalidDataException($"Choice in node '{node.id}' has check target {choice.minimumValue}; expected {CharacterBuild.BaseValue}..{CharacterBuild.AttributeCap}.");
+                }
+
+                Lookup(choice.failureNext);
             }
         }
 

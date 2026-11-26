@@ -13,11 +13,21 @@ namespace PostSchool.Core
         [SerializeField] private Vector3 _lookAtOffset = new Vector3(0f, 1.2f, 0f);
         [SerializeField, Min(0f)] private float _followSharpness = 8f;
 
-        private void Awake()
+        public void SetTarget(Transform target)
+        {
+            if (target == null)
+            {
+                throw new System.ArgumentNullException(nameof(target));
+            }
+
+            _target = target;
+        }
+
+        private void Start()
         {
             if (_target == null)
             {
-                Debug.LogError($"FollowCamera on '{name}' has no target. Assign the player transform in the inspector.", this);
+                Debug.LogError($"FollowCamera on '{name}' has no target. Assign the player transform in the inspector or call SetTarget before Start.", this);
             }
         }
 

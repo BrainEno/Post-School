@@ -127,6 +127,12 @@ class DialogueDataTests(unittest.TestCase):
         }"""
         self.assertEqual([], self._run(text))
 
+    def test_resource_dialogue_graph_is_checked(self) -> None:
+        text = """{"startNode": "a", "nodes": [
+          {"id": "a", "kind": "line", "presentation": "narration", "text": "x", "next": "missing"}]}"""
+        problems = checker.check_dialogue_data({"Assets/Resources/Dialogue/sample.json": text.encode()})
+        self.assertIn("missing node 'missing'", messages(problems))
+
     def test_dangling_next_fails(self) -> None:
         text = """{"startNode": "a", "nodes": [
           {"id": "a", "kind": "line", "presentation": "narration", "text": "x", "next": "nowhere"}]}"""
@@ -141,6 +147,31 @@ class DialogueDataTests(unittest.TestCase):
         text = """{"startNode": "a", "nodes": [
           {"id": "a", "kind": "choice", "presentation": "narration", "choices": []}]}"""
         self.assertIn("no choices", messages(self._run(text)))
+
+    def test_attribute_check_choice_passes_when_both_branches_exist(self) -> None:
+        text = """{"startNode": "pick", "nodes": [
+          {"id": "pick", "kind": "choice", "presentation": "narration", "choices": [
+            {"text": "try", "next": "success", "checkAttribute": "Imagination", "minimumValue": 3, "failureNext": "failure"}]},
+          {"id": "success", "kind": "end", "effects": []},
+          {"id": "failure", "kind": "end", "effects": []}]}"""
+        self.assertEqual([], self._run(text))
+
+    def test_attribute_check_rejects_unknown_attribute_and_missing_failure_branch(self) -> None:
+        text = """{"startNode": "pick", "nodes": [
+          {"id": "pick", "kind": "choice", "presentation": "narration", "choices": [
+            {"text": "try", "next": "success", "checkAttribute": "Luck", "minimumValue": 3, "failureNext": "missing"}]},
+          {"id": "success", "kind": "end", "effects": []}]}"""
+        result = messages(self._run(text))
+        self.assertIn("unknown check attribute", result)
+        self.assertIn("missing failure node", result)
+
+    def test_attribute_check_rejects_out_of_range_target(self) -> None:
+        text = """{"startNode": "pick", "nodes": [
+          {"id": "pick", "kind": "choice", "presentation": "narration", "choices": [
+            {"text": "try", "next": "success", "checkAttribute": "Imagination", "minimumValue": 6, "failureNext": "failure"}]},
+          {"id": "success", "kind": "end", "effects": []},
+          {"id": "failure", "kind": "end", "effects": []}]}"""
+        self.assertIn("check target must be an integer", messages(self._run(text)))
 
 
 if __name__ == "__main__":

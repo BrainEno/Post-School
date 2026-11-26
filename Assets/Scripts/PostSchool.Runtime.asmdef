@@ -2,7 +2,8 @@
   "name": "PostSchool.Runtime",
   "rootNamespace": "PostSchool",
   "references": [
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "UnityEngine.UI"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

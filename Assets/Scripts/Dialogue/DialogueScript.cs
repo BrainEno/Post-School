@@ -21,6 +21,8 @@ namespace PostSchool.Dialogue
         public const string Narration = "narration";
         public const string Recollection = "recollection";
         public const string Imagination = "imagination";
+        public const string AttributeCheck = "attribute_check";
+        public const string PlayerChoice = "player_choice";
     }
 
     /// <summary>
@@ -68,7 +70,12 @@ namespace PostSchool.Dialogue
     public sealed class DialogueChoice
     {
         public string text;
+        /// <summary>Success/ordinary destination. For a check choice this is the success branch.</summary>
         public string next;
         public string[] effects;
+        /// <summary>Optional deterministic attribute check; omitted for ordinary choices.</summary>
+        public string checkAttribute;
+        public int minimumValue;
+        public string failureNext;
     }
 }
