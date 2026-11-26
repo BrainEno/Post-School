@@ -1,0 +1,18 @@
+{
+  "name": "PostSchool.Tools.VisualCalibration",
+  "rootNamespace": "PostSchool.Tools.VisualCalibration",
+  "references": [
+    "PostSchool.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

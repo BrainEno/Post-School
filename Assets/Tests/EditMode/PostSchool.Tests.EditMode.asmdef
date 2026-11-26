@@ -3,6 +3,7 @@
   "rootNamespace": "PostSchool.Tests.EditMode",
   "references": [
     "PostSchool.Runtime",
+    "PostSchool.Tools.VisualCalibration",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],
