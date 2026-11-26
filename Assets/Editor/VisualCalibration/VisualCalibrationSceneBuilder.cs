@@ -155,32 +155,35 @@ namespace PostSchool.Tools.VisualCalibration
 
         private static void BuildStudents(Transform parent, IReadOnlyDictionary<string, Material> m)
         {
-            StudentModelMaterials cardiganMaterials = new StudentModelMaterials(
-                m[VisualCalibrationPalette.MaterialNames.StudentSkin],
-                m[VisualCalibrationPalette.MaterialNames.StudentHair],
-                m[VisualCalibrationPalette.MaterialNames.StudentCardigan],
-                m[VisualCalibrationPalette.MaterialNames.Paper],
-                m[VisualCalibrationPalette.MaterialNames.StudentTrousers],
-                m[VisualCalibrationPalette.MaterialNames.StudentShoes],
-                m[VisualCalibrationPalette.MaterialNames.StudentAccent],
-                m[VisualCalibrationPalette.MaterialNames.Ink]);
-            StudentModelMaterials overshirtMaterials = new StudentModelMaterials(
+            // The two authored figures, at the same real-world scale as the classroom. Compare them
+            // against the cut-paper pupils behind: that contrast is what this scene is for.
+            CharacterSkin protagonistSkin = new CharacterSkin(
                 m[VisualCalibrationPalette.MaterialNames.StudentSkin],
                 m[VisualCalibrationPalette.MaterialNames.StudentHair],
                 m[VisualCalibrationPalette.MaterialNames.StudentOvershirt],
                 m[VisualCalibrationPalette.MaterialNames.Paper],
-                m[VisualCalibrationPalette.MaterialNames.StudentTrousers],
-                m[VisualCalibrationPalette.MaterialNames.StudentShoes],
-                m[VisualCalibrationPalette.MaterialNames.StudentAccent],
-                m[VisualCalibrationPalette.MaterialNames.Ink]);
+                m[VisualCalibrationPalette.MaterialNames.StudentAccent]);
+            CharacterSkin classmateSkin = new CharacterSkin(
+                m[VisualCalibrationPalette.MaterialNames.StudentSkin],
+                m[VisualCalibrationPalette.MaterialNames.StudentHair],
+                m[VisualCalibrationPalette.MaterialNames.StudentCardigan],
+                m[VisualCalibrationPalette.MaterialNames.Paper],
+                m[VisualCalibrationPalette.MaterialNames.StudentAccent]);
 
-            // Original, fully 3D student figures use distinct silhouettes, clothing blocks and accessories.
-            // Their proportions and muted, paper-like palette are informed by the owner's references,
-            // but no reference model, image, name or mesh is copied or imported.
-            ProceduralStudentModelFactory.Create("Student_Original_A", parent, new Vector3(-1.25f, 0f, 0.9f), 158f,
-                1.60f, StudentModelStyle.MossCardigan, cardiganMaterials);
-            ProceduralStudentModelFactory.Create("Student_Original_B", parent, new Vector3(1.25f, 0f, 1.05f), 202f,
-                1.68f, StudentModelStyle.ClayOvershirt, overshirtMaterials);
+            SkinnedCharacterBuilder.Create(
+                "Protagonist_Rest", parent, new Vector3(-0.62f, 0f, 1.0f), 172f,
+                HumanoidProportions.Protagonist(), FigureRole.Protagonist, protagonistSkin);
+
+            SkinnedCharacterBuilder.Create(
+                "ClassmateQ_Rest", parent, new Vector3(0.72f, 0f, 1.0f), 188f,
+                HumanoidProportions.Classmate(), FigureRole.ClassmateQ, classmateSkin);
+
+            // One figure stands in the middle of the wake clip so the calibration shot shows a bent
+            // pose, not just the bind pose: this is where a bad weight shows as a pinch.
+            SkinnedFigure waking = SkinnedCharacterBuilder.Create(
+                "Protagonist_WakeMidpoint", parent, new Vector3(1.85f, 0f, 1.0f), 200f,
+                HumanoidProportions.Protagonist(), FigureRole.Protagonist, protagonistSkin);
+            HumanoidClips.WakeFromDesk().Sample(1.6f).ApplyClean(waking.Skeleton);
 
             // Supporting cut-paper pupils keep the collage language in the classroom background.
             // The center seats are left open so the original 3D figures read clearly in the authored shot.

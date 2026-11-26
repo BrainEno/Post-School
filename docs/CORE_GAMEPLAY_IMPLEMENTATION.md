@@ -15,7 +15,7 @@
 - 属性面板的全部文案、叙述与声音标题都在 `Assets/Resources/CharacterSheet/character_sheet_text_placeholder.json`，标为待作者审定；面板中的纸、胶带、铅笔圈等图形由 `SheetGraphic` 程序化生成，未引入贴图或字体文件。
 - `Assets/Resources/Dialogue/classroom_opening.json` 收录经作者明确要求复用的 `q_wake` 开场摘录；台词与选项逐字保留，原 Godot 旗标和镜头效果未移植。其余序章新增对白仍待作者编写。
 - 开场先让带头部、双臂和双腿枢轴的临时主角灰盒趴在新建课桌上，再以程序化变换动画逐步起身；Q 从教室过道走到桌边，带轻微摆臂、起伏与偏摆，停下后才开始首句对白。这是原型 Transform rig/动作，不是骨骼蒙皮或最终 Humanoid rig。
-- `PostSchool_Prototype.unity` 挂载启动组件。当前教室仍由 Bootstrap 生成；玩家保留灰盒，Q 与一名未命名同学由 `ProceduralStudentModelFactory` 生成两套有不同发型、服饰和配件的 3D 原创占位角色。模型用 Unity 基元组合，无新增依赖，也不是最终美术。
+- `PostSchool_Prototype.unity` 挂载启动组件。教室由 Bootstrap 构建；主角与 Q 是 `SkinnedCharacterBuilder` 生成的**真骨骼蒙皮角色**（19 骨、手写关键帧、无导入资源），不是最终美术。
 - `PostSchool.Persistence.PrototypeSaveStore` 提供离线 JSON 存档 schema v1，仅保存五项属性、客观 flag 与回忆 flag；写入 `Application.persistentDataPath/prototype-save.json`，通过临时文件替换正式文件。场景内 F5 保存、F9 读取；拒绝不兼容版本/非法数据且先验证整个快照。读档后面板通过 `RefreshFromModel()` 重建显示、通过 `SetFeedback()` 复用页脚提示。对白节点、对白历史、场景位置和 UI 设置不在本版本存档范围内。
 
 ## 已检索与复用
@@ -40,7 +40,7 @@
 
 ## 开场教室与主角（本次追加）
 
-教室不再由 `PrototypeSceneBootstrap` 硬编码生成：布局唯一真源是 `Assets/Resources/World/classroom_layout.json`，运行时由 `Assets/Scripts/World/ClassroomBuilder.cs` 装配（24 套桌椅、黑板、讲桌、2 窗 2 门、4 盏吊灯、地面粉笔圆、悬空桌与下沉椅、粉笔与墙面手绘线），颜色收在 `ClassroomArtPalette`，材质统一由 `WorldSurfaceLibrary` 创建与释放。主角换成 `ProtagonistModelFactory` 的新造型（7 头身、窄肩成年胸廓、外套配校衫、脸部错位裂缝、红袖标），待机由 `ProtagonistIdleMotion` 驱动，序章起身动画的五个枢轴名保持不变。原来的 14 槽 `MaterialAt` 调色板、`BuildProtagonistPoseRig` 与 `CreateDesk` 已删除。
+教室不再由 `PrototypeSceneBootstrap` 硬编码生成：布局唯一真源是 `Assets/Resources/World/classroom_layout.json`，运行时由 `Assets/Scripts/World/ClassroomBuilder.cs` 装配（24 套桌椅、黑板、讲桌、2 窗 2 门、4 盏吊灯、地面粉笔圆、悬空桌与下沉椅、粉笔与墙面手绘线），颜色收在 `ClassroomArtPalette`，材质统一由 `WorldSurfaceLibrary` 创建与释放。主角与 Q 换成 `SkinnedCharacterBuilder` 的蒙皮造型（共用 19 骨骨架、7 头身、窄肩成年胸廓、外套配校衫、脸部错位裂缝、红袖标），序章起身由 `HumanoidClips.WakeFromDesk` 驱动、站立待机由 `StandingIdle` 循环接管，Q 走路用 `WalkCycle`。原来的五个枢轴协程与 `ProtagonistIdleMotion` 已删除。原来的 14 槽 `MaterialAt` 调色板、`BuildProtagonistPoseRig` 与 `CreateDesk` 已删除。
 
 新增静态验收：`tools/check_unity_project.py` 增加 `check_classroom_layout`，把 `ClassroomLayout.Validate` 的规则（24 座、2 窗、2 门、开口不出墙不入角、门不撞黑板与主角桌、主角桌前 0.70 m 站位）在 CI 里复算一遍；`docs/images/classroom-plan-proof.js` 从同一 JSON 画平面与正立面，供人眼复核。完整说明见 `docs/CLASSROOM_ART.md`。
 

@@ -417,6 +417,10 @@ namespace PostSchool.World
             Box("Top", group, new Vector3(podium.positionX, podium.height + 0.035f, podium.positionZ),
                 new Vector3(podium.width + 0.14f, 0.07f, podium.depth + 0.1f), surfaces.Surface(SurfaceRole.Ink));
 
+            BoxCollider podiumCollider = group.gameObject.AddComponent<BoxCollider>();
+            podiumCollider.center = new Vector3(podium.positionX, podium.height * 0.5f, podium.positionZ);
+            podiumCollider.size = new Vector3(podium.width, podium.height, podium.depth);
+
             // Flat props on the top read clearly from the gameplay camera.
             Box("Book", group, new Vector3(podium.positionX - 0.24f, podium.height + 0.1f, podium.positionZ - 0.02f),
                 new Vector3(0.32f, 0.05f, 0.24f), surfaces.Surface(SurfaceRole.Paper), Quaternion.Euler(0f, 12f, 0f));
@@ -441,7 +445,7 @@ namespace PostSchool.World
                 BuildDesk(grid, SeatObjectName(seat, "Desk"), new Vector3(position.x, 0f, position.y), layout, surfaces);
                 BuildChair(grid, SeatObjectName(seat, "Chair"),
                     new Vector3(position.x, 0f, position.y + layout.seating.chairOffsetZ),
-                    Quaternion.identity, layout, surfaces, false);
+                    Quaternion.identity, layout, surfaces, true);
                 seat++;
             }
 
@@ -483,6 +487,11 @@ namespace PostSchool.World
             group.localPosition = position;
 
             Part(group, "Top", PrimitiveType.Cube, new Vector3(0f, h, 0f), new Vector3(w, 0.05f, d), top);
+
+            // Real furniture: the player cannot walk through a desk. One box per desk, not per part.
+            BoxCollider collider = group.gameObject.AddComponent<BoxCollider>();
+            collider.center = new Vector3(0f, h * 0.5f, 0f);
+            collider.size = new Vector3(w, h, d);
             Part(group, "Apron", PrimitiveType.Cube, new Vector3(0f, h - 0.09f, -d * 0.34f), new Vector3(w * 0.9f, 0.12f, 0.03f), leg);
             Part(group, "Book", PrimitiveType.Cube, new Vector3(0.06f, h + 0.044f, -0.02f), new Vector3(0.28f, 0.035f, 0.2f),
                 surfaces.Surface(SurfaceRole.Paper), new Vector3(0f, 8f, 0f));
@@ -526,7 +535,7 @@ namespace PostSchool.World
 
             if (withCollider)
             {
-                // Only the podium chair is a real obstacle; the 24 are left walkable for the prototype.
+                // Chairs are obstacles as well: seat plus back plus legs, one box.
                 BoxCollider collider = group.gameObject.AddComponent<BoxCollider>();
                 collider.center = new Vector3(0f, 0.45f, 0.1f);
                 collider.size = new Vector3(s, 0.9f, s);
@@ -546,6 +555,11 @@ namespace PostSchool.World
             group.localPosition = new Vector3(desk.positionX, 0f, desk.positionZ);
 
             Part(group, "Top", PrimitiveType.Cube, new Vector3(0f, desk.height, 0f), new Vector3(desk.width, 0.08f, desk.depth), wood);
+
+            // The protagonist wakes up on this desk, so it has to be solid.
+            BoxCollider deskCollider = group.gameObject.AddComponent<BoxCollider>();
+            deskCollider.center = new Vector3(0f, desk.height * 0.5f, 0f);
+            deskCollider.size = new Vector3(desk.width, desk.height, desk.depth);
             Part(group, "Top Lip", PrimitiveType.Cube, new Vector3(0f, desk.height - 0.03f, -desk.depth * 0.5f + 0.02f),
                 new Vector3(desk.width + 0.05f, 0.1f, 0.04f), metal);
             for (int i = 0; i < 4; i++)
@@ -571,7 +585,7 @@ namespace PostSchool.World
             // The protagonist's chair is pushed aside and turned: they got up from it in a hurry,
             // and the standing position after the wake animation has to stay clear of it.
             BuildChair(group, "Protagonist Chair", new Vector3(0.62f, 0f, -1.5f),
-                Quaternion.Euler(0f, 34f, 0f), layout, surfaces, false);
+                Quaternion.Euler(0f, 34f, 0f), layout, surfaces, true);
         }
 
         // -------------------------------------------------------------- ceiling

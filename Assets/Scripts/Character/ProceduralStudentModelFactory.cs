@@ -3,6 +3,13 @@ using UnityEngine;
 
 namespace PostSchool.Character
 {
+    /// <summary>
+    /// LEGACY. Primitive-composed student placeholders, kept only so the visual-calibration scene still
+    /// has something to compare against. Gameplay no longer uses this factory: the protagonist and Q are
+    /// skinned figures from <see cref="SkinnedCharacterBuilder"/>, and the unlabeled student was removed
+    /// from the prototype scene. Do not add new callers.
+    /// </summary>
+
     public enum StudentModelStyle
     {
         MossCardigan,
