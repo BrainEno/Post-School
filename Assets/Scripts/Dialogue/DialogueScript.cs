@@ -26,7 +26,7 @@ namespace PostSchool.Dialogue
     }
 
     /// <summary>
-    /// Serializable dialogue graph loaded from JSON. Text is placeholder until the owner approves it.
+    /// Serializable dialogue graph loaded from JSON. Keep owner-authored lines verbatim and mark unapproved text as placeholder.
     /// </summary>
     [Serializable]
     public sealed class DialogueScript

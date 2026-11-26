@@ -1,6 +1,6 @@
 # 视觉校准场景（Issue #3）
 
-> 状态：**代码已写，场景尚未在 Unity Editor 中生成，也没有截图或录像。** 沙箱中没有 Unity 6000.3.29f1，无法打开编辑器、进入 Play Mode 或截取画面。本文件不声称任何视觉验收已通过。
+> 状态：校准场景构建器已加入两名原创程序化 3D 学生；场景仍需在 Unity Editor 中生成并检查，尚无截图或录像。本轮已通过仓库静态检查和 Python CI 检查器单测；Unity/C# 编译、EditMode、Play Mode 及视觉验收均未运行，不以这些检查替代。
 
 ## 目的
 
@@ -10,7 +10,7 @@
 
 1. 用 Unity 6000.3.29f1 打开项目。
 2. 菜单：**Post School > Visual Calibration > Build Calibration Scene**。
-3. 脚本会在 `Assets/Art/Calibration/Materials/` 下生成 10 个材质，并保存 `Assets/Scenes/VisualCalibration.unity`。
+3. 脚本会在 `Assets/Art/Calibration/Materials/` 下生成 17 个材质，并保存 `Assets/Scenes/VisualCalibration.unity`。
 4. 进入 Play Mode。默认使用 `Camera_Fixed_Authored`（固定镜头）。若要对比跟随镜头，将 `Camera_Fixed_Authored` 的 Camera 设为禁用，再启用 `Camera_FollowComparison`。
 
 重复运行会覆盖场景和这些材质。生成的 `.mat` 与 `.unity` 文件应在审阅后提交。
@@ -42,6 +42,7 @@
 | 混凝土 | `Concrete` | 地面、讲台 |
 | 投影图像 | `Projection`（Unlit） | 右墙的投影画面，配合天花板上的聚光灯 |
 | 主角强调色 | `Ochre` | 仅用于主角胶囊体 |
+| 原创角色色组 | `StudentSkin`、`StudentHair`、`StudentCardigan`、`StudentOvershirt`、`StudentTrousers`、`StudentShoes`、`StudentAccent` | 两名程序化 3D 学生；与 `Paper`、`Ink` 共享基础材质 |
 
 这些材质都是程序化生成的，没有引入任何外部贴图、模型或字体。纹理、磨损和剪切边缘还没有做，只是纯色与平滑度的组合。
 
@@ -59,7 +60,7 @@
 
 - 教室：8 × 9 m，墙高 3.2 m；黑板、门（暗红，作为出口焦点）、右墙投影画面、天花板投影机。
 - 课桌：3 列 × 2 排，每张桌子带碰撞体。
-- 学生：6 个分层剪纸人物（暗红身体 + 纸色衬衫层 + 球形头部），不带碰撞体，仅用于可读性检查。
+- 学生：两名由 Unity 基元组合的原创 3D 学生（青苔绿开衫／斜挎包与陶土色外衫／手持本册，发型、身高和轮廓各异），以及四个无碰撞体的分层剪纸背景人物。造型只借鉴参考中低饱和色块、柔和比例与剪纸感，不复用人物姓名、模型、贴图或逐项造型。
 - 讲台：混凝土，带碰撞体。
 - 主角：暂用赭黄胶囊体，带 `CharacterController`、`PlayerMovement` 和 `PlayerInteractor`。
 
@@ -69,7 +70,7 @@
 
 1. 场景能否在 Unity 6000.3.29f1 中生成，且无新的控制台错误。
 2. 生成后的 `.unity` 和 `.mat` 文件是否与脚本输出一致。
-3. Play Mode 中的移动、碰撞与镜头是否顺畅。
+3. Play Mode 中的移动、碰撞与镜头是否顺畅，以及两个人物在游戏距离下是否可读。
 4. 截图与运行录像（Game 视图、固定镜头与跟随镜头各一组）。
 5. 性能数据（帧时间、Draw Call、显存）。
 6. 与 Godot PR #196、#200 的视觉对比。
@@ -80,6 +81,7 @@
 - 固定镜头与跟随镜头，哪一种作为默认。
 - 剪纸学生的层次与“衬衫层”的做法是否符合方向。
 - 投影画面的表现（纯色平面是否足够，还是需要真实图像或纹理）。
+- 两名原创 3D 学生的比例、发型、开衫／外衫和配件是否作为后续角色方向保留。
 - 是否需要进一步区分材质家族（纸的纹理、混凝土的骨料感等）。
 
 ## 版权与来源
