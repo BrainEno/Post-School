@@ -49,6 +49,25 @@ namespace PostSchool.Prototype
         private HumanoidClip _wakeClip;
         private HumanoidClip _idleClip;
         private HumanoidClip _qIdleClip;
+        private HumanoidClip _qTurnClip;
+        private HumanoidClip _qAwayClip;
+        private HumanoidClip _qGlanceClip;
+
+        /// <summary>Where Q comes to a stop beside the protagonist's desk. One number, so the walk and
+        /// the beat that turns him to the set square cannot drift apart.</summary>
+        private static readonly Vector3 QDestination = new Vector3(-1.9f, 0f, -0.1f);
+
+        /// <summary>The set square on the podium, which one authored line tells Q to look at.</summary>
+        private static readonly Vector3 SetSquarePosition = new Vector3(2.1f, 0f, 2.9f);
+
+        /// <summary>The yaw Q is created with, before he walks to the desk.</summary>
+        private const float ClassmateQFacing = 128f;
+
+        /// <summary>
+        /// Where the protagonist stands to wake up. Q's approach ends by turning him to face this point,
+        /// so by the time any dialogue beat plays his facing is this, not <see cref="ClassmateQFacing"/>.
+        /// </summary>
+        private static readonly Vector3 ProtagonistStandingPosition = new Vector3(0f, 1f, -0.75f);
         private HumanoidClip _teacherIdleClip;
         private Transform _qStudentRoot;
         private Transform _teacherRoot;
@@ -79,12 +98,12 @@ namespace PostSchool.Prototype
             CreatePlayerAndCamera();
 
             // The cast stands in the empty front band, never inside the seating grid.
-            CreateClassmateQ(new Vector3(-2.9f, 0f, 1.1f), 128f);
+            CreateClassmateQ(new Vector3(-2.9f, 0f, 1.1f), ClassmateQFacing);
             CreateTeacherN();
             CreateInspectable("schoolbag", "书包（占位）", "【占位说明，待作者审定】这里可以检查书包。", PrimitiveType.Cube,
                 new Vector3(-1.62f, 0.24f, 0.5f), new Vector3(0.5f, 0.42f, 0.34f), _surfaces.Surface(SurfaceRole.Ink));
             CreateInspectable("set_square", "三角尺（占位）", "【占位说明，待作者审定】这里可以检查一件课堂物品。", PrimitiveType.Cube,
-                new Vector3(2.1f, 0.79f, 2.9f), new Vector3(0.62f, 0.05f, 0.14f), _surfaces.Surface(SurfaceRole.Paper));
+                new Vector3(SetSquarePosition.x, 0.79f, SetSquarePosition.z), new Vector3(0.62f, 0.05f, 0.14f), _surfaces.Surface(SurfaceRole.Paper));
             // No "classroom_exit" placeholder: the curtain now occupies that doorway, and two triggers
             // in the same gap would fight over the interaction raycast.
 
@@ -257,6 +276,8 @@ namespace PostSchool.Prototype
             _qStudentRoot = _qFigure.Root;
             _qAnimator = _qStudentRoot.gameObject.AddComponent<HumanoidAnimator>();
             _qAnimator.Initialize(_qFigure);
+            _qAnimator.ClipFinished -= HandleQBeatFinished;
+            _qAnimator.ClipFinished += HandleQBeatFinished;
 
             // Q keeps the trigger the old placeholder capsule had, so "press E on Q" still starts the
             // prologue. The name marker is only for the greybox camera, and it is the same one.
@@ -365,7 +386,94 @@ namespace PostSchool.Prototype
             _activeScene = scene;
             presenter.SetRunner(RunnerFor(scene));
             presenter.SetTitle(TitleFor(scene));
+
+            // Staging is subscribed once, not per scene: the table below decides which beats belong to
+            // which node, so a node in another script with the same id would simply not match.
+            presenter.NodeShown -= OnDialogueNodeShown;
+            presenter.NodeShown += OnDialogueNodeShown;
             presenter.Begin();
+        }
+
+        /// <summary>
+        /// Stages one beat per authored node, without touching a word of the text.
+        ///
+        /// The prologue is one conversation in a room that is otherwise idle, so before this the only
+        /// thing moving during it was the dialogue panel. Each entry answers "who is being talked to,
+        /// and where are they looking" for one node: Q turns to face the protagonist when addressed, and
+        /// turns away to the board for the lines where he is reciting the story of the zero rather than
+        /// speaking to a person. The protagonist's own head belongs to the player and is never taken
+        /// over, and N is on a fixed path in from the corridor, so she has no beats here.
+        ///
+        /// This is a table and not logic on purpose. If a node id is reworded or dropped, its beat
+        /// silently stops happening --- a missing gesture, never a broken conversation.
+        /// </summary>
+        private void OnDialogueNodeShown(string nodeId)
+        {
+            if (_activeScene != QuizScene.ClassroomOpening) return;
+            if (_qAnimator == null || _qIdleClip == null) return;
+
+            HumanoidClip beat;
+            switch (nodeId)
+            {
+                // He opens the conversation, so he is already turning to the protagonist.
+                case "q_1":
+                    beat = _qTurnClip;
+                    break;
+
+                // The authored line says Q looks at the set square. Nothing performed it before.
+                case "q_who_look":
+                    beat = _qGlanceClip;
+                    break;
+
+                // The recitation nodes: eyes leave the protagonist and go to the board.
+                case "q_zero":
+                case "q_blank_1":
+                case "q_absent_1":
+                    beat = _qAwayClip;
+                    break;
+
+                // The questions are over; he goes back to being an ordinary student facing front.
+                case "q_exam_end":
+                    beat = _qIdleClip;
+                    break;
+
+                default:
+                    return;
+            }
+
+            if (beat != null) _qAnimator.Play(beat);
+        }
+
+        /// <summary>
+        /// How far Q has to turn, in degrees, to face the set square from where he comes to a stop.
+        /// Negative is to his right. Derived from the two objects rather than typed, so moving either
+        /// the prop or his mark cannot leave him staring at the wrong piece of the room.
+        /// </summary>
+        private float SetSquareYawFromQ()
+        {
+            // His facing at the moment the line is spoken is the one AnimateQApproach leaves him with:
+            // he turns to face the protagonist as he arrives. Using his creation yaw here instead is a
+            // 20-degree error that reads as him looking past the thing the line names.
+            Vector3 toPlayer = ProtagonistStandingPosition - QDestination;
+            toPlayer.y = 0f;
+            float approachYaw = Mathf.Atan2(toPlayer.x, toPlayer.z) * Mathf.Rad2Deg;
+
+            Vector3 toTarget = SetSquarePosition - QDestination;
+            float targetYaw = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
+
+            return Mathf.DeltaAngle(approachYaw, targetYaw);
+        }
+
+        /// <summary>
+        /// Hands Q back to the idle loop after a beat finishes, so the room never freezes on a pose.
+        /// Wired once at construction: the beats are shorter than the nodes, so the return always
+        /// happens while the player is still reading.
+        /// </summary>
+        private void HandleQBeatFinished(HumanoidClip clip)
+        {
+            if (clip == null || _qAnimator == null || _qIdleClip == null) return;
+            if (clip == _qIdleClip) return;
+            _qAnimator.Play(_qIdleClip);
         }
 
         private void HandleDialogueEnded()
@@ -445,11 +553,18 @@ namespace PostSchool.Prototype
             _wakeClip = HumanoidClips.WakeFromDesk();
             _idleClip = HumanoidClips.StandingIdle();
             _qIdleClip = HumanoidClips.ClassmateIdle();
+            _qTurnClip = HumanoidClips.ClassmateTurnBeat();
+            _qAwayClip = HumanoidClips.ClassmateAwayBeat();
+            _qGlanceClip = HumanoidClips.ClassmateGlanceBeat(SetSquareYawFromQ());
             if (!_wakeClip.Validate(_protagonist.Skeleton, out string wakeError)
                 || !_idleClip.Validate(_protagonist.Skeleton, out string idleError)
-                || !_qIdleClip.Validate(_protagonist.Skeleton, out string qError))
+                || !_qIdleClip.Validate(_protagonist.Skeleton, out string qError)
+                || !_qTurnClip.Validate(_protagonist.Skeleton, out string qTurnError)
+                || !_qAwayClip.Validate(_protagonist.Skeleton, out string qAwayError)
+                || !_qGlanceClip.Validate(_protagonist.Skeleton, out string qGlanceError))
             {
-                throw new InvalidOperationException("Animation clip does not fit the skeleton: " + (wakeError ?? idleError ?? qError));
+                throw new InvalidOperationException("Animation clip does not fit the skeleton: "
+                    + (wakeError ?? idleError ?? qError ?? qTurnError ?? qAwayError ?? qGlanceError));
             }
 
             // The fall clips are only ever built inside the curtain scene, which means a wrong bone name
@@ -513,8 +628,8 @@ namespace PostSchool.Prototype
             // The figure's origin is at its feet, so the player transform is placed where the standing
             // figure should end up; the clip's own root offset does the crouching and the lie-down. The
             // wake desk is at z = 0.5, so the figure stands just in front of it and reaches back.
-            Vector3 standingPosition = new Vector3(0f, 1f, -0.75f);
-            Vector3 qDestination = new Vector3(-1.9f, 0f, -0.1f);
+            Vector3 standingPosition = ProtagonistStandingPosition;
+            Vector3 qDestination = QDestination;
             Vector3 facingQ = qDestination - standingPosition;
             facingQ.y = 0f;
             Quaternion standingRotation = Quaternion.LookRotation(facingQ.normalized, Vector3.up);

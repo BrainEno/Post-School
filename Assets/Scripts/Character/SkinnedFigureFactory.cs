@@ -19,6 +19,90 @@ namespace PostSchool.Character
     {
         public const string MeshName = "Skinned Figure";
 
+        /// <summary>
+        /// The two shells a head is made of, in the frame the marks are drawn in: the skull ellipsoid
+        /// and the jaw ellipsoid hung slightly forward and low. Returned as centre + radius pairs
+        /// because that is the only thing a caller needs to put a mark on the skin.
+        /// </summary>
+        private static void HeadShells(HumanoidProportions p, out Vector3 skullCenter, out Vector3 skullRadius,
+                                       out Vector3 jawCenter, out Vector3 jawRadius)
+        {
+            Vector3 headBone = p.RestPosition(HumanoidBones.Head);
+            skullCenter = headBone + new Vector3(0f, p.headLength * 0.52f, 0.004f);
+            skullRadius = new Vector3(p.headRadius, p.headLength * 0.5f, p.headRadius * 1.02f);
+            jawCenter = headBone + new Vector3(0f, p.headLength * 0.2f, 0.024f);
+            jawRadius = new Vector3(p.headRadius * 0.8f, p.headLength * 0.24f, p.headRadius * 0.84f);
+        }
+
+        /// <summary>
+        /// The front-most point of skin at a given height on the face and a given distance to the side.
+        ///
+        /// The face is drawn, not sculpted: every mark is a flat quad laid over an ellipsoid, and the
+        /// ellipsoid bulges toward the camera by up to 1.02 head-radii. A quad placed at a fixed z is
+        /// therefore *behind* the chin and mouth, and those marks render as nothing at all --- the
+        /// symptom is a blank lower face, not an error. Marks are placed through this method so they
+        /// sit on the surface they are drawn on.
+        ///
+        /// Returns false when the point is off the head entirely, which is caller error worth knowing
+        /// about rather than silently clamping.
+        /// </summary>
+        private static bool TryFaceSurface(HumanoidProportions p, float y, float x, out Vector3 surface)
+        {
+            HeadShells(p, out Vector3 skullCenter, out Vector3 skullRadius,
+                       out Vector3 jawCenter, out Vector3 jawRadius);
+
+            bool found = false;
+            float best = 0f;
+            for (int shell = 0; shell < 2; shell++)
+            {
+                Vector3 centre = shell == 0 ? skullCenter : jawCenter;
+                Vector3 radius = shell == 0 ? skullRadius : jawRadius;
+                float u = (x - centre.x) / radius.x;
+                float v = (y - centre.y) / radius.y;
+                float inside = 1f - u * u - v * v;
+                if (inside <= 0f) continue;
+
+                float z = centre.z + radius.z * Mathf.Sqrt(inside);
+                if (!found || z > best)
+                {
+                    best = z;
+                    found = true;
+                }
+            }
+
+            surface = new Vector3(x, y, best);
+            return found;
+        }
+
+        /// <summary>
+        /// A flat mark stuck to the face at (x, y), clear of the skin by <paramref name="lift"/> metres.
+        ///
+        /// The quad keeps its own half-extents and is pushed to the skin's z at its centre, then lifted.
+        /// A tall mark (the protagonist's seam runs a third of a head-length) also has to clear the skin
+        /// at its own top edge, because the head curves toward the camera as it rises; that extra lift
+        /// is measured rather than guessed.
+        /// </summary>
+        private static void AddFaceMark(SkinnedMeshBuilder builder, HumanoidProportions p, float x, float dy,
+                                        float halfWidth, float halfHeight, BoneWeight4 weight, float lift = 0.0004f)
+        {
+            HeadShells(p, out Vector3 skullCenter, out _, out _, out _);
+            float y = skullCenter.y + dy;
+
+            if (!TryFaceSurface(p, y, x, out Vector3 surface)) return;
+
+            // Clear the curve at the top and bottom edges of the quad, not only at its centre.
+            float clearance = 0f;
+            for (int edge = -1; edge <= 1; edge += 2)
+            {
+                if (!TryFaceSurface(p, y + edge * halfHeight, x, out Vector3 edgeSurface)) continue;
+                clearance = Mathf.Max(clearance, edgeSurface.z - surface.z);
+            }
+
+            Vector3 centre = new Vector3(x, y, surface.z + clearance + lift);
+            builder.AddQuad(centre, Vector3.right, Vector3.up, halfWidth, halfHeight, weight);
+        }
+
+
         /// <summary>Bone chains the mesh builder weights against, in the order the tubes are built.</summary>
         public sealed class Weights
         {
@@ -207,34 +291,41 @@ namespace PostSchool.Character
         private static void BuildHeadFace(SkinnedMeshBuilder builder, WeightField field, HumanoidProportions p, FigureRole role)
         {
             BoneWeight4 headWeight = field.Single(HumanoidBones.Head);
-            Vector3 skullCenter = p.RestPosition(HumanoidBones.Head) + new Vector3(0f, p.headLength * 0.52f, 0.004f);
-            float faceZ = p.headRadius * 0.985f;
             float eyeY = p.headLength * 0.06f;
 
             // The face is drawn, not sculpted: flat marks carried as geometry so they survive posing.
+            // Every mark is placed through AddFaceMark, which finds the skin under it --- the skull and
+            // jaw are ellipsoids and their front surface is further forward than the mark height used
+            // to assume, so a mark at a fixed z is buried from the mouth down.
             if (role == FigureRole.Protagonist)
             {
                 // One eye a slit, the other a hollow. Two different ages sharing one face.
-                builder.AddQuad(skullCenter + new Vector3(-0.032f, eyeY, faceZ), Vector3.right, Vector3.up, 0.022f, 0.004f, headWeight, 0.001f);
-                builder.AddEllipsoid(skullCenter + new Vector3(0.034f, eyeY, faceZ - 0.004f), new Vector3(0.016f, 0.012f, 0.008f), 10, 6, _ => headWeight);
+                AddFaceMark(builder, p, -0.032f, eyeY, 0.022f, 0.004f, headWeight);
+                HeadShells(p, out Vector3 protagonistSkull, out _, out _, out _);
+                if (TryFaceSurface(p, protagonistSkull.y + eyeY, 0.034f, out Vector3 hollowAt))
+                {
+                    // The hollow is set a little into the skin on purpose: it reads as a socket, not a lens.
+                    builder.AddEllipsoid(hollowAt + new Vector3(0f, 0f, -0.004f),
+                        new Vector3(0.016f, 0.012f, 0.008f), 10, 6, _ => headWeight);
+                }
 
                 // The seam, and a second line that does not meet it.
-                builder.AddQuad(skullCenter + new Vector3(0.004f, -p.headLength * 0.02f, faceZ), Vector3.right, Vector3.up, 0.0035f, p.headLength * 0.33f, headWeight, 0.001f);
-                builder.AddQuad(skullCenter + new Vector3(0.021f, -p.headLength * 0.17f, faceZ), Vector3.right, Vector3.up, 0.0028f, p.headLength * 0.13f, headWeight, 0.001f);
+                AddFaceMark(builder, p, 0.004f, -p.headLength * 0.02f, 0.0035f, p.headLength * 0.33f, headWeight);
+                AddFaceMark(builder, p, 0.021f, -p.headLength * 0.17f, 0.0028f, p.headLength * 0.13f, headWeight);
 
                 // Mouth: a short line, drawn low so the face reads as long.
-                builder.AddQuad(skullCenter + new Vector3(0.002f, -p.headLength * 0.24f, faceZ * 0.99f), Vector3.right, Vector3.up, 0.019f, 0.003f, headWeight, 0.001f);
+                AddFaceMark(builder, p, 0.002f, -p.headLength * 0.24f, 0.019f, 0.003f, headWeight);
             }
             else if (role == FigureRole.ClassmateQ)
             {
                 // Q's face is almost blank: two level marks and a mouth that is exactly horizontal.
-                builder.AddQuad(skullCenter + new Vector3(-0.03f, eyeY, faceZ), Vector3.right, Vector3.up, 0.018f, 0.003f, headWeight, 0.001f);
-                builder.AddQuad(skullCenter + new Vector3(0.03f, eyeY, faceZ), Vector3.right, Vector3.up, 0.018f, 0.003f, headWeight, 0.001f);
-                builder.AddQuad(skullCenter + new Vector3(0f, -p.headLength * 0.2f, faceZ * 0.99f), Vector3.right, Vector3.up, 0.017f, 0.0025f, headWeight, 0.001f);
+                AddFaceMark(builder, p, -0.03f, eyeY, 0.018f, 0.003f, headWeight);
+                AddFaceMark(builder, p, 0.03f, eyeY, 0.018f, 0.003f, headWeight);
+                AddFaceMark(builder, p, 0f, -p.headLength * 0.2f, 0.017f, 0.0025f, headWeight);
             }
             else
             {
-                BuildTeacherFace(builder, p, skullCenter, faceZ, headWeight);
+                BuildTeacherFace(builder, p, headWeight);
             }
         }
 
@@ -255,7 +346,7 @@ namespace PostSchool.Character
         /// numbers the proof sheet's C panel draws the dashed bands against, so if one of them is
         /// changed here the sheet will show the mark outside its band.
         /// </summary>
-        private static void BuildTeacherFace(SkinnedMeshBuilder builder, HumanoidProportions p, Vector3 skullCenter, float faceZ, BoneWeight4 headWeight)
+        private static void BuildTeacherFace(SkinnedMeshBuilder builder, HumanoidProportions p, BoneWeight4 headWeight)
         {
             float browY = p.headLength * 0.145f;
             float eyeX = p.headRadius * 0.365f;
@@ -265,33 +356,40 @@ namespace PostSchool.Character
             // the jaw shell, so an eye line at 0.52 of face height sits 0.02 head-lengths above centre.
             float eyeY = p.headLength * 0.02f;
 
-            // Brows: one flat, one pulled slightly toward the nose. The asymmetry is 1.5 mm.
-            builder.AddQuad(skullCenter + new Vector3(-eyeX, browY, faceZ * 0.995f), Vector3.right, Vector3.up, eyeHalfWidth * 0.95f, 0.0026f, headWeight, 0.001f);
-            builder.AddQuad(skullCenter + new Vector3(eyeX - 0.0015f, browY + 0.001f, faceZ * 0.995f), Vector3.right, Vector3.up, eyeHalfWidth * 0.9f, 0.0026f, headWeight, 0.001f);
+            // Every mark goes through AddFaceMark: it finds the skull or jaw surface under the mark and
+            // lifts the quad clear of it. Her marks are the ones that needed it most --- the mouth sits
+            // 10 mm behind the jaw shell on a flat plane, so before this her face read as brows and
+            // nothing else.
+            AddFaceMark(builder, p, -eyeX, browY, eyeHalfWidth * 0.95f, 0.0026f, headWeight);
+            AddFaceMark(builder, p, eyeX - 0.0015f, browY + 0.001f, eyeHalfWidth * 0.9f, 0.0026f, headWeight);
 
             // Eyes: a lens and a lower lid. The lid is the tiredness; the lens is the attention.
             for (int side = 0; side < 2; side++)
             {
                 float x = side == 0 ? -eyeX : eyeX;
-                builder.AddEllipsoid(skullCenter + new Vector3(x, eyeY, faceZ * 0.99f),
-                    new Vector3(eyeHalfWidth, p.headLength * 0.019f, 0.006f), 12, 6, _ => headWeight);
-                builder.AddQuad(skullCenter + new Vector3(x, eyeY - p.headLength * 0.031f, faceZ * 0.995f),
-                    Vector3.right, Vector3.up, eyeHalfWidth * 0.92f, 0.0014f, headWeight, 0.001f);
+                HeadShells(p, out Vector3 skullCenter, out _, out _, out _);
+                if (TryFaceSurface(p, skullCenter.y + eyeY, x, out Vector3 lensAt))
+                {
+                    builder.AddEllipsoid(lensAt + new Vector3(0f, 0f, 0.0006f),
+                        new Vector3(eyeHalfWidth, p.headLength * 0.019f, 0.006f), 12, 6, _ => headWeight);
+                }
+
+                AddFaceMark(builder, p, x, eyeY - p.headLength * 0.031f, eyeHalfWidth * 0.92f, 0.0014f, headWeight);
             }
 
             // Nose: a soft base mark, not a wedge. Only what a soft pencil would leave.
-            builder.AddQuad(skullCenter + new Vector3(0.002f, -p.headLength * 0.185f, faceZ * 0.993f), Vector3.right, Vector3.up, p.headRadius * 0.115f, 0.0022f, headWeight, 0.001f);
+            AddFaceMark(builder, p, 0.002f, -p.headLength * 0.185f, p.headRadius * 0.115f, 0.0022f, headWeight);
 
             // Mouth, set 2 mm low on the left so the whole line tilts down toward one corner.
-            builder.AddQuad(skullCenter + new Vector3(0f, -p.headLength * 0.26f, faceZ * 0.99f), Vector3.right, Vector3.up, p.headRadius * 0.20f, 0.0028f, headWeight, 0.001f);
-            builder.AddQuad(skullCenter + new Vector3(p.headRadius * 0.20f, -p.headLength * 0.268f, faceZ * 0.99f), Vector3.right, Vector3.up, 0.0022f, 0.0045f, headWeight, 0.001f);
+            AddFaceMark(builder, p, 0f, -p.headLength * 0.26f, p.headRadius * 0.20f, 0.0028f, headWeight);
+            AddFaceMark(builder, p, p.headRadius * 0.20f, -p.headLength * 0.268f, 0.0022f, 0.0045f, headWeight);
 
             // The two creases from the nose wings down past the mouth corners.
             for (int side = 0; side < 2; side++)
             {
                 float sign = side == 0 ? -1f : 1f;
-                builder.AddQuad(skullCenter + new Vector3(sign * p.headRadius * 0.22f, -p.headLength * 0.225f, faceZ * 0.992f),
-                    Vector3.right, Vector3.up, 0.0012f, p.headLength * 0.055f, headWeight, 0.001f);
+                AddFaceMark(builder, p, sign * p.headRadius * 0.22f, -p.headLength * 0.225f, 0.0012f,
+                    p.headLength * 0.055f, headWeight);
             }
         }
 
@@ -392,6 +490,10 @@ namespace PostSchool.Character
                 string upper = left ? HumanoidBones.UpperArmLeft : HumanoidBones.UpperArmRight;
                 string fore = left ? HumanoidBones.ForearmLeft : HumanoidBones.ForearmRight;
                 string hand = left ? HumanoidBones.HandLeft : HumanoidBones.HandRight;
+                // Both arms used to blend their top ring against Shoulder_Left. On the right arm that
+                // pinned the sleeve to the wrong clavicle, so raising the right shoulder dragged the
+                // left sleeve's cap with it and the right shoulder pinched.
+                string shoulder = left ? HumanoidBones.ShoulderLeft : HumanoidBones.ShoulderRight;
 
                 Vector3 shoulderJoint = p.RestPosition(upper);
                 Vector3 elbow = p.RestPosition(fore);
@@ -408,7 +510,7 @@ namespace PostSchool.Character
                 List<float> radii = new List<float> { 0.05f, 0.045f, 0.041f, 0.036f, 0.031f };
                 List<BoneWeight4> ringWeights = new List<BoneWeight4>
                 {
-                    field.Blend(upper, HumanoidBones.ShoulderLeft, 0.8f, 0.2f),
+                    field.Blend(upper, shoulder, 0.8f, 0.2f),
                     field.Single(upper),
                     field.Blend(upper, fore, 0.5f, 0.5f),
                     field.Single(fore),
@@ -462,14 +564,53 @@ namespace PostSchool.Character
 
             builder.AddTube(skirt, radii, weights, 18, capStart: false, capEnd: false, squashX: 1f, squashZ: 0.8f);
 
-            // The front opening: two narrow bands from the collar down to the hem, just proud of the
-            // cardigan surface, weighted to the spine so they follow a lean.
+            // The front opening. Two bands used to run straight down in parallel, which reads as a
+            // placket on a closed coat. A cardigan is open in a V: the two edges splay apart as they
+            // rise so the shirt shows between them at the collar and closes again at the waist.
             BoneWeight4 bandWeight = field.Single(HumanoidBones.Spine);
             float depth = p.chestDepth + 0.008f;
+            // The lean is the wrong way round if it opens downwards: with leanSign = +1 the edges
+            // converge at the collar and splay at the waist, which is a V standing on its point and reads
+            // as a tailcoat. Only -1 is a cardigan.
+            //
+            // The band geometry is solved rather than eyeballed, because two things about it are easy to
+            // get wrong and neither shows up as an error: where the two edges meet, and whether they
+            // cross below it. The centre and half-length here put the inner-bottom corner of each band
+            // exactly at (0, -0.029) --- the meeting point --- and the outer-top corner at the neckline
+            // (y = 0.135). Because both inner edges run to the same point and stop there, the bands
+            // cannot cross; a slightly longer band would poke through the other side, which is what the
+            // first version did.
+            const float veeAngle = 13f;                 // degrees each edge leans off vertical
+            const float leanSign = -1f;
+            const float bandHalfWidth = 0.009f;
+            const float bandHalfLength = 0.0862f;
             for (int side = 0; side < 2; side++)
             {
-                float x = side == 0 ? -0.026f : 0.026f;
-                builder.AddQuad(spine + new Vector3(x, 0.02f, depth), Vector3.right, Vector3.up, 0.011f, 0.115f, bandWeight, 0.001f);
+                float sign = side == 0 ? -1f : 1f;
+                float radians = veeAngle * Mathf.Deg2Rad * sign * leanSign;
+                Vector3 across = new Vector3(Mathf.Cos(radians), Mathf.Sin(radians), 0f);
+                Vector3 along = new Vector3(-Mathf.Sin(radians), Mathf.Cos(radians), 0f);
+
+                Vector3 bandCentre = spine + new Vector3(sign * 0.0282f, 0.0530f, depth);
+                builder.AddQuad(bandCentre, across, along, bandHalfWidth, bandHalfLength, bandWeight, 0.001f);
+            }
+
+            // The shirt showing through the opening, drawn as three bands that fill the gap and stop
+            // short of the cardigan edges. A single quad cannot follow a V that tapers from 77 mm to
+            // nothing: it either pokes through the cardigan at the bottom or leaves a margin at the top
+            // that makes the whole thing read as a bib patch. Each of these is sized to the gap at its
+            // own bottom edge, which is its narrowest point, so it never crosses the edges.
+            BoneWeight4 shirtWeight = field.Single(HumanoidBones.Chest);
+            (float y, float halfWidth)[] shirtBands =
+            {
+                (0.030f, 0.0096f),   // narrowest gap over the band 0.0233 m, less 2 mm each side
+                (0.052f, 0.0147f),   // 0.0334 m
+                (0.074f, 0.0198f),   // 0.0436 m
+            };
+            foreach ((float y, float halfWidth) in shirtBands)
+            {
+                builder.AddQuad(spine + new Vector3(0f, y, depth - 0.002f), Vector3.right, Vector3.up,
+                    halfWidth, 0.0108f, shirtWeight);
             }
 
             // Knit ribs: three shallow ridges across the back of the hem, where a cardigan pulls.

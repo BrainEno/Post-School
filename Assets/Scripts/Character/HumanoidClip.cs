@@ -116,6 +116,9 @@ namespace PostSchool.Character
         public const string WakeName = "WakeFromDesk";
         public const string IdleName = "StandingIdle";
         public const string QIdleName = "ClassmateIdle";
+        public const string QTurnName = "ClassmateTurnBeat";
+        public const string QAwayName = "ClassmateAwayBeat";
+        public const string QGlanceName = "ClassmateGlanceBeat";
         public const string WalkName = "WalkCycle";
         public const string TeacherIdleName = "TeacherAtPodiumIdle";
         public const string FallName = "FallFromTheCurtain";
@@ -175,6 +178,61 @@ namespace PostSchool.Character
                 .Add(4.75f, other)
                 .Add(6.9f, other)
                 .Add(7.05f, rest);
+        }
+
+        /// <summary>
+        /// The beat played when Q is addressed: he turns to the protagonist and settles, eases back out.
+        /// Non-looping, and short --- 1.4 s against nodes that take several seconds to read, so the room
+        /// is already moving again before the player finishes the line.
+        /// </summary>
+        public static HumanoidClip ClassmateTurnBeat()
+        {
+            HumanoidPose rest = HumanoidPoses.ClassmateStill();
+            HumanoidPose turned = HumanoidPoses.ClassmateTurnsToYou();
+
+            return new HumanoidClip(QTurnName, loops: false)
+                .Add(0f, rest)
+                .Add(0.45f, turned)
+                .Add(0.95f, turned.Clone().With(HumanoidBones.Head, new Vector3(-3f, 2f, 2f)))
+                .Add(1.4f, rest);
+        }
+
+        /// <summary>
+        /// The beat for the lines Q recites rather than says: he turns back to the front and looks off to
+        /// one side. Slower than the turn-to-you, because looking away is the less urgent of the two.
+        /// </summary>
+        public static HumanoidClip ClassmateAwayBeat()
+        {
+            HumanoidPose rest = HumanoidPoses.ClassmateStill();
+            HumanoidPose away = HumanoidPoses.ClassmateTurnsAway();
+
+            return new HumanoidClip(QAwayName, loops: false)
+                .Add(0f, rest)
+                .Add(0.6f, away)
+                .Add(1.6f, away.Clone().With(HumanoidBones.Head, new Vector3(-7f, -20f, 3f)))
+                .Add(2.0f, rest);
+        }
+
+        /// <summary>
+        /// Q looking at something in the room, and then back to the protagonist.
+        ///
+        /// This exists because the prologue states the glance in text --- "Q looks at the set square on
+        /// the podium" --- and nothing in the scene performed it. A line that describes a movement is
+        /// not the movement, so the beat is here.
+        /// </summary>
+        /// <param name="yawDegrees">Signed turn needed to face the target, degrees, in Unity's yaw
+        /// convention (positive is clockwise seen from above).</param>
+        public static HumanoidClip ClassmateGlanceBeat(float yawDegrees)
+        {
+            HumanoidPose rest = HumanoidPoses.ClassmateStill();
+            HumanoidPose glance = HumanoidPoses.ClassmateGlance(yawDegrees, -8f);
+            HumanoidPose settle = HumanoidPoses.ClassmateGlance(yawDegrees * 0.92f, -4f);
+
+            return new HumanoidClip(QGlanceName, loops: false)
+                .Add(0f, rest)
+                .Add(0.55f, glance)
+                .Add(1.45f, settle)
+                .Add(2.15f, rest);
         }
 
         /// <summary>
@@ -344,6 +402,7 @@ namespace PostSchool.Character
             return new[]
             {
                 WakeFromDesk(), StandingIdle(), ClassmateIdle(), ClassmateWalk(), TeacherAtPodiumIdle(),
+                ClassmateTurnBeat(), ClassmateAwayBeat(), ClassmateGlanceBeat(-75f),
                 FallFromTheCurtain(6.4f), CrashLanding(6.4f),
             };
         }
