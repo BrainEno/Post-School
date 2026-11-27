@@ -20,6 +20,22 @@ namespace PostSchool.World
         Accent,
         Paper,
         Shadow,
+
+        // Outside the missing front wall.
+        DuskSkyHigh,
+        DuskSkyLow,
+        DuskHaze,
+        Building,
+        BuildingNear,
+        BuildingFar,
+        WindowLit,
+        Street,
+        ContainerBlue,
+        ContainerBlueShadow,
+        Laundry,
+        LaundryWarm,
+        Curtain,
+        CurtainFold,
     }
 
     /// <summary>Receives every building step, so the scene owner decides how surfaces are made.</summary>
@@ -46,6 +62,9 @@ namespace PostSchool.World
 
         /// <summary>Named children the scene owner may need to look up. Keep in sync with the builders.</summary>
         public const string WakeDeskName = "Protagonist Desk (front, isolated)";
+
+        /// <summary>The floor-to-ceiling curtain that stands where the front wall should be.</summary>
+        public const string FrontCurtainName = "Front Curtain (the missing wall)";
         public const string ExitDoorId = "door_front_exit";
 
         /// <summary>Builds the whole classroom under a fresh root and returns it.</summary>
@@ -62,6 +81,7 @@ namespace PostSchool.World
             root.transform.SetParent(parent, false);
 
             BuildShell(root.transform, layout, surfaces);
+            BuildFrontCurtain(root.transform, layout, surfaces);
             BuildFloorDressing(root.transform, layout, surfaces);
             BuildBlackboardWall(root.transform, layout, surfaces);
             BuildPodium(root.transform, layout, surfaces);
@@ -69,6 +89,7 @@ namespace PostSchool.World
             BuildWakeDesk(root.transform, layout, surfaces);
             BuildCeiling(root.transform, layout, surfaces);
             BuildAnnotations(root.transform, layout, surfaces);
+            DuskCityBuilder.Build(layout, surfaces, root.transform);
             BuildCollision(root.transform, layout);
             return root;
         }
@@ -101,10 +122,76 @@ namespace PostSchool.World
             shell.SetParent(root, false);
 
             BuildWall(shell, layout, "back", surfaces);
-            BuildWall(shell, layout, "front", surfaces);
+            // No front wall: the exit side is a full-drop curtain with the street behind it.
             BuildWall(shell, layout, "west", surfaces);
             BuildWall(shell, layout, "east", surfaces);
             BuildCorners(shell, layout, surfaces);
+        }
+
+        /// <summary>
+        /// The front wall, which is a curtain. It hangs from a rail at the ceiling down to the floor and
+        /// is the only thing between the room and the street: one wide drop with vertical folds, with the
+        /// exit door left as a gap so the way out stays legible.
+        ///
+        /// Named <see cref="FrontCurtainName"/> because it is the scene's one controllable object: the
+        /// interaction layer slides and raises it.
+        /// </summary>
+        private static void BuildFrontCurtain(Transform root, ClassroomLayout layout, IClassroomSurfaceProvider surfaces)
+        {
+            CurtainWall curtain = layout.frontWall;
+            RoomDimensions room = layout.room;
+            Material cloth = surfaces.Surface(SurfaceRole.Curtain);
+            Material fold = surfaces.Surface(SurfaceRole.CurtainFold);
+            Material rail = surfaces.Surface(SurfaceRole.Metal);
+
+            Transform group = new GameObject(FrontCurtainName).transform;
+            group.SetParent(root, false);
+            group.localPosition = Vector3.zero;
+
+            float z = room.MinZ - room.wallThickness * 0.5f;
+            float top = curtain.curtainTop;
+            float bottom = curtain.curtainBottom;
+            float height = top - bottom;
+            float centerY = bottom + height * 0.5f;
+
+            Part(group, "Rail", PrimitiveType.Cylinder,
+                new Vector3(room.MinX + room.width * 0.5f, top + 0.06f, z + 0.12f),
+                new Vector3(0.07f, room.width * 0.5f, 0.07f), rail, new Vector3(0f, 0f, 90f));
+
+            int folds = 26;
+            float span = Mathf.Min(curtain.curtainWidth, room.width);
+            float fromX = room.MinX + curtain.curtainCenterAlong - span * 0.5f;
+
+            for (int i = 0; i < folds; i++)
+            {
+                float t = (i + 0.5f) / folds;
+                float x = fromX + span * t;
+
+                // Folds alternate depth and shade: a curtain is a corrugated surface, and shading it with
+                // two flat materials is both cheaper and flatter than a normal map.
+                float depth = (i % 2 == 0) ? 0.16f : 0.06f;
+                Material material = (i % 2 == 0) ? cloth : fold;
+
+                Part(group, "Fold " + i, PrimitiveType.Cube,
+                    new Vector3(x, centerY, z + depth * 0.5f),
+                    new Vector3(span / folds * 1.06f, height, depth), material);
+            }
+
+            Part(group, "Hem", PrimitiveType.Cube, new Vector3(fromX + span * 0.5f, bottom + 0.09f, z + 0.1f),
+                new Vector3(span, 0.18f, 0.2f), fold);
+            Part(group, "Header", PrimitiveType.Cube, new Vector3(fromX + span * 0.5f, top - 0.1f, z + 0.1f),
+                new Vector3(span, 0.2f, 0.2f), fold);
+
+            // The exit door still exists behind the curtain; its gap is what makes the drop read as a
+            // doorway rather than a painted wall.
+            foreach (WallOpening door in layout.doors)
+            {
+                if (door.wall != "front") continue;
+                float doorX = room.MinX + door.centerAlong;
+                Part(group, "Door Gap", PrimitiveType.Cube,
+                    new Vector3(doorX, door.height * 0.5f, z + 0.02f),
+                    new Vector3(door.width, door.height, 0.02f), surfaces.Surface(SurfaceRole.Ink));
+            }
         }
 
         /// <summary>
@@ -323,6 +410,47 @@ namespace PostSchool.World
             Part(group, "Sill Rail", PrimitiveType.Cube, new Vector3(0f, window.sillHeight + 0.03f, 0.07f), new Vector3(w + 0.16f, 0.06f, 0.26f), frame);
             Part(group, "Transom", PrimitiveType.Cube, new Vector3(0f, head - h * 0.32f, 0f), new Vector3(w - 0.1f, 0.05f, 0.1f), frame);
             Part(group, "Mullion", PrimitiveType.Cube, new Vector3(0f, midY, 0f), new Vector3(0.05f, h - 0.1f, 0.1f), frame);
+
+            if (window.HasCurtain)
+            {
+                BuildFullDropCurtain(group, layout, window, surfaces);
+            }
+        }
+
+        /// <summary>
+        /// A covered window: a curtain hung from the ceiling to the floor, wider than the opening. Same
+        /// language as the front wall's drop, so the room reads as one decision repeated twice, and the
+        /// covered window becomes the clue for the wall that is missing.
+        /// </summary>
+        private static void BuildFullDropCurtain(Transform window, ClassroomLayout layout, WallOpening opening, IClassroomSurfaceProvider surfaces)
+        {
+            Material cloth = surfaces.Surface(SurfaceRole.Curtain);
+            Material fold = surfaces.Surface(SurfaceRole.CurtainFold);
+            Material rail = surfaces.Surface(SurfaceRole.Metal);
+
+            float top = layout.frontWall.curtainTop;
+            float bottom = layout.frontWall.curtainBottom;
+            float height = top - bottom;
+            float span = opening.width + 0.9f;
+
+            Part(window, "Curtain Rail", PrimitiveType.Cylinder,
+                new Vector3(0f, top + 0.04f, 0.2f), new Vector3(0.055f, span * 0.5f, 0.055f), rail,
+                new Vector3(0f, 0f, 90f));
+
+            int folds = 9;
+            for (int i = 0; i < folds; i++)
+            {
+                float t = (i + 0.5f) / folds;
+                float x = -span * 0.5f + span * t;
+                float depth = (i % 2 == 0) ? 0.13f : 0.05f;
+                Part(window, "Curtain Fold " + i, PrimitiveType.Cube,
+                    new Vector3(x, bottom + height * 0.5f, 0.2f + depth * 0.5f),
+                    new Vector3(span / folds * 1.08f, height, depth),
+                    (i % 2 == 0) ? cloth : fold);
+            }
+
+            Part(window, "Curtain Hem", PrimitiveType.Cube,
+                new Vector3(0f, bottom + 0.06f, 0.24f), new Vector3(span, 0.12f, 0.18f), fold);
         }
 
         private static void BuildFloorDressing(Transform root, ClassroomLayout layout, IClassroomSurfaceProvider surfaces)
@@ -670,10 +798,22 @@ namespace PostSchool.World
             Box("Floor Collider", collision, new Vector3(0f, -0.4f, room.centerZ), new Vector3(room.width + 2f, 0.8f, room.depth + 2f), null);
             Box("Ceiling Collider", collision, new Vector3(0f, room.height + 0.4f, room.centerZ), new Vector3(room.width + 2f, 0.8f, room.depth + 2f), null);
 
-            foreach (string wall in new[] { "back", "front", "west", "east" })
-            {
-                AddWallColliders(collision, layout, wall);
-            }
+            // No collider on the front: the room is open onto the street by design. The side walls stop
+            // at the front edge, so the exit behaves like an opening and not like a walled corner.
+            AddWallColliders(collision, layout, "back");
+            AddWallColliders(collision, layout, "west");
+            AddWallColliders(collision, layout, "east");
+
+            // Outside: the street, and the container's lid. Without these the one branch where the
+            // protagonist survives ends with them falling a second time, through the street.
+            FallZone fall = layout.fall;
+            Box("Street Collider", collision,
+                new Vector3(0f, fall.groundY - 0.5f, fall.streetCenterZ),
+                new Vector3(60f, 1f, fall.streetWidth + 24f), null);
+
+            Box("Container Collider", collision,
+                new Vector3(fall.containerCenterX, fall.groundY + fall.containerHeight * 0.5f, fall.containerCenterZ),
+                new Vector3(fall.containerWidth, fall.containerHeight, fall.containerLength), null);
         }
 
         private static void AddWallColliders(Transform collision, ClassroomLayout layout, string wall)

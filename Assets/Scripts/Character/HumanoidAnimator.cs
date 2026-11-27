@@ -109,6 +109,28 @@ namespace PostSchool.Character
         /// <summary>The figure's authored position; poses offset from here.</summary>
         public Vector3 BasePosition { get; private set; }
 
+        /// <summary>
+        /// Puts the figure at a world position and treats that as its new base, so the current pose keeps
+        /// its offset. Used by the curtain fall, which moves the body through the air between keys: a
+        /// caller that moved the transform instead would leave <see cref="BasePosition"/> behind and the
+        /// pose would snap back on the next frame.
+        /// </summary>
+        public void PlaceAt(Vector3 worldPosition)
+        {
+            if (_figure == null) return;
+
+            // The figure hangs off its parent (the character controller); take the move in parent space.
+            Transform parent = _figure.Root.parent;
+            Vector3 local = parent != null ? parent.InverseTransformPoint(worldPosition) : worldPosition;
+
+            BasePosition = local;
+            _baseHeightCaptured = true;
+
+            // Re-apply the sampled offset so the body does not jump to the feet-on-floor pose mid-air.
+            HumanoidPose pose = _current != null ? _current.Sample(_currentTime, linear: false) : null;
+            _figure.Root.localPosition = local + (pose != null ? pose.RootOffset : Vector3.zero);
+        }
+
         private bool _baseHeightCaptured;
 
         private void Update()

@@ -52,11 +52,41 @@ namespace PostSchool.World
                 case SurfaceRole.Accent: color = ClassroomArtPalette.AccentBlue; smoothness = 0.08f; break;
                 case SurfaceRole.Paper: color = ClassroomArtPalette.Paper; smoothness = 0.03f; break;
                 case SurfaceRole.Shadow: color = ClassroomArtPalette.Ink; smoothness = 0f; break;
+                case SurfaceRole.DuskSkyHigh: color = ClassroomArtPalette.DuskSkyHigh; smoothness = 0f; break;
+                case SurfaceRole.DuskSkyLow: color = ClassroomArtPalette.DuskSkyLow; smoothness = 0f; break;
+                case SurfaceRole.DuskHaze: color = ClassroomArtPalette.DuskHaze; smoothness = 0f; break;
+                case SurfaceRole.Building: color = ClassroomArtPalette.Building; smoothness = 0.02f; break;
+                case SurfaceRole.BuildingNear: color = ClassroomArtPalette.BuildingNear; smoothness = 0.02f; break;
+                case SurfaceRole.BuildingFar: color = ClassroomArtPalette.BuildingFar; smoothness = 0.02f; break;
+                case SurfaceRole.WindowLit: color = ClassroomArtPalette.WindowLit; smoothness = 0.1f; break;
+                case SurfaceRole.Street: color = ClassroomArtPalette.Street; smoothness = 0.03f; break;
+                case SurfaceRole.ContainerBlue: color = ClassroomArtPalette.ContainerBlue; smoothness = 0.22f; break;
+                case SurfaceRole.ContainerBlueShadow: color = ClassroomArtPalette.ContainerBlueShadow; smoothness = 0.22f; break;
+                case SurfaceRole.Laundry: color = ClassroomArtPalette.Laundry; smoothness = 0.02f; break;
+                case SurfaceRole.LaundryWarm: color = ClassroomArtPalette.LaundryWarm; smoothness = 0.02f; break;
+                case SurfaceRole.Curtain: color = ClassroomArtPalette.Curtain; smoothness = 0.02f; break;
+                case SurfaceRole.CurtainFold: color = ClassroomArtPalette.CurtainFold; smoothness = 0.02f; break;
                 default: throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown surface role.");
             }
 
             Material material = Create("Surface " + role, color, smoothness, 0f);
             _surfaces[role] = material;
+            return material;
+        }
+
+        /// <summary>Emissive version of a surface, for lit windows in the street and the sky's low band.</summary>
+        public Material Glow(SurfaceRole role, float strength = 1f)
+        {
+            Color color;
+            switch (role)
+            {
+                case SurfaceRole.WindowLit: color = ClassroomArtPalette.WindowLit; break;
+                case SurfaceRole.DuskSkyLow: color = ClassroomArtPalette.DuskSkyLow; break;
+                case SurfaceRole.DuskHaze: color = ClassroomArtPalette.DuskHaze; break;
+                default: color = ClassroomArtPalette.Chalk; break;
+            }
+
+            Material material = Create("Glow " + role, color, 0f, Mathf.Max(0.05f, strength));
             return material;
         }
 

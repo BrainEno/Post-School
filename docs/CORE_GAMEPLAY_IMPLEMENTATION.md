@@ -44,6 +44,14 @@
 
 新增静态验收：`tools/check_unity_project.py` 增加 `check_classroom_layout`，把 `ClassroomLayout.Validate` 的规则（24 座、2 窗、2 门、开口不出墙不入角、门不撞黑板与主角桌、主角桌前 0.70 m 站位）在 CI 里复算一遍；`docs/images/classroom-plan-proof.js` 从同一 JSON 画平面与正立面，供人眼复核。完整说明见 `docs/CLASSROOM_ART.md`。
 
+## 幕布、缺失的前墙与门外六米（本次追加）
+
+教室的前墙**不再是一面墙**：`frontWall.exists = false`，整面由一幅 10.6 m 宽、3.42 m 高、垂到地面的幕布（`ClassroomBuilder.BuildFrontCurtain`，26 折）代替，`BuildCollision` 只给后/西/东三面墙加碰撞。幕布是可交互物品（propId `front_curtain`），由 `CurtainScene` 驱动：**先观察（感知 ≥ 2）**或**直接走出去（体魄 ≥ 4）**；观察过后体魄阈值降到 3，代价是按 `8% + (感知−1)×10%` 的概率腿软，腿软仍落在集装箱上但是摔的。门外是 `DuskCityBuilder` 生成的黄昏街道（六条天空色带、落日、五栋楼、晾衣绳 8 件、蓝色集装箱 6 × 12 × 2 m），教室地面在街面上方 4.2 m，**落差 5.7 m**。
+
+两扇窗按 `treatment` 区分：`window_west_north`（沿墙 11.0）是裸窗，看得到黄昏和别人的晾衣绳；`window_west_south`（沿墙 7.0）被同一块布遮住，同样垂到地面——遮住的窗是缺失墙的伏笔。这条解释（"前"取出口侧）若与作者本意不同，只需改这两个字符串。
+
+判定规则在 `World/CurtainFallRules.cs`（纯函数，注入随机委托），CI 侧新增 11 条前墙/落差/晾衣绳规则；离线校样 `docs/images/curtain-scene-proof.png` 由 `tools/curtain_scene_proof.py` 从同一 JSON 画出，**第一次运行就抓出"落差被算成 0.9 m"的真实缺陷**。仍未运行：Unity 编译、EditMode/PlayMode、实际观感。
+
 ## 已知限制
 
 - 属性上限 5 和确定性阈值比较只是原型；没有随机检定、技能树或属性描述文案。
