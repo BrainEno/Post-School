@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import check_unity_project as checker  # noqa: E402
 
-LAYOUT = json.loads((ROOT / checker.CLASSROOM_LAYOUT_FILE).read_text())
+LAYOUT = json.loads((ROOT / checker.CLASSROOM_LAYOUT_FILE).read_text(encoding="utf-8"))
 
 GUID_A = "0123456789abcdef0123456789abcdef"
 GUID_B = "fedcba9876543210fedcba9876543210"

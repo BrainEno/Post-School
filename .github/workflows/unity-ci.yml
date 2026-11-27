@@ -1,8 +1,7 @@
 name: Unity CI
 
-# Public pull requests run only the unprivileged static checks on GitHub-hosted runners.
-# The Unity Editor job runs on the owner's Windows machine only for trusted main pushes
-# and manual dispatches; never execute untrusted fork PR code on a self-hosted runner.
+# Every PR gets unprivileged static checks on GitHub-hosted runners.
+# Same-repository PRs may also use the owner's Windows Unity runner; external forks may not.
 
 on:
   push:
@@ -43,10 +42,8 @@ jobs:
     name: EditMode tests (local Windows Unity 6000.3.29f1)
     env:
       unityVersion: 6000.3.29f1
-    # Self-hosted runners in public repositories must never run code from pull requests.
-    # PRs still receive the static checks above; Unity tests run after trusted main pushes
-    # or when manually dispatched by the repository owner.
-    if: github.event_name != 'pull_request'
+    # Only trusted same-repository PRs may reach the owner-managed runner.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     needs: static-checks
     runs-on: [self-hosted, windows, x64, post-school-unity]
     timeout-minutes: 90
