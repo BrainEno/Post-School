@@ -59,12 +59,10 @@ namespace PostSchool.Character
             BuildHeadHair(builder, field, proportions, role);
 
             builder.BeginSurface(CharacterSurface.Coat);
-            BuildTorsoCoat(builder, field, proportions);
+            BuildTorsoCoat(builder, field, proportions, role);
             BuildLegsTrousers(builder, field, proportions);
             BuildArmsCoat(builder, field, proportions);
-            if (role == FigureRole.Protagonist) BuildCoatSkirt(builder, field, proportions);
-            if (role == FigureRole.Protagonist) BuildBag(builder, field, proportions);
-            if (role == FigureRole.Protagonist) BuildSleeveBand(builder, field, proportions);
+            BuildClothDetails(builder, field, proportions, role);
 
             // The last slot carries the drawn marks (face and collar). It shares the shirt material
             // because both are the figure's brightest surface, and marks must read as ink on paper.
@@ -155,11 +153,42 @@ namespace PostSchool.Character
             Vector3 hairCenter = skullCenter + new Vector3(0f, p.headLength * 0.07f, -0.006f);
 
             // Hair shell, flatter and wider than the skull so the outline reads as a cut shape.
-            builder.AddEllipsoid(hairCenter, new Vector3(p.headRadius * 1.09f, p.headLength * 0.47f, p.headRadius * 1.1f), 18, 10, _ => headWeight);
+            // N's is a cropped bob: the shell is the same idea but pulled back off the brow and cut
+            // above the jaw, so the skull, the ears and the jaw all stay visible. A bob that covers the
+            // ears reads as a helmet, which is the failure mode a bare ellipsoid shell falls into.
+            bool bob = role == FigureRole.TeacherN;
+            if (bob)
+            {
+                // The bob's shell is pulled back off the brow, but it still has to come over the
+                // crown: at 0.44 head-lengths of vertical radius it stopped 1 cm below the top of the
+                // skull and the head read as bald from every angle. 0.47 with the same lift clears the
+                // crown by 2.5 cm, which is a haircut rather than a helmet.
+                builder.AddEllipsoid(hairCenter + new Vector3(0f, 0f, -p.headRadius * 0.035f),
+                    new Vector3(p.headRadius * 1.1f, p.headLength * 0.47f, p.headRadius * 1.12f), 18, 10, _ => headWeight);
+            }
+            else
+            {
+                builder.AddEllipsoid(hairCenter, new Vector3(p.headRadius * 1.09f, p.headLength * 0.47f, p.headRadius * 1.1f), 18, 10, _ => headWeight);
+            }
 
             // Fringe: two slabs at the brow, one longer than the other. The asymmetry is the point.
             builder.AddQuad(skullCenter + new Vector3(0.014f, p.headLength * 0.28f, p.headRadius * 0.95f), Vector3.right, Vector3.up, 0.054f, 0.026f, headWeight, 0.002f);
             builder.AddQuad(skullCenter + new Vector3(-0.032f, p.headLength * 0.33f, p.headRadius * 0.92f), Vector3.right, Vector3.up, 0.038f, 0.034f, headWeight, 0.002f);
+
+            if (bob)
+            {
+                // The cut: a straight line of hair across the back of the jaw, plus a side panel each
+                // side that stops above the ear. Two cut edges are what make it read as scissors rather
+                // than as growth.
+                builder.AddQuad(hairCenter + new Vector3(0f, -p.headLength * 0.30f, -p.headRadius * 0.96f),
+                    Vector3.right, Vector3.up, p.headRadius * 0.82f, 0.006f, headWeight, 0.001f);
+                for (int side = 0; side < 2; side++)
+                {
+                    float sign = side == 0 ? -1f : 1f;
+                    builder.AddQuad(hairCenter + new Vector3(sign * p.headRadius * 0.93f, -p.headLength * 0.02f, -p.headRadius * 0.18f),
+                        Vector3.forward, Vector3.up, p.headRadius * 0.42f, 0.005f, headWeight, 0.001f);
+                }
+            }
 
             if (role == FigureRole.Protagonist)
             {
@@ -168,7 +197,7 @@ namespace PostSchool.Character
                 builder.AddBox(hairCenter + new Vector3(0.062f, p.headLength * 0.24f, -0.01f), new Vector3(0.016f, 0.05f, 0.016f), headWeight);
                 builder.AddBox(hairCenter + new Vector3(-0.03f, p.headLength * 0.28f, -0.03f), new Vector3(0.014f, 0.04f, 0.014f), headWeight);
             }
-            else
+            else if (role == FigureRole.ClassmateQ)
             {
                 // Q's hair is combed flat and too neat: it is the only tidy thing about them.
                 builder.AddQuad(skullCenter + new Vector3(0f, p.headLength * 0.34f, p.headRadius * 0.7f), Vector3.right, Vector3.up, 0.06f, 0.02f, headWeight, 0.003f);
@@ -196,18 +225,80 @@ namespace PostSchool.Character
                 // Mouth: a short line, drawn low so the face reads as long.
                 builder.AddQuad(skullCenter + new Vector3(0.002f, -p.headLength * 0.24f, faceZ * 0.99f), Vector3.right, Vector3.up, 0.019f, 0.003f, headWeight, 0.001f);
             }
-            else
+            else if (role == FigureRole.ClassmateQ)
             {
                 // Q's face is almost blank: two level marks and a mouth that is exactly horizontal.
                 builder.AddQuad(skullCenter + new Vector3(-0.03f, eyeY, faceZ), Vector3.right, Vector3.up, 0.018f, 0.003f, headWeight, 0.001f);
                 builder.AddQuad(skullCenter + new Vector3(0.03f, eyeY, faceZ), Vector3.right, Vector3.up, 0.018f, 0.003f, headWeight, 0.001f);
                 builder.AddQuad(skullCenter + new Vector3(0f, -p.headLength * 0.2f, faceZ * 0.99f), Vector3.right, Vector3.up, 0.017f, 0.0025f, headWeight, 0.001f);
             }
+            else
+            {
+                BuildTeacherFace(builder, p, skullCenter, faceZ, headWeight);
+            }
         }
+
+        /// <summary>
+        /// N's face. The standard this house holds faces to is that a resting expression is carried by
+        /// shape — a brow line, a lid, a mouth corner, a jaw — and not by a blank surface with two
+        /// marks on it. She is the first figure here to get all four:
+        ///
+        ///   - brows lower than the hairline and asymmetric by 1.5 mm, one of them pulled in;
+        ///   - eyes slightly narrowed, with a lower lid under each, because she is tired;
+        ///   - a mouth whose right corner turns down 2 mm — the "am I actually in charge here" mouth;
+        ///   - the two soft creases from the nose to the mouth corners that make an adult read as adult
+        ///     without drawing a single wrinkle.
+        ///
+        /// Measured against the model standard's face bands (chin 0 to crown 1): eye line 0.52 of head
+        /// length, which is inside the 0.47-0.53 band; nose base 0.315, inside 0.30-0.36; mouth line
+        /// 0.24, below the nose; each eye 0.40 of head radius wide, 0.20 of the face. Those are the
+        /// numbers the proof sheet's C panel draws the dashed bands against, so if one of them is
+        /// changed here the sheet will show the mark outside its band.
+        /// </summary>
+        private static void BuildTeacherFace(SkinnedMeshBuilder builder, HumanoidProportions p, Vector3 skullCenter, float faceZ, BoneWeight4 headWeight)
+        {
+            float browY = p.headLength * 0.145f;
+            float eyeX = p.headRadius * 0.365f;
+            float eyeHalfWidth = p.headRadius * 0.20f;
+
+            // The skull centre is 0.52 head-lengths above the head bone and the chin is the bottom of
+            // the jaw shell, so an eye line at 0.52 of face height sits 0.02 head-lengths above centre.
+            float eyeY = p.headLength * 0.02f;
+
+            // Brows: one flat, one pulled slightly toward the nose. The asymmetry is 1.5 mm.
+            builder.AddQuad(skullCenter + new Vector3(-eyeX, browY, faceZ * 0.995f), Vector3.right, Vector3.up, eyeHalfWidth * 0.95f, 0.0026f, headWeight, 0.001f);
+            builder.AddQuad(skullCenter + new Vector3(eyeX - 0.0015f, browY + 0.001f, faceZ * 0.995f), Vector3.right, Vector3.up, eyeHalfWidth * 0.9f, 0.0026f, headWeight, 0.001f);
+
+            // Eyes: a lens and a lower lid. The lid is the tiredness; the lens is the attention.
+            for (int side = 0; side < 2; side++)
+            {
+                float x = side == 0 ? -eyeX : eyeX;
+                builder.AddEllipsoid(skullCenter + new Vector3(x, eyeY, faceZ * 0.99f),
+                    new Vector3(eyeHalfWidth, p.headLength * 0.019f, 0.006f), 12, 6, _ => headWeight);
+                builder.AddQuad(skullCenter + new Vector3(x, eyeY - p.headLength * 0.031f, faceZ * 0.995f),
+                    Vector3.right, Vector3.up, eyeHalfWidth * 0.92f, 0.0014f, headWeight, 0.001f);
+            }
+
+            // Nose: a soft base mark, not a wedge. Only what a soft pencil would leave.
+            builder.AddQuad(skullCenter + new Vector3(0.002f, -p.headLength * 0.185f, faceZ * 0.993f), Vector3.right, Vector3.up, p.headRadius * 0.115f, 0.0022f, headWeight, 0.001f);
+
+            // Mouth, set 2 mm low on the left so the whole line tilts down toward one corner.
+            builder.AddQuad(skullCenter + new Vector3(0f, -p.headLength * 0.26f, faceZ * 0.99f), Vector3.right, Vector3.up, p.headRadius * 0.20f, 0.0028f, headWeight, 0.001f);
+            builder.AddQuad(skullCenter + new Vector3(p.headRadius * 0.20f, -p.headLength * 0.268f, faceZ * 0.99f), Vector3.right, Vector3.up, 0.0022f, 0.0045f, headWeight, 0.001f);
+
+            // The two creases from the nose wings down past the mouth corners.
+            for (int side = 0; side < 2; side++)
+            {
+                float sign = side == 0 ? -1f : 1f;
+                builder.AddQuad(skullCenter + new Vector3(sign * p.headRadius * 0.22f, -p.headLength * 0.225f, faceZ * 0.992f),
+                    Vector3.right, Vector3.up, 0.0012f, p.headLength * 0.055f, headWeight, 0.001f);
+            }
+        }
+
 
         // -------------------------------------------------------------- coat / trousers
 
-        private static void BuildTorsoCoat(SkinnedMeshBuilder builder, WeightField field, HumanoidProportions p)
+        private static void BuildTorsoCoat(SkinnedMeshBuilder builder, WeightField field, HumanoidProportions p, FigureRole role)
         {
             Vector3 hips = p.RestPosition(HumanoidBones.Hips);
             Vector3 spine = p.RestPosition(HumanoidBones.Spine);
@@ -223,7 +314,15 @@ namespace PostSchool.Character
                 Vector3.Lerp(chest, neck, 0.5f),
                 neck,
             };
-            List<float> radii = new List<float> { 0.112f, 0.116f, 0.126f, 0.112f, 0.06f };
+            // The torso rings: hips, waist, chest, above the chest, neck. The students wear loose
+            // school clothes, so their torso is nearly a cylinder. N's knit cardigan hangs off narrow
+            // shoulders and opens out over the hips, so her rings pinch at the waist and flare at the
+            // hem — the pear silhouette the teacher is supposed to have, made of five numbers instead
+            // of a scaled copy of the protagonist.
+            bool cardigan = role == FigureRole.TeacherN;
+            List<float> radii = cardigan
+                ? new List<float> { 0.134f, 0.104f, 0.116f, 0.104f, 0.056f }
+                : new List<float> { 0.112f, 0.116f, 0.126f, 0.112f, 0.06f };
             List<BoneWeight4> ringWeights = new List<BoneWeight4>
             {
                 field.Blend(HumanoidBones.Hips, HumanoidBones.Spine, 0.7f, 0.3f),
@@ -237,12 +336,14 @@ namespace PostSchool.Character
             builder.AddTube(spineLine, radii, ringWeights, 16, capStart: true, capEnd: true, squashX: 1f, squashZ: depth / 0.115f);
 
             // Shoulder caps, weighted to the clavicles so the sleeves never separate from the body.
+            // N's caps are smaller: a cardigan shoulder sits on the joint, it does not pad it.
+            float capRadius = cardigan ? 0.046f : 0.056f;
             for (int side = 0; side < 2; side++)
             {
                 string shoulder = side == 0 ? HumanoidBones.ShoulderLeft : HumanoidBones.ShoulderRight;
                 Vector3 at = p.RestPosition(shoulder);
                 BoneWeight4 weight = field.Blend(shoulder, HumanoidBones.Chest, 0.75f, 0.25f);
-                builder.AddEllipsoid(at + new Vector3(0f, 0.004f, 0f), new Vector3(0.056f, 0.05f, 0.056f), 10, 6, _ => weight);
+                builder.AddEllipsoid(at + new Vector3(0f, 0.004f, 0f), new Vector3(capRadius, capRadius * 0.9f, capRadius), 10, 6, _ => weight);
             }
         }
 
@@ -318,6 +419,91 @@ namespace PostSchool.Character
             }
         }
 
+        /// <summary>
+        /// The cloth that is not a torso and not a sleeve: who wears a coat tail, who carries a bag,
+        /// who has a sleeve band. One switch so a fourth figure is a case, not a new if in three places.
+        /// </summary>
+        private static void BuildClothDetails(SkinnedMeshBuilder builder, WeightField field, HumanoidProportions p, FigureRole role)
+        {
+            switch (role)
+            {
+                case FigureRole.Protagonist:
+                    BuildCoatSkirt(builder, field, p);
+                    BuildBag(builder, field, p);
+                    BuildSleeveBand(builder, field, p);
+                    break;
+                case FigureRole.TeacherN:
+                    BuildCardiganHem(builder, field, p);
+                    BuildCardiganCuffs(builder, field, p);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// The cardigan, below the belt: a hem-weighted panel that flares and stops at the top of the
+        /// thigh, a knitted rib drawn across it, and the ribbed band running up the front where the
+        /// cardigan is open over the shirt. It hangs from the hips with a little spine so it moves when
+        /// she leans on the podium, and it deliberately does not reach the knee — a cardigan, not a coat.
+        /// </summary>
+        private static void BuildCardiganHem(SkinnedMeshBuilder builder, WeightField field, HumanoidProportions p)
+        {
+            Vector3 hips = p.RestPosition(HumanoidBones.Hips);
+            Vector3 spine = p.RestPosition(HumanoidBones.Spine);
+            Vector3 hem = hips + new Vector3(0f, -0.135f, 0f);
+
+            List<Vector3> skirt = new List<Vector3> { hips + new Vector3(0f, 0.045f, 0f), hips, hem };
+            List<float> radii = new List<float> { 0.134f, 0.140f, 0.132f };
+            List<BoneWeight4> weights = new List<BoneWeight4>
+            {
+                field.Blend(HumanoidBones.Hips, HumanoidBones.Spine, 0.6f, 0.4f),
+                field.Single(HumanoidBones.Hips),
+                field.Blend(HumanoidBones.Hips, HumanoidBones.ThighLeft, 0.9f, 0.1f),
+            };
+
+            builder.AddTube(skirt, radii, weights, 18, capStart: false, capEnd: false, squashX: 1f, squashZ: 0.8f);
+
+            // The front opening: two narrow bands from the collar down to the hem, just proud of the
+            // cardigan surface, weighted to the spine so they follow a lean.
+            BoneWeight4 bandWeight = field.Single(HumanoidBones.Spine);
+            float depth = p.chestDepth + 0.008f;
+            for (int side = 0; side < 2; side++)
+            {
+                float x = side == 0 ? -0.026f : 0.026f;
+                builder.AddQuad(spine + new Vector3(x, 0.02f, depth), Vector3.right, Vector3.up, 0.011f, 0.115f, bandWeight, 0.001f);
+            }
+
+            // Knit ribs: three shallow ridges across the back of the hem, where a cardigan pulls.
+            BoneWeight4 hemWeight = field.Blend(HumanoidBones.Hips, HumanoidBones.ThighLeft, 0.9f, 0.1f);
+            for (int rib = 0; rib < 3; rib++)
+            {
+                float y = -0.055f - rib * 0.028f;
+                float radius = 0.140f - rib * 0.004f;
+                builder.AddQuad(hips + new Vector3(0f, y, -radius * 0.8f), Vector3.right, Vector3.up, radius * 0.9f, 0.005f, hemWeight, 0.001f);
+            }
+        }
+
+        /// <summary>
+        /// Rolled cuffs at both wrists: a short, fatter tube over the sleeve, so the cardigan reads as
+        /// something with a hem instead of one extrusion from shoulder to wrist.
+        /// </summary>
+        private static void BuildCardiganCuffs(SkinnedMeshBuilder builder, WeightField field, HumanoidProportions p)
+        {
+            for (int side = 0; side < 2; side++)
+            {
+                bool left = side == 0;
+                string fore = left ? HumanoidBones.ForearmLeft : HumanoidBones.ForearmRight;
+                string hand = left ? HumanoidBones.HandLeft : HumanoidBones.HandRight;
+
+                Vector3 elbow = p.RestPosition(fore);
+                Vector3 wrist = p.RestPosition(hand);
+                Vector3 a = Vector3.Lerp(elbow, wrist, 0.86f);
+                Vector3 b = Vector3.Lerp(elbow, wrist, 0.97f);
+                BoneWeight4 weight = field.Blend(fore, hand, 0.8f, 0.2f);
+
+                builder.AddTube(new List<Vector3> { a, b }, new List<float> { 0.039f, 0.038f }, new List<BoneWeight4> { weight, weight }, 10, capStart: false, capEnd: false);
+            }
+        }
+
         private static void BuildCoatSkirt(SkinnedMeshBuilder builder, WeightField field, HumanoidProportions p)
         {
             // Waist to below the knee, hips-weighted with a little thigh so it swings when walking.
@@ -371,10 +557,22 @@ namespace PostSchool.Character
                 builder.AddQuad(chest + new Vector3(-0.05f, 0.072f, depth + 0.003f), Vector3.right, Vector3.up, 0.046f, 0.03f, chestWeight);
                 builder.AddQuad(chest + new Vector3(0.05f, 0.072f, depth + 0.003f), Vector3.right, Vector3.up, 0.046f, 0.03f, chestWeight);
             }
-            else
+            else if (role == FigureRole.ClassmateQ)
             {
                 // Q: a high, buttoned collar with no gap. Nothing showing.
                 builder.AddQuad(chest + new Vector3(0f, 0.085f, depth + 0.004f), Vector3.right, Vector3.up, 0.052f, 0.026f, chestWeight);
+            }
+            else
+            {
+                // N: two collar points standing away from the throat and a placket between them, with
+                // the cardigan left open over all of it. This is the brightest cloth in the room and it
+                // is the thing that marks her out as staff, so it gets the whole front of the sternum.
+                builder.AddQuad(chest + new Vector3(-0.030f, 0.068f, depth + 0.005f), Vector3.right, Vector3.up, 0.030f, 0.034f, chestWeight);
+                builder.AddQuad(chest + new Vector3(0.030f, 0.068f, depth + 0.005f), Vector3.right, Vector3.up, 0.030f, 0.034f, chestWeight);
+                builder.AddQuad(chest + new Vector3(0f, -0.008f, depth + 0.004f), Vector3.right, Vector3.up, 0.017f, 0.088f, chestWeight);
+                // Two buttons, spaced by hand rather than evenly: nothing on this figure is machine.
+                builder.AddEllipsoid(chest + new Vector3(0.002f, -0.030f, depth + 0.006f), new Vector3(0.005f, 0.005f, 0.004f), 8, 4, _ => chestWeight);
+                builder.AddEllipsoid(chest + new Vector3(-0.001f, -0.062f, depth + 0.006f), new Vector3(0.005f, 0.005f, 0.004f), 8, 4, _ => chestWeight);
             }
         }
 
@@ -423,11 +621,14 @@ namespace PostSchool.Character
         }
     }
 
-    /// <summary>Which silhouette details to build. The skeleton is identical for both.</summary>
+    /// <summary>Which silhouette details to build. The skeleton is identical for all of them.</summary>
     public enum FigureRole
     {
         Protagonist,
         ClassmateQ,
+
+        /// <summary>N: the biology substitute. Narrow shoulders, a sage cardigan, a cropped bob.</summary>
+        TeacherN,
     }
 
     /// <summary>A built figure: bone hierarchy, skinned mesh and the renderer that poses it.</summary>

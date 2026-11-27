@@ -85,6 +85,33 @@ namespace PostSchool.World
         public float height;
     }
 
+    /// <summary>
+    /// Where the teacher comes in and where she stands. Both are data because the prologue's blocking
+    /// depends on them: she walks the path, stops on the mark, and the conversation's camera is set up
+    /// around the mark. A path that clips the seating grid has to fail at load, not at dusk.
+    ///
+    /// Positions are world metres (x, z) with y taken from the floor; the walk is a straight line
+    /// through the points in order, so keep them clear of desks.
+    /// </summary>
+    [Serializable]
+    public sealed class TeacherPlacement
+    {
+        /// <summary>Waypoints she walks on the way in, front-of-room first, in order.</summary>
+        public Vector2[] entryPath = Array.Empty<Vector2>();
+
+        /// <summary>Where she stops: in front of the podium, facing the room.</summary>
+        public Vector2 stand = new Vector2(0f, 9.15f);
+
+        /// <summary>Facing at the mark, degrees: 0 faces the blackboard (+z), 180 faces the room (-z).</summary>
+        public float standYaw = 180f;
+
+        /// <summary>Door she comes through; must be one of <see cref="ClassroomLayout.doors"/>.</summary>
+        public string entryDoor = "door_back_staff";
+
+        /// <summary>How long the walk-in takes, seconds. The opening waits on it.</summary>
+        public float entrySeconds = 3.2f;
+    }
+
     [Serializable]
     public sealed class SeatingGrid
     {
@@ -199,6 +226,7 @@ namespace PostSchool.World
         public RoomDimensions room = new RoomDimensions();
         public BlackboardDimensions blackboard = new BlackboardDimensions();
         public PodiumPlacement podium = new PodiumPlacement();
+        public TeacherPlacement teacher = new TeacherPlacement();
         public SeatingGrid seating = new SeatingGrid();
         public WakeDeskPlacement wakeDesk = new WakeDeskPlacement();
         public WallOpening[] windows = Array.Empty<WallOpening>();
@@ -390,8 +418,186 @@ namespace PostSchool.World
                 return false;
             }
 
+            string teacherError;
+            if (!ValidateTeacher(out teacherError))
+            {
+                error = teacherError;
+                return false;
+            }
+
             error = string.Empty;
             return true;
+        }
+
+        /// <summary>
+        /// The teacher's walk-in. A substitute who is placed inside a desk, or who walks through one,
+        /// is the kind of mistake that only shows up once the room is lit, so it is checked with the
+        /// same plain arithmetic the seating grid uses: every straight run is clipped against the
+        /// rectangle of each desk and against the podium, and an overlap fails the load.
+        /// </summary>
+        private bool ValidateTeacher(out string error)
+        {
+            if (teacher == null || teacher.entryPath == null || teacher.entryPath.Length < 2)
+            {
+                error = "The teacher needs an entry path with at least two points.";
+                return false;
+            }
+
+            if (teacher.entrySeconds < 0.5f || teacher.entrySeconds > 12f)
+            {
+                error = "The teacher's walk-in must take between 0.5 and 12 seconds.";
+                return false;
+            }
+
+            if (Array.Find(doors, door => door.id == teacher.entryDoor) == null)
+            {
+                error = $"The teacher enters through '{teacher.entryDoor}', which is not a door in this layout.";
+                return false;
+            }
+
+            // The mark is inside the room, clear of the blackboard wall, and not standing in the podium.
+            // It may be in front of it or behind it — behind is where a teacher actually stands — but
+            // it may not be inside it.
+            if (!PointIsInRoom(teacher.stand, 0.4f))
+            {
+                error = "The teacher's mark is outside the room.";
+                return false;
+            }
+
+            if (teacher.stand.y > room.MaxZ - 0.55f)
+            {
+                error = $"The teacher's mark at z = {teacher.stand.y:0.00} is inside the blackboard wall.";
+                return false;
+            }
+
+            if (SegmentHitsRect(teacher.stand, teacher.stand, PodiumFootprint()))
+            {
+                error = $"The teacher's mark at ({teacher.stand.x:0.00}, {teacher.stand.y:0.00}) is inside the podium.";
+                return false;
+            }
+
+            // She has to be able to stand there: not on a desk, not on the chair behind one, not in
+            // the protagonist's desk. A mark inside furniture is a substitute with her knees in a table.
+            Rect wake = new Rect(wakeDesk.positionX - wakeDesk.width * 0.5f, wakeDesk.positionZ - wakeDesk.depth * 0.5f,
+                wakeDesk.width, wakeDesk.depth);
+            if (SegmentHitsRect(teacher.stand, teacher.stand, wake))
+            {
+                error = "The teacher's mark is inside the protagonist's desk.";
+                return false;
+            }
+
+            for (int column = 0; column < seating.columns.Length; column++)
+            {
+                for (int row = 0; row < seating.rows.Length; row++)
+                {
+                    Rect desk = DeskFootprint(seating.columns[column], seating.rows[row]);
+                    if (SegmentHitsRect(teacher.stand, teacher.stand, desk))
+                    {
+                        error = "The teacher's mark is inside a seat.";
+                        return false;
+                    }
+                }
+            }
+
+            for (int i = 0; i < teacher.entryPath.Length; i++)
+            {
+                if (!PointIsInRoom(teacher.entryPath[i], 0.35f))
+                {
+                    error = $"Teacher path point {i} is outside the room.";
+                    return false;
+                }
+
+                if (i == 0) continue;
+                Vector2 a = teacher.entryPath[i - 1];
+                Vector2 b = teacher.entryPath[i];
+
+                for (int column = 0; column < seating.columns.Length; column++)
+                {
+                    for (int row = 0; row < seating.rows.Length; row++)
+                    {
+                        if (SegmentHitsRect(a, b, DeskFootprint(seating.columns[column], seating.rows[row])))
+                        {
+                            error = $"The teacher walks through the desk at ({seating.columns[column]:0.0}, {seating.rows[row]:0.0}).";
+                            return false;
+                        }
+                    }
+                }
+
+                if (SegmentHitsRect(a, b, PodiumFootprint()))
+                {
+                    error = $"The teacher walks through the podium between path points {i - 1} and {i}.";
+                    return false;
+                }
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        /// <summary>
+        /// Where a seat actually occupies floor, in x/z, plus 0.45 m of shoulder room: the desk is
+        /// 1.15 x 0.55 m and the chair hangs behind it (toward the room, -z), so the footprint is not
+        /// centred on the row value. Getting this wrong either lets her walk through a chair or bans
+        /// every honest path through the aisle.
+        /// </summary>
+        private Rect DeskFootprint(float column, float row)
+        {
+            const float shoulderRoom = 0.45f;
+            float halfWidth = seating.deskWidth * 0.5f + shoulderRoom;
+            float chairDepth = Mathf.Abs(seating.chairOffsetZ) + seating.chairSize * 0.5f;
+            float minZ = row - chairDepth - shoulderRoom;
+            float maxZ = row + seating.deskDepth * 0.5f + shoulderRoom;
+            return new Rect(column - halfWidth, minZ, halfWidth * 2f, maxZ - minZ);
+        }
+
+        private Rect PodiumFootprint()
+        {
+            const float clearance = 0.25f;
+            float halfWidth = podium.width * 0.5f + clearance;
+            float halfDepth = podium.depth * 0.5f + clearance;
+            return new Rect(podium.positionX - halfWidth, podium.positionZ - halfDepth, halfWidth * 2f, halfDepth * 2f);
+        }
+
+        /// <summary>
+        /// Liang-Barsky: does the segment a-b enter the rectangle? Exact, unlike a bounding-box test,
+        /// which would forbid the one open corridor this room actually has.
+        /// </summary>
+        private static bool SegmentHitsRect(Vector2 a, Vector2 b, Rect rect)
+        {
+            float t0 = 0f;
+            float t1 = 1f;
+            float dx = b.x - a.x;
+            float dy = b.y - a.y;
+
+            if (!Clip(-dx, a.x - rect.xMin, ref t0, ref t1)) return false;
+            if (!Clip(dx, rect.xMax - a.x, ref t0, ref t1)) return false;
+            if (!Clip(-dy, a.y - rect.yMin, ref t0, ref t1)) return false;
+            if (!Clip(dy, rect.yMax - a.y, ref t0, ref t1)) return false;
+            return t0 < t1 || Mathf.Approximately(t0, t1);
+        }
+
+        private static bool Clip(float direction, float distance, ref float t0, ref float t1)
+        {
+            if (Mathf.Approximately(direction, 0f)) return distance > 0f;
+            float t = distance / direction;
+            if (direction < 0f)
+            {
+                if (t > t1) return false;
+                if (t > t0) t0 = t;
+            }
+            else
+            {
+                if (t < t0) return false;
+                if (t < t1) t1 = t;
+            }
+
+            return true;
+        }
+
+        private bool PointIsInRoom(Vector2 point, float inset)
+        {
+            return point.x >= room.MinX + inset && point.x <= room.MaxX - inset
+                && point.y >= room.MinZ + inset && point.y <= room.MaxZ - inset;
         }
 
         /// <summary>

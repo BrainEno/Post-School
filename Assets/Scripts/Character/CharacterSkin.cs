@@ -55,13 +55,16 @@ namespace PostSchool.Character
     }
 
     /// <summary>
-    /// The palette for the two figures, chosen against the owner's paper/flat-shade references:
+    /// The palette for the three figures, chosen against the owner's paper/flat-shade references:
     ///
     ///   - figures are flat colour with almost no specular, so they read as cut paper;
-    ///   - the protagonist is the only figure carrying a saturated colour (the sleeve band), which is
+    ///   - the protagonist is the only student carrying a saturated colour (the sleeve band), which is
     ///     what the references do: one red mark in a grey drawing;
     ///   - Q is deliberately lower contrast than the protagonist and slightly closer in value to the
-    ///     walls, so the classmate reads as already part of the room.
+    ///     walls, so the classmate reads as already part of the room;
+    ///   - N is the bright, cold value key: the lightest skin and the lightest cloth in the cast, with
+    ///     a sage cardigan far enough above Q's olive coat (0.645 vs 0.475 grey) that the two do not
+    ///     collapse into one green silhouette when they stand in the same shot.
     ///
     /// Colours here are original values. The references informed the rules above, not the numbers.
     /// </summary>
@@ -80,6 +83,62 @@ namespace PostSchool.Character
         public static readonly Color ClassmateCoat = Hex("71806B");
         public static readonly Color ClassmateShirt = Hex("DCD8C8");
         public static readonly Color ClassmateAccent = Hex("8E5A54");
+
+        // N, the substitute teacher. She is the third value key in the cast and the lightest of the
+        // three: the protagonist is dark (coat 0.430 grey), Q is mid (0.475), N is bright and cold.
+        // The cardigan is a sage knit lifted clear of Q's olive coat so the two green-greys never read
+        // as the same garment at a distance, and the hair is the one place she is not dark: 0.300
+        // against the protagonist's 0.160 and Q's 0.227, which is what keeps a short dark bob from
+        // turning into the same silhouette as the two students' heads.
+        public static readonly Color TeacherSkin = Hex("D9CDBE");
+        public static readonly Color TeacherHair = Hex("4A4C56");
+        public static readonly Color TeacherCardigan = Hex("9BAC97");
+        public static readonly Color TeacherShirt = Hex("FAF7EE");
+
+        /// <summary>
+        /// Chalk dust on a navy register cover. Nothing in the mesh binds the accent slot yet (neither
+        /// protagonist nor Q does either), so this is the colour the marker pens and the register will
+        /// take when they get geometry, not a surface you can see today.
+        /// </summary>
+        public static readonly Color TeacherAccent = Hex("7E8B9C");
+
+        /// <summary>
+        /// One figure's five colours. Callers that used to write <c>role == Protagonist ? a : b</c>
+        /// take this instead, so adding a fourth figure is a case here and nowhere else.
+        /// </summary>
+        public readonly struct FigurePalette
+        {
+            public FigurePalette(Color skin, Color hair, Color coat, Color shirt, Color accent)
+            {
+                Skin = skin;
+                Hair = hair;
+                Coat = coat;
+                Shirt = shirt;
+                Accent = accent;
+            }
+
+            public Color Skin { get; }
+            public Color Hair { get; }
+            public Color Coat { get; }
+            public Color Shirt { get; }
+            public Color Accent { get; }
+        }
+
+        /// <summary>The colour set for a silhouette. Every <see cref="FigureRole"/> must be answered here.</summary>
+        public static FigurePalette ForRole(FigureRole role)
+        {
+            switch (role)
+            {
+                case FigureRole.Protagonist:
+                    return new FigurePalette(ProtagonistSkin, ProtagonistHair, ProtagonistCoat, ProtagonistShirt, ProtagonistAccent);
+                case FigureRole.ClassmateQ:
+                    return new FigurePalette(ClassmateSkin, ClassmateHair, ClassmateCoat, ClassmateShirt, ClassmateAccent);
+                case FigureRole.TeacherN:
+                    return new FigurePalette(TeacherSkin, TeacherHair, TeacherCardigan, TeacherShirt, TeacherAccent);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(role), role, "No palette for this figure role.");
+            }
+        }
 
         public static Color Hex(string rgb)
         {

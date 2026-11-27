@@ -383,6 +383,7 @@ def check_classroom_layout(files: dict[str, bytes]) -> list[Problem]:
                     fail(f"door '{opening_id}' opens onto the protagonist's desk")
 
     problems.extend(_check_missing_front_wall(data, fail))
+    problems.extend(_check_teacher_blocking(data, fail, min_x, max_x, min_z, max_z))
 
     for wall in CLASSROOM_WALLS:
         on_wall = sorted(
@@ -395,6 +396,139 @@ def check_classroom_layout(files: dict[str, bytes]) -> list[Problem]:
                 fail(f"{previous['id']} and {current['id']} are only {gap:.2f} m apart on the {wall} wall")
 
     return problems
+
+
+def _check_teacher_blocking(data: dict, fail, min_x: float, max_x: float, min_z: float, max_z: float) -> list[Problem]:
+    """The substitute teacher walks in along a path and stands on a mark.
+
+    Mirrors ClassroomLayout.ValidateTeacher. The interesting failure is not a wrong number: it is a
+    path that looks fine on the plan and walks her through two rows of desks, which cannot be seen in
+    review and cannot be tested without an Editor. So the run is clipped against each desk footprint
+    and the podium here, the same way the runtime does it.
+    """
+    problems: list[Problem] = []
+
+    teacher = data.get("teacher") or {}
+    if not teacher:
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, "layout has no teacher blocking; N has nowhere to walk in from"))
+        return problems
+
+    seating = data.get("seating") or {}
+    podium = data.get("podium") or {}
+    doors = data.get("doors") or []
+    columns = seating.get("columns") or []
+    rows = seating.get("rows") or []
+
+    path = teacher.get("entryPath") or []
+    if len(path) < 2:
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, "teacher entryPath needs at least two points"))
+        return problems
+
+    door_ids = {d.get("id") for d in doors if isinstance(d, dict)}
+    if teacher.get("entryDoor") not in door_ids:
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, f"teacher enters through '{teacher.get('entryDoor')}', which is not a door"))
+
+    seconds = teacher.get("entrySeconds", 0)
+    if not 0.5 <= seconds <= 12:
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, "teacher entrySeconds must be between 0.5 and 12"))
+
+    stand = teacher.get("stand") or {}
+    sx, sz = stand.get("x", 0), stand.get("y", None)
+    if sz is None:
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, "teacher stand needs x and z (z is written as 'y' to match Vector2)"))
+        return problems
+    if not (min_x + 0.4 <= sx <= max_x - 0.4 and min_z + 0.4 <= sz <= max_z - 0.4):
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, "teacher stand is outside the room"))
+    if sz > max_z - 0.55:
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, "teacher stand is inside the blackboard wall"))
+
+    def desk_rect(column: float, row: float) -> tuple[float, float, float, float]:
+        shoulder = 0.45
+        half_width = seating.get("deskWidth", 0) / 2 + shoulder
+        chair_depth = abs(seating.get("chairOffsetZ", 0)) + seating.get("chairSize", 0) / 2
+        z_min = row - chair_depth - shoulder
+        z_max = row + seating.get("deskDepth", 0) / 2 + shoulder
+        return (column - half_width, z_min, column + half_width, z_max)
+
+    def podium_rect() -> tuple[float, float, float, float]:
+        clearance = 0.25
+        half_width = podium.get("width", 0) / 2 + clearance
+        half_depth = podium.get("depth", 0) / 2 + clearance
+        px, pz = podium.get("positionX", 0), podium.get("positionZ", 0)
+        return (px - half_width, pz - half_depth, px + half_width, pz + half_depth)
+
+    for index, point in enumerate(path):
+        px, pz = point.get("x", 0), point.get("z", None)
+        if pz is None:
+            problems.append(Problem(CLASSROOM_LAYOUT_FILE, f"teacher path point {index} has no z"))
+            continue
+        if not (min_x + 0.35 <= px <= max_x - 0.35 and min_z + 0.35 <= pz <= max_z - 0.35):
+            problems.append(Problem(CLASSROOM_LAYOUT_FILE, f"teacher path point {index} is outside the room"))
+
+    for index in range(1, len(path)):
+        a = (path[index - 1].get("x", 0), path[index - 1].get("z", 0))
+        b = (path[index].get("x", 0), path[index].get("z", 0))
+        for column in columns:
+            for row in rows:
+                if _segment_hits_rect(a, b, desk_rect(column, row)):
+                    problems.append(
+                        Problem(CLASSROOM_LAYOUT_FILE, f"the teacher walks through the desk at ({column:g}, {row:g})")
+                    )
+        if _segment_hits_rect(a, b, podium_rect()):
+            problems.append(Problem(CLASSROOM_LAYOUT_FILE, f"the teacher walks through the podium on run {index}"))
+
+    if _segment_hits_rect((sx, sz), (sx, sz), podium_rect()):
+        problems.append(Problem(CLASSROOM_LAYOUT_FILE, "the teacher's stand is inside the podium"))
+
+    wake_desk = data.get("wakeDesk") or {}
+    if wake_desk:
+        wake_rect = (
+            wake_desk.get("positionX", 0) - wake_desk.get("width", 0) / 2,
+            wake_desk.get("positionZ", 0) - wake_desk.get("depth", 0) / 2,
+            wake_desk.get("positionX", 0) + wake_desk.get("width", 0) / 2,
+            wake_desk.get("positionZ", 0) + wake_desk.get("depth", 0) / 2,
+        )
+        if _segment_hits_rect((sx, sz), (sx, sz), wake_rect):
+            problems.append(Problem(CLASSROOM_LAYOUT_FILE, "the teacher's stand is inside the protagonist's desk"))
+
+    for column in columns:
+        for row in rows:
+            if _segment_hits_rect((sx, sz), (sx, sz), desk_rect(column, row)):
+                problems.append(Problem(CLASSROOM_LAYOUT_FILE, f"the teacher's stand is inside the seat at ({column:g}, {row:g})"))
+
+    return problems
+
+
+def _segment_hits_rect(a: tuple[float, float], b: tuple[float, float], rect: tuple[float, float, float, float]) -> bool:
+    """Liang-Barsky clip. Exact, unlike a bounding-box test, which would forbid the only open lane."""
+    x_min, z_min, x_max, z_max = rect
+    t0, t1 = 0.0, 1.0
+    dx, dz = b[0] - a[0], b[1] - a[1]
+
+    def clip(direction: float, distance: float) -> bool:
+        nonlocal t0, t1
+        if direction == 0:
+            return distance > 0
+        t = distance / direction
+        if direction < 0:
+            if t > t1:
+                return False
+            t0 = max(t0, t)
+        else:
+            if t < t0:
+                return False
+            t1 = min(t1, t)
+        return True
+
+    if not clip(-dx, a[0] - x_min):
+        return False
+    if not clip(dx, x_max - a[0]):
+        return False
+    if not clip(-dz, a[1] - z_min):
+        return False
+    if not clip(dz, z_max - a[1]):
+        return False
+    return t0 <= t1
 
 
 def _check_missing_front_wall(data: dict, fail) -> list[Problem]:

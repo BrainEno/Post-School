@@ -135,6 +135,58 @@ namespace PostSchool.Tests.EditMode
             Assert.Less(qHead, 1.45f, "Q is shorter than the protagonist under an identical pose");
         }
 
+        [Test]
+        public void TheTeacherIsNotACloneOfTheClassmate()
+        {
+            // Three figures, three silhouettes. If N were built by copying Q and repainting her, these
+            // two meshes would have the same vertex count and the same shoulder width. They must not:
+            // the point of a fourth build path is that the shape is hers.
+            SkinnedFigure q = Build(HumanoidProportions.Classmate(), FigureRole.ClassmateQ, out _);
+            int qVertices = q.Mesh.vertexCount;
+            float qShoulder = HumanoidProportions.Classmate().ShoulderWidth;
+            Object.DestroyImmediate(q.Mesh);
+            Object.DestroyImmediate(_root);
+            _root = null;
+
+            SkinnedFigure n = Build(HumanoidProportions.TeacherN(), FigureRole.TeacherN, out _);
+            int nVertices = n.Mesh.vertexCount;
+
+            Assert.IsTrue(n.Skeleton.BoneCount == 19);
+            Assert.AreNotEqual(qVertices, nVertices, "N's cardigan hem, cuffs and bob are extra geometry");
+            Assert.Less(HumanoidProportions.TeacherN().ShoulderWidth, qShoulder);
+            Assert.Greater(n.Mesh.bounds.size.y, q.Mesh.bounds.size.y, "she is taller than Q");
+
+            // Her mesh still has to be a sane body: not empty, and not a pile of stray triangles.
+            Assert.Greater(nVertices, 500);
+            Assert.That(n.Mesh.bounds.size.x, Is.InRange(0.30f, 0.90f), "a single figure is under a metre wide");
+
+            Object.DestroyImmediate(n.Mesh);
+        }
+
+        [Test]
+        public void TheTeachersCardiganHangsBelowHerHipsAndStopsAboveHerKnee()
+        {
+            SkinnedFigure n = Build(HumanoidProportions.TeacherN(), FigureRole.TeacherN, out _);
+
+            // The hem is the lowest piece of coat geometry; the knee is the Shin bone. A cardigan ends
+            // between them — a coat reaches further, a shirt not at all. This pins that decision.
+            float lowestCoat = float.MaxValue;
+            Mesh mesh = n.Mesh;
+            int coatSurface = (int)CharacterSurface.Coat;
+
+            // In the bind pose the mesh sits on its own origin, so the knees are at their rest height.
+            float knee = HumanoidProportions.TeacherN().RestPosition(HumanoidBones.ShinLeft).y;
+            foreach (int index in mesh.GetTriangles(coatSurface))
+            {
+                lowestCoat = Mathf.Min(lowestCoat, n.BindVertices[index].y);
+            }
+
+            Assert.Less(lowestCoat, 0.885f, "the cardigan must hang below the hips");
+            Assert.Greater(lowestCoat, knee - 0.02f, "and it must not reach the knee");
+
+            Object.DestroyImmediate(mesh);
+        }
+
         /// <summary>Largest movement of any vertex within a radius of a bind-pose point.</summary>
         private static float MaxDisplacementNear(Vector3[] bind, Vector3[] posed, Vector3 point, float radius)
         {

@@ -1,0 +1,34 @@
+{
+  "id": "classroom_teacher_n_revisit",
+  "status": "owner_authored_excerpt",
+  "note": "Second and later conversations with N: one line that acknowledges the room, then her standing offer. Deliberately short — she is not a hint dispenser. Same flag as her first scene, which is what makes it idempotent.",
+  "startNode": "n_return",
+  "nodes": [
+    {
+      "id": "n_return",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "protagonist",
+      "text": "她又从讲台上抬起头：还是那个眼神，先看人，再看手上那张卷子。",
+      "next": "n_r2",
+      "effects": []
+    },
+    {
+      "id": "n_r2",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "我会待在这里改卷子。有问题的话……可以来问我。",
+      "next": "n_r_end",
+      "effects": []
+    },
+    {
+      "id": "n_r_end",
+      "kind": "end",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "",
+      "effects": []
+    }
+  ]
+}

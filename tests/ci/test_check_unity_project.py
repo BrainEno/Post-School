@@ -257,6 +257,56 @@ class ClassroomLayoutTests(unittest.TestCase):
 
 
 
+class TeacherBlockingTests(unittest.TestCase):
+    """N walks in along a path and stands behind the podium. The path is the thing that breaks."""
+
+    def layout_with(self, **teacher) -> dict:
+        layout = json.loads(json.dumps(LAYOUT))
+        layout["teacher"].update(teacher)
+        return layout
+
+    def problems_for(self, layout: dict) -> str:
+        files = pinned_project(**{checker.CLASSROOM_LAYOUT_FILE: json.dumps(layout).encode()})
+        return messages(checker.check_classroom_layout(files))
+
+    def test_shipped_teacher_blocking_passes(self) -> None:
+        self.assertEqual("", self.problems_for(json.loads(json.dumps(LAYOUT))))
+
+    def test_a_path_through_the_seating_grid_fails(self) -> None:
+        layout = self.layout_with(entryPath=[{"x": -4.9, "z": 10.9}, {"x": -4.9, "z": 2.0}])
+        text = self.problems_for(layout)
+        self.assertIn("walks through the desk", text)
+
+    def test_a_mark_inside_the_podium_fails(self) -> None:
+        self.assertIn("inside the podium", self.problems_for(self.layout_with(stand={"x": 0, "y": 9.9})))
+
+    def test_a_mark_inside_a_seat_fails(self) -> None:
+        self.assertIn("inside the seat", self.problems_for(self.layout_with(stand={"x": -4.9, "y": 4.5})))
+
+    def test_a_mark_outside_the_room_fails(self) -> None:
+        self.assertIn("outside the room", self.problems_for(self.layout_with(stand={"x": 0, "y": 40.0})))
+
+    def test_an_unknown_door_fails(self) -> None:
+        self.assertIn("is not a door", self.problems_for(self.layout_with(entryDoor="door_kitchen")))
+
+    def test_a_walk_that_is_too_short_or_too_long_fails(self) -> None:
+        self.assertIn("entrySeconds", self.problems_for(self.layout_with(entrySeconds=0.1)))
+        self.assertIn("entrySeconds", self.problems_for(self.layout_with(entrySeconds=30)))
+
+    def test_a_one_point_path_fails(self) -> None:
+        self.assertIn("at least two points", self.problems_for(self.layout_with(entryPath=[{"x": -4.5, "z": 10.9}])))
+
+    def test_a_layout_without_a_teacher_fails(self) -> None:
+        layout = json.loads(json.dumps(LAYOUT))
+        del layout["teacher"]
+        self.assertIn("no teacher blocking", self.problems_for(layout))
+
+    def test_the_segment_clip_is_exact_not_a_bounding_box(self) -> None:
+        # A diagonal that passes the corner of a rectangle without entering it must not count as a hit.
+        self.assertFalse(checker._segment_hits_rect((0.0, 0.0), (2.0, 2.0), (1.2, 0.0, 3.0, 1.0)))
+        self.assertTrue(checker._segment_hits_rect((0.0, 0.5), (2.0, 0.5), (1.2, 0.0, 3.0, 1.0)))
+
+
 class MissingFrontWallTests(unittest.TestCase):
     """The exit side is a curtain and a drop. Each rule here is one way to lose that."""
 

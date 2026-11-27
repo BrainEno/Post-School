@@ -181,6 +181,46 @@ namespace PostSchool.Character
             };
         }
 
+        /// <summary>
+        /// N, the biology substitute teacher. The only adult in the room, and the only figure built
+        /// from the outside in: an adult 7.4 heads tall (the protagonist is 7.0, Q 6.8), shoulders
+        /// 0.32 m apart against the protagonist's 0.41 m, so the head reads small on a body that is
+        /// still narrow. The pear shape is deliberate and it lives in the numbers, not in a scaled
+        /// copy of another figure:
+        ///
+        ///   - shoulders in (0.040 + 0.120 per side = 0.320 m), chest 0.106 m deep;
+        ///   - a waist that does not exist yet: spine, chest and hips are all wider than the chest
+        ///     of the figure below her, and the knit cardigan adds the flare in the mesh;
+        ///   - arms fractionally long for her frame: forearm 0.265 m and hand 0.235 m against the
+        ///     protagonist's 0.280 / 0.250, on a body that is only 0.959 of his height. Her reach is
+        ///     the adult part of her, and it is why the wrist can land on a podium top 0.44 m away
+        ///     without her leaning over it like a child;
+        ///   - a smaller foot and ankle than the protagonist, because she is not wearing boots.
+        /// </summary>
+        public static HumanoidProportions TeacherN()
+        {
+            return new HumanoidProportions
+            {
+                height = 1.65f,
+                ankleHeight = 0.062f,
+                hips = new Vector3(0f, 0.885f, 0f),
+                spine = new Vector3(0f, 0.155f, 0f),
+                chest = new Vector3(0f, 0.166f, 0f),
+                neck = new Vector3(0f, 0.165f, 0f),
+                head = new Vector3(0f, 0.055f, 0f),
+                shoulder = new Vector3(0.040f, 0.085f, 0f),
+                upperArm = new Vector3(0.120f, 0f, 0f),
+                forearm = new Vector3(0f, -0.265f, 0f),
+                hand = new Vector3(0f, -0.235f, 0f),
+                thigh = new Vector3(0.082f, -0.065f, 0f),
+                shin = new Vector3(0f, -0.395f, 0f),
+                foot = new Vector3(0f, -0.363f, 0f),
+                headLength = 0.224f,
+                headRadius = 0.079f,
+                chestDepth = 0.106f,
+            };
+        }
+
         /// <summary>How many head-lengths the figure is, crown to floor.</summary>
         public float HeadsTall => height / headLength;
 
