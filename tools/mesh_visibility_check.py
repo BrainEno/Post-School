@@ -21,8 +21,11 @@ Run:  python3 tools/mesh_visibility_check.py     (exit 1 if anything is inverted
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
 
 # =============================================================================================
 # Part 1 -- winding order.
@@ -191,6 +194,9 @@ FIGURES = {
     "protagonist": dict(hl=0.245, hr=0.088, head_y=0.94 + 0.16 + 0.17 + 0.15 + 0.06),
     "Q": dict(hl=0.235, hr=0.081, head_y=0.86 + 0.15 + 0.16 + 0.15 + 0.06),
     "N": dict(hl=0.224, hr=0.079, head_y=0.885 + 0.155 + 0.166 + 0.165 + 0.055),
+    # B, the imagined biology teacher. The stoop is in the spine chain, so her head bone sits forward
+    # of the body's centre line; only the height matters to these checks.
+    "B": dict(hl=0.222, hr=0.076, head_y=0.875 + 0.150 + 0.160 + 0.168 + 0.062),
 }
 
 
@@ -241,6 +247,22 @@ MARKS = {
         ("corner", -0.268, 0.079 * 0.20, 0.0045),
         ("crease L", -0.225, -0.079 * 0.22, 0.224 * 0.055),
     ],
+    # B's flat marks. Her nose and spectacles are volumes, not quads, and are checked separately by
+    # `b_protrusion_report` below --- a quad placed where a nose goes would have been flattened into the
+    # face, which is the mistake this file exists to catch.
+    "B": [
+        ("brow L", 0.125, -0.076 * 0.34, 0.0018),
+        ("brow R", 0.125, 0.076 * 0.34, 0.0018),
+        ("eye L", 0.03, -0.076 * 0.30, 0.0022),
+        ("eye lid L", 0.03 - 0.026, -0.076 * 0.30, 0.0012),
+        ("eye R", 0.03, 0.076 * 0.30, 0.0022),
+        ("eye lid R", 0.03 - 0.026, 0.076 * 0.30, 0.0012),
+        ("mouth", -0.265, 0.0, 0.0024),
+        ("corner L", -0.276, -0.076 * 0.155, 0.0038),
+        ("corner R", -0.276, 0.076 * 0.155, 0.0038),
+        ("crease L", -0.205, -0.076 * 0.30, 0.222 * 0.075),
+        ("crease R", -0.205, 0.076 * 0.30, 0.222 * 0.075),
+    ],
 }
 
 
@@ -281,16 +303,127 @@ def check_face_marks() -> bool:
     return ok
 
 
+FACTORY = ROOT / "Assets/Scripts/Character/SkinnedFigureFactory.cs"
+
+
+def b_nose_geometry() -> dict[str, float]:
+    """The nose and spectacle numbers, read out of the C# rather than copied.
+
+    A checker that keeps its own copy of the numbers is a checker that goes on passing after the code
+    has changed --- it verifies its own constant, not the model. These are read from
+    BuildTeacherBFace so the report below is about the geometry that will actually be built.
+    """
+    import re
+
+    text = FACTORY.read_text(encoding="utf-8")
+    start = text.index("private static void BuildTeacherBFace")
+    body = text[start:start + 6000]
+
+    def grab(pattern: str, label: str) -> float:
+        match = re.search(pattern, body)
+        if match is None:
+            raise SystemExit(f"could not read {label} from BuildTeacherBFace; the report would be stale")
+        return float(match.group(1))
+
+    return {
+        # bridge sits at -0.055 head-lengths below the brow surface, 4 mm proud of it
+        "bridge_dy": grab(r"-p\.headLength \* (0\.055)f, 0\.004f", "the nose bridge"),
+        "bridge_z": grab(r"-p\.headLength \* 0\.055f, ([0-9.]+)f", "the nose bridge depth"),
+        # the tip, 20 mm proud
+        "tip_dy": grab(r"-p\.headLength \* (0\.115)f, 0\.020f", "the nose tip"),
+        "tip_z": grab(r"-p\.headLength \* 0\.115f, ([0-9.]+)f", "the nose tip depth"),
+        # the hook hangs below the tip: its offset is a literal Vector3, not head-length scaled
+        "hook_dy": grab(r"Vector3\(0f, -([0-9.]+)f, 0\.0035f\)", "the nose hook drop"),
+        "hook_ry": grab(r"new Vector3\(0\.0062f, ([0-9.]+)f, 0\.0075f\)", "the nose hook radius"),
+        "hook_z": grab(r"0\.0062f, 0\.0082f, ([0-9.]+)f", "the nose hook depth"),
+        # spectacle lift
+        "lens_lift": grab(r"lensSurface \+ new Vector3\(0f, 0f, ([0-9.]+)f\)", "the spectacle lift"),
+    }
+
+
+def b_protrusion_report(geometry: dict[str, float] | None = None) -> list[str]:
+    """B's nose and spectacles stand off the face; check the order they stand in.
+
+    These are the only parts of any figure here that are volumes in front of the skin rather than marks
+    painted on it, so the buried-mark check cannot see them. What can go wrong is different: the nose
+    can fail to clear the face (reads as flat), the spectacles can end up in front of the nose tip
+    (reads as a nose behind glass that is in turn behind a plant), or the hook can hang so far down it
+    meets the mouth.
+
+    The numbers come from the C# by default. Pass `geometry` to test the report itself against
+    deliberately wrong values --- that is how it is shown to be capable of failing.
+    """
+    g = b_nose_geometry() if geometry is None else geometry
+    fig = FIGURES["B"]
+    hl = fig["hl"]
+    (skull_c, _), _ = head_shells(fig)
+    problems: list[str] = []
+
+    brow_y = skull_c[1] - 0.02 * hl
+    face = front_z(fig, -0.02 * hl, 0.0)
+    if face is None:
+        return ["B: the nose bridge falls off the head entirely"]
+
+    bridge = face + g["bridge_z"]
+    tip = face + g["tip_z"]
+    tip_y = brow_y - g["tip_dy"] * hl
+    hook_z = tip + g["hook_z"]
+    hook_bottom = tip_y - g["hook_dy"] - g["hook_ry"]
+
+    if bridge <= face:
+        problems.append("B: the nose bridge does not clear the face")
+    if tip <= bridge:
+        problems.append(f"B: the nose tip ({tip * 1000:.1f} mm) is not in front of the bridge ({bridge * 1000:.1f} mm)")
+
+    lens_surface = front_z(fig, 0.03 * hl, fig["hr"] * 0.30)
+    if lens_surface is None:
+        problems.append("B: the spectacles fall off the head")
+    else:
+        lens = lens_surface + g["lens_lift"]
+        if not (bridge < lens < tip):
+            problems.append(
+                f"B: the lens plane ({lens * 1000:.1f} mm) must sit between the nose bridge "
+                f"({bridge * 1000:.1f} mm) and the tip ({tip * 1000:.1f} mm), or the glass is not on the face")
+
+    mouth_y = skull_c[1] - 0.265 * hl
+    if hook_bottom <= mouth_y + 0.004:
+        problems.append(
+            f"B: the hooked nose reaches ({hook_bottom * 1000:.1f} mm) the mouth ({mouth_y * 1000:.1f} mm)")
+    # The hook is the mass that hangs *down* from the tip, and its own radius means it always dips at
+    # least a little below. What makes the profile read as hooked rather than pointed is the drop being
+    # visible at the scale of a face: under 4 mm it disappears against the tip.
+    if tip_y - hook_bottom < 0.004:
+        problems.append(
+            f"B: the hook hangs only {(tip_y - hook_bottom) * 1000:.1f} mm below the tip, which reads as a "
+            "pointed nose rather than a hooked one")
+    if hook_z <= tip:
+        problems.append("B: the nose hook is not in front of the tip")
+
+    return problems
+
+
 def main() -> int:
     winding = check_winding()
     marks = check_face_marks()
-    if winding and marks:
-        print("PASS: every primitive is visible from outside, and every face mark clears the skin.")
+    protrusions = b_protrusion_report()
+
+    if protrusions:
+        print("B's nose and spectacles, front to back:")
+        for problem in protrusions:
+            print(f"  FAIL {problem}")
+    else:
+        print("B: nose bridge < nose tip, spectacles between them, hook hangs below the tip and clears the mouth.")
+
+    if winding and marks and not protrusions:
+        print("PASS: every primitive is visible from outside, every face mark clears the skin, "
+              "and B's nose and spectacles stand off the face in the right order.")
         return 0
     if not winding:
         print("FAIL: a primitive is wound inside-out and will be invisible in Unity.")
     if not marks:
         print("FAIL: a face mark is buried inside the head and will not render.")
+    if protrusions:
+        print("FAIL: B's nose or spectacles are in the wrong place relative to the face.")
     return 1
 
 

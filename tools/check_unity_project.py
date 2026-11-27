@@ -65,7 +65,12 @@ CLASSROOM_WALLS = ("front", "back", "west", "east")
 DIALOGUE_KINDS = {"line", "choice", "end"}
 DIALOGUE_PRESENTATIONS = {"speech", "narration", "recollection", "imagination"}
 DIALOGUE_ATTRIBUTES = {"Physique", "Psyche", "Intellect", "Perception", "Imagination"}
+# Flag effects, which take a name. Insight effects are a different shape --- `insight:<Attribute>:<n>` ---
+# and are checked separately, because a reward that names an attribute and an amount is not a flag and
+# must not be validated as one.
 EFFECT_PREFIXES = ("objective:", "recollection:")
+INSIGHT_PREFIX = "insight:"
+CORE_ATTRIBUTES = ("Physique", "Psyche", "Intellect", "Perception", "Imagination")
 
 
 @dataclass(frozen=True)
@@ -622,7 +627,25 @@ def _check_effects(path: str, node_id: str, effects: object) -> list[Problem]:
         return [Problem(path, f"node '{node_id}' effects must be a list")]
     problems = []
     for effect in effects:
-        if not isinstance(effect, str) or not effect.startswith(EFFECT_PREFIXES):
+        if not isinstance(effect, str):
+            problems.append(Problem(path, f"node '{node_id}' has unknown effect {effect!r}"))
+            continue
+
+        if effect.startswith(INSIGHT_PREFIX):
+            parts = effect.split(":")
+            if len(parts) != 3:
+                problems.append(Problem(path, f"node '{node_id}' insight effect {effect!r} must be insight:<Attribute>:<amount>"))
+                continue
+            if parts[1] not in CORE_ATTRIBUTES:
+                problems.append(Problem(path, f"node '{node_id}' insight effect names unknown attribute {parts[1]!r}"))
+            try:
+                if int(parts[2]) == 0:
+                    problems.append(Problem(path, f"node '{node_id}' insight amount must be non-zero ({effect!r})"))
+            except ValueError:
+                problems.append(Problem(path, f"node '{node_id}' insight amount {parts[2]!r} is not an integer"))
+            continue
+
+        if not effect.startswith(EFFECT_PREFIXES):
             problems.append(Problem(path, f"node '{node_id}' has unknown effect {effect!r}"))
             continue
         flag = effect.split(":", 1)[1]

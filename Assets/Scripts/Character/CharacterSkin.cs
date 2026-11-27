@@ -103,6 +103,21 @@ namespace PostSchool.Character
         public static readonly Color TeacherAccent = Hex("7E8B9C");
 
         /// <summary>
+        /// B, as the imagination builds her: white hair, a dark skirt and cardigan, and skin paler than
+        /// anyone else in the room because she is not lit --- she is recalled.
+        ///
+        /// The coat is the darkest surface in the cast on purpose. She has to separate from N's sage
+        /// cardigan at a glance, since the two of them are the only adults and the player meets them
+        /// within a few minutes of each other. The accent is the one warm colour on her, and it goes on
+        /// the hairpin: the single place the imagination bothered to invent a detail nobody described.
+        /// </summary>
+        public static readonly Color BiologyTeacherSkin = Hex("D6CBC0");
+        public static readonly Color BiologyTeacherHair = Hex("E4E1D8");
+        public static readonly Color BiologyTeacherCoat = Hex("3E3B3F");
+        public static readonly Color BiologyTeacherShirt = Hex("CFC9BC");
+        public static readonly Color BiologyTeacherAccent = Hex("8C5B3C");
+
+        /// <summary>
         /// One figure's five colours. Callers that used to write <c>role == Protagonist ? a : b</c>
         /// take this instead, so adding a fourth figure is a case here and nowhere else.
         /// </summary>
@@ -135,6 +150,9 @@ namespace PostSchool.Character
                     return new FigurePalette(ClassmateSkin, ClassmateHair, ClassmateCoat, ClassmateShirt, ClassmateAccent);
                 case FigureRole.TeacherN:
                     return new FigurePalette(TeacherSkin, TeacherHair, TeacherCardigan, TeacherShirt, TeacherAccent);
+                case FigureRole.TeacherB:
+                    return new FigurePalette(BiologyTeacherSkin, BiologyTeacherHair, BiologyTeacherCoat,
+                        BiologyTeacherShirt, BiologyTeacherAccent);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(role), role, "No palette for this figure role.");
             }

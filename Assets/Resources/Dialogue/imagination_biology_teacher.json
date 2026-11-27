@@ -1,0 +1,682 @@
+{
+  "id": "imagination_biology_teacher",
+  "status": "awaiting_author_review",
+  "startNode": "n_q_1",
+  "note": "B老师的想象场景。全部台词为排演稿，非作者原文，待作者逐句审定后替换。开头四句是 Q 口述 B 的外形（回忆起源），随后是主角据此构图的四句独白，再进入四轮对峙。四轮对话，每轮四种回应：A 学生式顺从 / B 声称成年 / C 荒诞调侃（对想象属性做检定） / D 跳出想象。检定目标 2/3/4/5，属性上限为 5。奖励走 insight: 前缀（3 点 = 1 属性点），不设 objective 标记。",
+  "nodes": [
+    {
+      "id": "n_q_1",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "B老师啊？你没见过她？就那个小老太太，个子还没我高。",
+      "next": "n_q_2",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_q_2",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "背总是驼着的，肩膀倒是耸得老高，走路的时候脖子往前探，像只站在电线上的鸟。",
+      "next": "n_q_3",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_q_3",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "鼻子是勾的，你从侧面看就知道了，尖得能挂东西。眼睛小，还挨得近，戴那种带帽檐的眼镜，帽檐一翻下来，你根本看不见她的眼睛。",
+      "next": "n_q_4",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_q_4",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "白头发的，全梳到后面盘成一个团，用一根发卡别着。她讲课的时候那个团就在后面一晃一晃的。",
+      "next": "n_enter",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_enter",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "Q还在说话。我一边听，一边在脑子里把那间教室盖了起来。",
+      "next": "n_b_desc_a",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_b_desc_a",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "个子不高。驼着。肩膀耸着。",
+      "next": "n_b_desc_b",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_b_desc_b",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "勾鼻子。小眼睛。带帽檐的眼镜，白头发在脑后盘成一个团。",
+      "next": "n_b_desc_c",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_b_desc_c",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "她站在讲台后面，比讲台高不了多少。",
+      "next": "n_b_desc_d",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_b_desc_d",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "Q没有说她的脸长什么样。所以我想象出来的那张脸，是我自己填的。",
+      "next": "n_r1_q",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r1_q",
+      "kind": "choice",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "课本。你带了没有？",
+      "choices": [
+        {
+          "text": "……没带。我忘在家里了。",
+          "next": "n_r1_a",
+          "effects": []
+        },
+        {
+          "text": "我不需要带。我是成年人。",
+          "next": "n_r1_b",
+          "effects": []
+        },
+        {
+          "text": "课本在梦里，老师。梦里的书包是空的，这很合理。",
+          "next": "n_r1_c_win",
+          "effects": [],
+          "checkAttribute": "Imagination",
+          "minimumValue": 2,
+          "failureNext": "n_r1_c_lose"
+        },
+        {
+          "text": "（不再想下去了。）",
+          "next": "n_escape",
+          "effects": [
+            "recollection:b_escape"
+          ]
+        }
+      ],
+      "effects": [],
+      "note": "opening demand of the imagined lesson"
+    },
+    {
+      "id": "n_r1_a",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "那你现在用眼睛看什么？看我？我脸上印着字吗。站到前面来。",
+      "next": "n_r1_a_next",
+      "effects": [
+        "recollection:b_tier1_student"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r1_a_next",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "（她按住了我。）",
+      "next": "n_r2_q",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r1_b",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "成年人。成年人坐在这张桌子后面，听我讲细胞膜。坐下。",
+      "next": "n_r2_q",
+      "effects": [
+        "recollection:b_tier1_adult"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r1_c_win",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "……你说什么？",
+      "next": "n_r1_c_win_result",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r1_c_win_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "她把眼镜往鼻梁上推了一格，没有立刻接话。这间教室有东西松了。",
+      "next": "n_r2_q",
+      "effects": [
+        "recollection:b_tier1_absurd_held",
+        "insight:Imagination:1"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r1_c_lose",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "你跟我耍嘴皮子？",
+      "next": "n_r1_c_lose_result",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r1_c_lose_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "她把三角尺从讲台上拿起来，在指间转了一圈。她知道自己在这里，她也知道你知道。",
+      "next": "n_r2_q",
+      "effects": [
+        "recollection:b_tier1_absurd_failed"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r2_q",
+      "kind": "choice",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "站到前面来。让全班看看没带课本的人长什么样。",
+      "choices": [
+        {
+          "text": "……好。",
+          "next": "n_r2_a",
+          "effects": []
+        },
+        {
+          "text": "我不会站到前面去。我不是这个班的学生。",
+          "next": "n_r2_b",
+          "effects": []
+        },
+        {
+          "text": "老师，如果我站到前面去，全班就得看着我——可这个班里没有人，老师。",
+          "next": "n_r2_c_win",
+          "effects": [],
+          "checkAttribute": "Imagination",
+          "minimumValue": 3,
+          "failureNext": "n_r2_c_lose"
+        },
+        {
+          "text": "（不再想下去了。）",
+          "next": "n_escape",
+          "effects": [
+            "recollection:b_escape"
+          ]
+        }
+      ],
+      "effects": [],
+      "note": "tier 2: she escalates, having been given ground in tier 1"
+    },
+    {
+      "id": "n_r2_a",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "转身。手举起来。告诉他们，你为什么不带课本。",
+      "next": "n_r2_a_next",
+      "effects": [
+        "recollection:b_tier2_student"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r2_a_next",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "（她按住了我。）",
+      "next": "n_r3_q",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r2_b",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "你不是这个班的学生。那你为什么坐在这里，为什么穿着这件衣服，为什么怕我？",
+      "next": "n_r3_q",
+      "effects": [
+        "recollection:b_tier2_adult"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r2_c_win",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "……有人。一直有人。",
+      "next": "n_r2_c_win_result",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r2_c_win_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "她的声音在\"有人\"两个字上裂了一下。她把视线移开，看窗户。",
+      "next": "n_r3_q",
+      "effects": [
+        "recollection:b_tier2_absurd_held",
+        "insight:Imagination:1"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r2_c_lose",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "闭嘴。把手伸出来。",
+      "next": "n_r2_c_lose_result",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r2_c_lose_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "她不再试图讲道理了。从现在开始，她只想证明自己还站在讲台后面。",
+      "next": "n_r3_q",
+      "effects": [
+        "recollection:b_tier2_absurd_failed"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r3_q",
+      "kind": "choice",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "把手伸出来。",
+      "choices": [
+        {
+          "text": "（我伸出手。）",
+          "next": "n_r3_a",
+          "effects": []
+        },
+        {
+          "text": "你可以打。打完了我也不会变成你的学生。",
+          "next": "n_r3_b",
+          "effects": []
+        },
+        {
+          "text": "老师，你打的是梦。疼会醒的。",
+          "next": "n_r3_c_win",
+          "effects": [],
+          "checkAttribute": "Imagination",
+          "minimumValue": 4,
+          "failureNext": "n_r3_c_lose"
+        },
+        {
+          "text": "（不再想下去了。）",
+          "next": "n_escape",
+          "effects": [
+            "recollection:b_escape"
+          ]
+        }
+      ],
+      "effects": [],
+      "note": "tier 3: the ruler, which the opening already told the player to expect"
+    },
+    {
+      "id": "n_r3_a",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "打完之后她没有让我回去。她等着看我哭，或者等着看我装作不疼。我两样都没给她。",
+      "next": "n_r3_a_next",
+      "effects": [
+        "recollection:b_tier3_student"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r3_a_next",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "（她按住了我。）",
+      "next": "n_r4_q",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r3_b",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "那我就打到你觉得你是为止。",
+      "next": "n_r4_q",
+      "effects": [
+        "recollection:b_tier3_adult"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r3_c_win",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "……那你要不要试试看它会不会醒？",
+      "next": "n_r3_c_win_result",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r3_c_win_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "她笑了。这是她第一次笑，而这一笑让她整张脸像是画在纸上的。",
+      "next": "n_r4_q",
+      "effects": [
+        "recollection:b_tier3_absurd_held",
+        "insight:Imagination:1"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r3_c_lose",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "（她的手落下来。）你连疼都不肯承认，你还敢跟我讲故事。",
+      "next": "n_r3_c_lose_result",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r3_c_lose_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "她打得很准。这说明她在这里比在教室里更清楚自己是谁。",
+      "next": "n_r4_q",
+      "effects": [
+        "recollection:b_tier3_absurd_failed"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r4_q",
+      "kind": "choice",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "……你还不肯认。",
+      "choices": [
+        {
+          "text": "我认。我没带课本，我该罚。",
+          "next": "n_r4_a",
+          "effects": []
+        },
+        {
+          "text": "我不是你的学生。你也不是我的老师。",
+          "next": "n_r4_b",
+          "effects": []
+        },
+        {
+          "text": "老师——如果我承认我是你的学生，你能不能承认你不在了？",
+          "next": "n_r4_c_win",
+          "effects": [],
+          "checkAttribute": "Imagination",
+          "minimumValue": 5,
+          "failureNext": "n_r4_c_lose"
+        },
+        {
+          "text": "（不再想下去了。）",
+          "next": "n_escape",
+          "effects": [
+            "recollection:b_escape"
+          ]
+        }
+      ],
+      "effects": [],
+      "note": "tier 4: the last chance to resolve it either way"
+    },
+    {
+      "id": "n_r4_a",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "她愣住了。她准备了一整套对付不肯认的人的词，没有一套是给认了的。她让我回座位。",
+      "next": "n_r4_a_next",
+      "effects": [
+        "recollection:b_tier4_student"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r4_a_next",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "（她按住了我。）",
+      "next": "n_resolve_route",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r4_b",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "（她张了张嘴。什么都没说出来。）讲台后面那个人，忽然不知道自己该把手放在哪里。",
+      "next": "n_resolve_route",
+      "effects": [
+        "recollection:b_tier4_adult"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r4_c_win",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "（她把眼镜摘下来。没有眼镜，她的脸几乎看不清了。）",
+      "next": "n_r4_c_win_result",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r4_c_win_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "整间教室开始退色，像一张被水泡过的纸。她还在讲台上，但她已经不在讲什么了。",
+      "next": "n_resolve_route",
+      "effects": [
+        "recollection:b_tier4_absurd_held",
+        "insight:Imagination:1"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r4_c_lose",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "你不许这么说。你不许。",
+      "next": "n_r4_c_lose_result",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_r4_c_lose_result",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "这句话把她彻底激怒了，也把她彻底暴露了：一个不在了的人，不该这么在意别人说不说。",
+      "next": "n_resolve_route",
+      "effects": [
+        "recollection:b_tier4_absurd_failed"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_resolve_route",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "她抬起手。我知道她要说什么了，而且我知道，是她自己也不知道的部分在替她说。",
+      "next": "n_resolve_choice",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_resolve_choice",
+      "kind": "choice",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "（这是我能记得这是我编的最后一次机会。）",
+      "choices": [
+        {
+          "text": "（我记得。这是我的教室。）",
+          "next": "n_resolve_held",
+          "effects": [],
+          "checkAttribute": "Imagination",
+          "minimumValue": 5,
+          "failureNext": "n_resolve_broken"
+        },
+        {
+          "text": "（我等着她说下去。）",
+          "next": "n_resolve_broken",
+          "effects": []
+        }
+      ],
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_resolve_held",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "她还在讲台上。但教室已经散了——桌子、黑板、窗外的树，全都在往后退，像有人把镜头拉远了。",
+      "next": "n_resolve_held_2",
+      "effects": [
+        "recollection:b_held_together",
+        "insight:Imagination:4",
+        "insight:Perception:1"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_resolve_held_2",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "protagonist",
+      "text": "我没有赢。我只是从头到尾都记得，这是我编的。",
+      "next": "n_return",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_resolve_broken",
+      "kind": "line",
+      "presentation": "imagination",
+      "speaker": "teacher_b",
+      "text": "坐下。",
+      "next": "n_resolve_broken_2",
+      "effects": [
+        "recollection:b_broken",
+        "insight:Imagination:1"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_resolve_broken_2",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "（我坐下了。）我想不起来我是什么时候开始坐下的，也想不起来我刚才本来要做什么。",
+      "next": "n_return",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_escape",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "我不想下去了。这个念头一起，教室就没了——不是散掉，是像没被画完一样，从边上开始不见了。",
+      "next": "n_escape_2",
+      "effects": [
+        "recollection:b_chose_to_stop",
+        "insight:Imagination:-3"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_escape_2",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "（我还没来得及知道她要说的是什么。）",
+      "next": "n_return",
+      "effects": [],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_return",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "Q还在说。他的嘴一张一合，声音过了半拍才跟上来。",
+      "next": "n_end",
+      "effects": [
+        "recollection:b_imagining_done"
+      ],
+      "note": "rehearsal text: not the owner's writing, needs a pass"
+    },
+    {
+      "id": "n_end",
+      "kind": "end",
+      "presentation": "",
+      "speaker": "",
+      "text": "",
+      "effects": []
+    }
+  ]
+}

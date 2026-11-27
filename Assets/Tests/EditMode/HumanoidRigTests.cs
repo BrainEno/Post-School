@@ -49,6 +49,7 @@ namespace PostSchool.Tests.EditMode
         [TestCase(FigureRole.Protagonist)]
         [TestCase(FigureRole.ClassmateQ)]
         [TestCase(FigureRole.TeacherN)]
+        [TestCase(FigureRole.TeacherB)]
         public void FiguresStandOnTheFloorAtTheirDeclaredHeight(FigureRole role)
         {
             HumanoidProportions proportions;
@@ -57,6 +58,7 @@ namespace PostSchool.Tests.EditMode
                 case FigureRole.Protagonist: proportions = HumanoidProportions.Protagonist(); break;
                 case FigureRole.ClassmateQ: proportions = HumanoidProportions.Classmate(); break;
                 case FigureRole.TeacherN: proportions = HumanoidProportions.TeacherN(); break;
+                case FigureRole.TeacherB: proportions = HumanoidProportions.TeacherB(); break;
                 default: throw new System.ArgumentOutOfRangeException(nameof(role));
             }
 

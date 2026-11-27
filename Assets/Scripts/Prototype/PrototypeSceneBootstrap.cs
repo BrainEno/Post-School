@@ -26,6 +26,7 @@ namespace PostSchool.Prototype
     {
         private const string DialogueResourcePath = "Dialogue/classroom_opening";
         private const string TeacherDialogueResourcePath = "Dialogue/classroom_teacher_n";
+        private const string ImaginationResourcePath = "Dialogue/imagination_biology_teacher";
         private const string TeacherRevisitResourcePath = "Dialogue/classroom_teacher_n_revisit";
         private const string SheetTextResourcePath = "CharacterSheet/character_sheet_text_placeholder";
         private const string SaveFileName = "prototype-save.json";
@@ -74,6 +75,11 @@ namespace PostSchool.Prototype
         private Inspectable _teacherTarget;
         private DialogueRunner _openingRunner;
         private DialogueRunner _teacherRunner;
+        private DialogueRunner _imaginationRunner;
+        private InsightLedger _insight;
+        private SkinnedFigure _imaginedTeacherB;
+        private SkinnedFigure _imaginedTeacherGhost;
+        private Transform _imaginedTeacherRoot;
         private DialogueRunner _teacherRevisitRunner;
         private QuizScene _activeScene;
         private bool _openingFinished;
@@ -100,6 +106,7 @@ namespace PostSchool.Prototype
             // The cast stands in the empty front band, never inside the seating grid.
             CreateClassmateQ(new Vector3(-2.9f, 0f, 1.1f), ClassmateQFacing);
             CreateTeacherN();
+            CreateImaginedTeacherB();
             CreateInspectable("schoolbag", "书包（占位）", "【占位说明，待作者审定】这里可以检查书包。", PrimitiveType.Cube,
                 new Vector3(-1.62f, 0.24f, 0.5f), new Vector3(0.5f, 0.42f, 0.34f), _surfaces.Surface(SurfaceRole.Ink));
             CreateInspectable("set_square", "三角尺（占位）", "【占位说明，待作者审定】这里可以检查一件课堂物品。", PrimitiveType.Cube,
@@ -145,6 +152,18 @@ namespace PostSchool.Prototype
             _dialoguePresenter = canvas.gameObject.AddComponent<DialoguePresenter>();
             _openingRunner = new DialogueRunner(script, _storyState, _characterBuild);
             _teacherRunner = new DialogueRunner(teacherScript, _storyState, _characterBuild);
+
+            // The imagined lesson is the only scene that pays out: it awards insight, so it needs the
+            // ledger, and it is built with the same character build the attribute checks resolve against.
+            TextAsset imaginationAsset = Resources.Load<TextAsset>(ImaginationResourcePath);
+            if (imaginationAsset == null)
+            {
+                throw new InvalidOperationException($"Missing dialogue resource '{ImaginationResourcePath}'.");
+            }
+
+            _insight = new InsightLedger();
+            _imaginationRunner = new DialogueRunner(
+                DialogueScript.FromJson(imaginationAsset.text), _storyState, _characterBuild, _insight);
             _teacherRevisitRunner = new DialogueRunner(revisitScript, _storyState, _characterBuild);
             _dialoguePresenter.Initialize(canvas.transform, _openingRunner, PauseWorldForDialogue, HandleDialogueEnded);
 
@@ -342,6 +361,77 @@ namespace PostSchool.Prototype
         }
 
         /// <summary>
+        /// B, standing at the front of the room for the whole game, present only while the imagining is
+        /// open.
+        ///
+        /// She is built at startup and hidden, rather than built when the scene begins, because building a
+        /// skinned mesh mid-conversation would stall the frame the player is reading. Hiding is a
+        /// renderer toggle; the bones keep their pose.
+        ///
+        /// The distortion is deliberate and is the point of her: she is not a person in the room, she is
+        /// what the protagonist's imagination made out of Q's description, and it made her wrong. Three
+        /// things carry that, all of them cheap to undo if the owner wants her sober:
+        ///
+        ///   1. a second copy of her, half a metre to the left and slightly smaller, rendered as a
+        ///      ghost. A remembered figure is never exactly where you put it.
+        ///   2. her scale is not quite uniform: 4% taller than the table says, 6% narrower, so she is
+        ///      stretched. Nothing about her should pass a measurement.
+        ///   3. she faces the room but is turned 18 degrees off the protagonist, because the imagination
+        ///      is not sure which seat he is in.
+        ///
+        /// She is given no animator: the imagining does not move her. A figure that never shifts its
+        /// weight is the most dreamlike thing in the scene, and it costs nothing.
+        /// </summary>
+        private void CreateImaginedTeacherB()
+        {
+            // In front of the podium, facing the class. Off the layout's teacher path on purpose: this is
+            // not the woman who walks in, it is a figure standing where a teacher stands.
+            Vector3 mark = new Vector3(_layout != null && _layout.podium != null ? _layout.podium.positionX : 0f, 0f, 2.4f);
+            const float yaw = 180f;
+            const float skewYaw = 18f;
+
+            _imaginedTeacherB = SkinnedCharacterBuilder.Create(
+                "B (imagined)",
+                transform,
+                mark,
+                yaw + skewYaw,
+                HumanoidProportions.TeacherB(),
+                FigureRole.TeacherB,
+                _surfaces.CreateCharacterSkin(FigureRole.TeacherB));
+
+            _imaginedTeacherRoot = _imaginedTeacherB.Root;
+
+            // The stretch: taller, narrower, and a little deeper than she should be. Applied to the
+            // figure's own transform so the mesh and the bones agree and the skinning stays valid.
+            Transform figure = _imaginedTeacherRoot.Find("Figure");
+            if (figure != null) figure.localScale = new Vector3(0.94f, 1.04f, 1.02f);
+
+            // The ghost: the same geometry, a second renderer, offset and smaller. A copy rather than a
+            // second build, so there is one mesh and one skeleton and no chance of the two drifting.
+            _imaginedTeacherGhost = SkinnedCharacterBuilder.Create(
+                "B (afterimage)",
+                transform,
+                mark + new Vector3(-0.48f, 0f, -0.30f),
+                yaw + skewYaw - 7f,
+                HumanoidProportions.TeacherB(),
+                FigureRole.TeacherB,
+                _surfaces.CreateCharacterSkin(FigureRole.TeacherB));
+            Transform ghostFigure = _imaginedTeacherGhost.Root.Find("Figure");
+            if (ghostFigure != null) ghostFigure.localScale = new Vector3(0.90f, 0.97f, 0.90f);
+
+            SetImaginedTeacherVisible(false);
+        }
+
+        /// <summary>
+        /// Shows or hides B. The afterimage fades with her, because it is the same thought.
+        /// </summary>
+        private void SetImaginedTeacherVisible(bool visible)
+        {
+            if (_imaginedTeacherRoot != null) _imaginedTeacherRoot.gameObject.SetActive(visible);
+            if (_imaginedTeacherGhost != null) _imaginedTeacherGhost.Root.gameObject.SetActive(visible);
+        }
+
+        /// <summary>
         /// The three scripts the panel can play, in the order the slice reaches them. The title is part
         /// of the scene, not of the script, because the panel is one panel.
         /// </summary>
@@ -349,6 +439,7 @@ namespace PostSchool.Prototype
         {
             switch (scene)
             {
+                case QuizScene.ImaginedBiologyTeacher: return "想象 · 生物老师";
                 case QuizScene.TeacherFirstClass: return "序章 · 代课老师";
                 case QuizScene.TeacherRevisit: return "N 老师";
                 default: return "序章 · 教室";
@@ -371,6 +462,7 @@ namespace PostSchool.Prototype
         {
             switch (scene)
             {
+                case QuizScene.ImaginedBiologyTeacher: return _imaginationRunner;
                 case QuizScene.TeacherFirstClass: return _teacherRunner;
                 case QuizScene.TeacherRevisit: return _teacherRevisitRunner;
                 default: return _openingRunner;
@@ -391,6 +483,11 @@ namespace PostSchool.Prototype
             // which node, so a node in another script with the same id would simply not match.
             presenter.NodeShown -= OnDialogueNodeShown;
             presenter.NodeShown += OnDialogueNodeShown;
+
+            // She exists only while the imagining is open. Before the first node is shown and after the
+            // last, the front of the room has nobody at it.
+            SetImaginedTeacherVisible(scene == QuizScene.ImaginedBiologyTeacher);
+
             presenter.Begin();
         }
 
@@ -482,14 +579,37 @@ namespace PostSchool.Prototype
             // without it the panel closing would leave the room frozen (world time is still zero).
             ResumeWorldAfterDialogue();
 
-            if (_activeScene == QuizScene.ClassroomOpening)
+            // The imagining is over: the front of the room empties.
+            if (_activeScene == QuizScene.ImaginedBiologyTeacher) SetImaginedTeacherVisible(false);
+
+            switch (_activeScene)
             {
-                _openingFinished = true;
-                _storyState.Set(StoryNamespace.Objective, "opening_finished");
-            }
-            else
-            {
-                _storyState.Set(StoryNamespace.Recollection, "n_first_class_heard");
+                case QuizScene.ClassroomOpening:
+                    _openingFinished = true;
+                    _storyState.Set(StoryNamespace.Objective, "opening_finished");
+
+                    // Straight into what he imagined. It is not a separate place or a cut: Q is
+                    // mid-sentence when the prologue ends, and the description of B is what the player
+                    // has just been handed, so the imagining has to follow immediately or the beat is
+                    // lost. No input is needed from the player to get there.
+                    BeginDialogue(_dialoguePresenter, QuizScene.ImaginedBiologyTeacher);
+                    break;
+
+                case QuizScene.ImaginedBiologyTeacher:
+                    // The ledger has been holding insight throughout the scene; this is where it
+                    // becomes attribute points. Granted once, at the end, so the sheet does not change
+                    // under the player mid-conversation.
+                    int gained = _insight != null ? _insight.GrantEarnedPoints(_characterBuild) : 0;
+                    if (gained > 0)
+                    {
+                        _storyState.Set(StoryNamespace.Recollection, "b_insight_paid_out");
+                    }
+
+                    break;
+
+                default:
+                    _storyState.Set(StoryNamespace.Recollection, "n_first_class_heard");
+                    break;
             }
         }
 

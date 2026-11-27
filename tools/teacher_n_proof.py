@@ -136,6 +136,18 @@ def teacher() -> Proportions:
     )
 
 
+def biology_teacher() -> Proportions:
+    """HumanoidProportions.TeacherB(): 1.64 m, stooped, shoulders high and close, long forward neck."""
+    return Proportions(
+        height=1.64, ankle=0.060,
+        hips=(0, 0.875, 0), spine=(0, 0.150, 0.012), chest=(0, 0.160, 0.016),
+        neck=(0, 0.168, 0.026), head=(0, 0.062, 0.014),
+        shoulder=(0.030, 0.098, 0), upper_arm=(0.108, 0, 0), forearm=(0, -0.252, 0), hand=(0, -0.222, 0),
+        thigh=(0.078, -0.062, 0), shin=(0, -0.392, 0), foot=(0, -0.362, 0),
+        head_length=0.222, head_radius=0.076, chest_depth=0.100,
+    )
+
+
 # ------------------------------------------------------------------------------------------------
 # Poses, mirrored from HumanoidPose.cs / HumanoidClip.cs (degrees, Unity ZXY order).
 
@@ -368,6 +380,15 @@ def body_parts(p: Proportions, role: str) -> list:
         line = [upper, upper + (elbow - upper) * 0.5, elbow, elbow + (wrist - elbow) * 0.55, elbow + (wrist - elbow) * 0.94]
         parts.append(("tube", (line, [0.05, 0.045, 0.041, 0.036, 0.031]), "coat"))
         parts.append(("box", (wrist + np.array([0, -0.03, 0.004]), np.array([0.026, 0.042, 0.016])), "skin"))
+
+    # The neck: chest -> neck bone -> head bone, tapering. SkinnedFigureFactory.BuildHeadSkin builds
+    # this tube and the shared part list did not, so every figure on every sheet built from these parts
+    # had its head floating above a gap at the collar. It is the one piece of the body that is visible
+    # on all of them and that nothing else covers.
+    root = p.rest("Chest") + np.array([0, 0.14, 0])
+    neck_bone = p.rest("Neck")
+    head_bone = p.rest("Head")
+    parts.append(("tube", ([root, neck_bone, head_bone], [0.05, 0.045, 0.043]), "skin"))
 
     # Head: skull and jaw. The hair is per-role.
     head = p.rest("Head")
