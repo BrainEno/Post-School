@@ -19,12 +19,30 @@ namespace PostSchool.World
         public float y;
         public float thickness;
 
+        /// <summary>The lifted slab's pitch, in degrees about Z. A degree and a half reads as a mistake.</summary>
+        public float tiltDegrees;
+
         public int[] floors = Array.Empty<int>();
 
         /// <summary>Set on classroomFootprint: which floor the classroom occupies.</summary>
         public int storey;
 
+        /// <summary>flat, canopy or open. Read by ShellRoofs, so a roof type cannot be silently dropped.</summary>
         public string roof;
+
+        /// <summary>
+        /// Which face carries the window bands: east, west, south, or null for a block without any. Named
+        /// rather than assumed, because "the long face" is the wrong face twice on this L.
+        /// </summary>
+        public string windowFace;
+
+        /// <summary>
+        /// True on a block whose ground floor is a way through rather than a floor: the north gate's porch.
+        /// It is a flag rather than a void because a void is a rectangle, and the thing being subtracted here
+        /// is a floor, not a piece of one.
+        /// </summary>
+        public bool openGround;
+
         public string note;
 
         public float Width => maxX - minX;
@@ -33,7 +51,13 @@ namespace PostSchool.World
         public float CentreZ => (minZ + maxZ) * 0.5f;
     }
 
-    /// <summary>A hole in the massing: the classroom's own shaft, above and below the room.</summary>
+    /// <summary>
+    /// A rectangle of the site that is not built on the storeys it names.
+    ///
+    /// It replaces only the part of a block it overlaps, so a storey can be built around it. Two of them exist:
+    /// the classroom's own rectangle, taken out of the storey the room occupies, and the slot in front of the
+    /// room's missing wall, which keeps that storey and the one below it clear of the drop down to the street.
+    /// </summary>
     [Serializable]
     public sealed class ShellVoid
     {
@@ -46,6 +70,34 @@ namespace PostSchool.World
         public float maxZ;
         public int[] floors = Array.Empty<int>();
         public string note;
+
+        public float Width => maxX - minX;
+        public float Depth => maxZ - minZ;
+    }
+
+    /// <summary>How one roof type is built. Sizes live in the file; the builder only reads them.</summary>
+    [Serializable]
+    public sealed class ShellRoofType
+    {
+        public float slabThickness;
+        public float parapet;
+        public float overhang;
+        public float fascia;
+        public float kerbHeight;
+        public float kerbThickness;
+        public string note;
+    }
+
+    [Serializable]
+    public sealed class ShellRoofs
+    {
+        public string note;
+        public ShellRoofType flat = new ShellRoofType();
+        public ShellRoofType canopy = new ShellRoofType();
+        public ShellRoofType open = new ShellRoofType();
+
+        public ShellRoofType For(string type) =>
+            type == "canopy" ? canopy : type == "open" ? open : flat;
     }
 
     /// <summary>One run of fins standing off a long face.</summary>
@@ -83,6 +135,29 @@ namespace PostSchool.World
         public float to;
     }
 
+    /// <summary>Where the window bands sit on a face, and how deep a reveal they are set into.</summary>
+    [Serializable]
+    public sealed class ShellWindows
+    {
+        public float sill;
+        public float height;
+        public float margin;
+        public float glassFraction;
+        public float reveal;
+        public float glassDepth;
+        public string note;
+    }
+
+    /// <summary>The north gate's opening: two piers and a lintel, sized off the porch itself.</summary>
+    [Serializable]
+    public sealed class ShellPorch
+    {
+        public float lintel;
+        public float pierFraction;
+        public float pierClearance;
+        public string note;
+    }
+
     /// <summary>The site as a grid of lines with no surface under it.</summary>
     [Serializable]
     public sealed class ShellGround
@@ -93,6 +168,10 @@ namespace PostSchool.World
         public float gridExtentZ;
         public float gridSpacing;
         public float gridThickness;
+        /// <summary>How far the grid floats above the street, so it never z-fights the street's own plane.</summary>
+        public float gridLift;
+        /// <summary>The red mat's thickness: a mark laid on the ground, not a platform.</summary>
+        public float matThickness;
         public ShellBox mat = new ShellBox();
         public string note;
     }
@@ -148,6 +227,9 @@ namespace PostSchool.World
         public ShellLouvre[] louvres = Array.Empty<ShellLouvre>();
         public ShellGround ground = new ShellGround();
         public ShellObject[] objects = Array.Empty<ShellObject>();
+        public ShellWindows windows = new ShellWindows();
+        public ShellPorch porch = new ShellPorch();
+        public ShellRoofs roofs = new ShellRoofs();
         public ShellImpossibility[] impossibilities = Array.Empty<ShellImpossibility>();
 
         public static CampusShellLayout FromJson(string json, string sourceName)
@@ -243,11 +325,38 @@ namespace PostSchool.World
                 }
             }
 
-            // The classroom is the middle floor: the shaft above and below it has to be declared, or the
-            // shell will be built straight through the room.
-            if (voids == null || Array.TrueForAll(voids, v => v.id != "classroom_shaft"))
+            // The classroom's own storey has to be cut, and cut in the right place, or the shell is either
+            // built straight through the room or the room ends up outside the building.
+            ShellVoid opening = FindVoid("classroom_opening");
+            if (opening == null)
             {
-                error = "The classroom shaft is not declared as a void; the shell would be built through the room.";
+                error = "The classroom opening is not declared as a void; the shell would be built through the room.";
+                return false;
+            }
+
+            if (Array.IndexOf(opening.floors, classroomFootprint.storey) < 0)
+            {
+                error = "The classroom opening does not include the storey the classroom is on.";
+                return false;
+            }
+
+            if (!Covers(opening, classroomFootprint))
+            {
+                error = "The classroom opening is smaller than the room, so the shell would cut through its walls.";
+                return false;
+            }
+
+            if (ContainsAnyBlock(opening, classroomFootprint.storey, out string insideOpening))
+            {
+                error = $"Block '{insideOpening}' is entirely inside the classroom opening, so that storey would vanish.";
+                return false;
+            }
+
+            // The room's missing wall is the south one, and the drop below it has to reach the street, or the
+            // fall onto the container ends on a slab of campus instead of on the container.
+            if (FindVoid("fall_slot") == null)
+            {
+                error = "The slot in front of the classroom is not declared; the ground floor would fill in the fall.";
                 return false;
             }
 
@@ -256,6 +365,29 @@ namespace PostSchool.World
                 if (slab.thickness <= 0f)
                 {
                     error = $"Lifted slab '{slab.id}' has no thickness.";
+                    return false;
+                }
+            }
+
+            if (roofs == null)
+            {
+                error = "The shell declares no roof types.";
+                return false;
+            }
+
+            foreach (ShellBox block in blocks)
+            {
+                if (block.roof != "flat" && block.roof != "canopy" && block.roof != "open")
+                {
+                    error = $"Block '{block.id}' asks for roof '{block.roof}', which is not a declared type.";
+                    return false;
+                }
+
+                ShellRoofType type = roofs.For(block.roof);
+                if (block.roof == "open" ? type.kerbHeight <= 0f || type.kerbThickness <= 0f
+                                          : type.slabThickness <= 0f)
+                {
+                    error = $"Roof type '{block.roof}' has no thickness, so '{block.id}' would be built roofless.";
                     return false;
                 }
             }
@@ -297,13 +429,61 @@ namespace PostSchool.World
             return true;
         }
 
-        /// <summary>The underside of a floor's structural slab, in the classroom frame.</summary>
-        public float FloorBase(int floor) => floor * frame.floorHeight;
+        /// <summary>
+        /// The underside of a floor's structural slab, in the classroom frame: floor 0 stands on the street,
+        /// floor 1 is the classroom's, and the room's own floor is 0, so the two datums agree by construction.
+        /// </summary>
+        public float FloorBase(int floor) => frame.streetY + floor * frame.floorHeight;
 
         /// <summary>The top of a floor's void, where the next slab starts.</summary>
         public float FloorTop(int floor) => FloorBase(floor) + frame.floorHeight - frame.slabThickness;
 
         public ShellBox Block(string id) => Array.Find(blocks, b => b.id == id);
+
+        public ShellVoid FindVoid(string id) => Array.Find(voids ?? Array.Empty<ShellVoid>(), v => v.id == id);
+
+        /// <summary>True when this floor of this block is taken out by a declared void.</summary>
+        public bool IsVoided(ShellBox block, int floor, out ShellVoid gap)
+        {
+            foreach (ShellVoid candidate in voids ?? Array.Empty<ShellVoid>())
+            {
+                if (Array.IndexOf(candidate.floors, floor) >= 0 && Overlaps(candidate, block))
+                {
+                    gap = candidate;
+                    return true;
+                }
+            }
+
+            gap = null;
+            return false;
+        }
+
+        private static bool Overlaps(ShellVoid gap, ShellBox box) =>
+            box.minX < gap.maxX && box.maxX > gap.minX && box.minZ < gap.maxZ && box.maxZ > gap.minZ;
+
+        /// <summary>True when the void swallows the whole box on that storey, which would delete it.</summary>
+        private bool ContainsAnyBlock(ShellVoid gap, int floor, out string blockId)
+        {
+            foreach (ShellBox block in blocks)
+            {
+                if (Array.IndexOf(block.floors, floor) < 0) continue;
+                if (!Overlaps(gap, block)) continue;
+                bool swallows = gap.minX <= block.minX && gap.maxX >= block.maxX
+                                && gap.minZ <= block.minZ && gap.maxZ >= block.maxZ;
+                if (swallows)
+                {
+                    blockId = block.id;
+                    return true;
+                }
+            }
+
+            blockId = null;
+            return false;
+        }
+
+        private bool Covers(ShellVoid gap, ShellBox room) =>
+            gap.minX <= room.minX && gap.maxX >= room.maxX
+            && gap.minZ <= room.minZ && gap.maxZ >= room.maxZ;
     }
 
     [Serializable]

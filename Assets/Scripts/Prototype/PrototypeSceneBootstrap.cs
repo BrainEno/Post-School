@@ -39,6 +39,7 @@ namespace PostSchool.Prototype
 
         /// <summary>The campus around the room, or null when its data is missing.</summary>
         private GameObject _campusRoot;
+        private CampusShellBuilder.ShellMaterials _campusMaterials;
         private ClassroomLayout _layout;
         private CharacterBuild _characterBuild;
         private StoryState _storyState;
@@ -240,6 +241,13 @@ namespace PostSchool.Prototype
             if (_protagonist != null) _protagonist.DisposeMesh();
             if (_qFigure != null) _qFigure.DisposeMesh();
 
+            // The shell's materials are copies of the room's, so they are not in the library's books.
+            if (_campusMaterials != null)
+            {
+                _campusMaterials.Dispose();
+                _campusMaterials = null;
+            }
+
             if (_surfaces != null)
             {
                 _surfaces.Dispose();
@@ -267,7 +275,7 @@ namespace PostSchool.Prototype
             }
 
             CampusShellLayout shell = CampusShellLayout.FromJson(shellAsset.text, CampusShellResourcePath);
-            _campusRoot = CampusShellBuilder.Build(shell, _surfaces, transform);
+            _campusRoot = CampusShellBuilder.Build(shell, _surfaces, transform, out _campusMaterials);
         }
 
         private void BuildClassroom()

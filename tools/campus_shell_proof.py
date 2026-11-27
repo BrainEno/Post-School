@@ -111,33 +111,100 @@ class Box:
 
 
 def floor_base(data: dict, floor: int) -> float:
-    """The underside of a floor's slab, in the classroom frame."""
-    return floor * data["frame"]["floorHeight"]
+    """The underside of a floor's structural slab, in the classroom frame.
+
+    Storey 0 stands on the street, 4.2 m below the classroom floor; storey 1 is the classroom's own, so
+    its base is exactly the room's y = 0. Both datums therefore agree, which is the thing the first version
+    got wrong: it counted storeys from the classroom floor upward and left the whole campus hovering.
+    """
+    return data["frame"]["streetY"] + floor * data["frame"]["floorHeight"]
 
 
 def floor_top(data: dict, floor: int) -> float:
     return floor_base(data, floor) + data["frame"]["floorHeight"] - data["frame"]["slabThickness"]
 
 
-def is_voided(data: dict, block: dict, floor: int) -> bool:
-    """True when this floor of this block falls inside a declared void.
-
-    The classroom is the middle floor of the building, so the storeys above and below it are not built
-    at all. CampusShellBuilder skips them for the same reason, and the two must agree: a proof that
-    drew a floor the runtime leaves out would be a picture of a building that does not exist.
-    """
+def voids_on(data: dict, block: dict, floor: int) -> list[dict]:
+    """Every declared void that cuts into this block on this floor."""
+    out = []
     for gap in data.get("voids", []):
         if floor not in gap["floors"]:
             continue
-        overlaps = (block["minX"] < gap["maxX"] and block["maxX"] > gap["minX"]
-                    and block["minZ"] < gap["maxZ"] and block["maxZ"] > gap["minZ"])
-        if overlaps:
-            return True
-    return False
+        if gap["minX"] >= block["maxX"] or gap["maxX"] <= block["minX"]:
+            continue
+        if gap["minZ"] >= block["maxZ"] or gap["maxZ"] <= block["minZ"]:
+            continue
+        out.append(gap)
+    return out
+
+
+def is_voided(data: dict, block: dict, floor: int) -> bool:
+    """True when this floor of this block is cut into by any void at all."""
+    return bool(voids_on(data, block, floor))
+
+
+def carve(data: dict, block: dict, floor: int) -> list[tuple[float, float, float, float]]:
+    """The rectangles left of this storey once the voids are taken out of it.
+
+    Same algorithm as CampusShellMassing.Carve: cut on the lines of the block and every void, drop the cells
+    whose centre is inside a void, then merge neighbours. It is repeated here rather than imported because
+    the C# cannot run in CI; tests/ci/test_campus_shell.py holds the two to the same answers.
+    """
+    gaps = voids_on(data, block, floor)
+    xs = {block["minX"], block["maxX"]}
+    zs = {block["minZ"], block["maxZ"]}
+    for gap in gaps:
+        xs.add(min(max(gap["minX"], block["minX"]), block["maxX"]))
+        xs.add(min(max(gap["maxX"], block["minX"]), block["maxX"]))
+        zs.add(min(max(gap["minZ"], block["minZ"]), block["maxZ"]))
+        zs.add(min(max(gap["maxZ"], block["minZ"]), block["maxZ"]))
+
+    xs, zs = sorted(xs), sorted(zs)
+    cells = []
+    for xi in range(len(xs) - 1):
+        for zi in range(len(zs) - 1):
+            x0, x1 = xs[xi], xs[xi + 1]
+            z0, z1 = zs[zi], zs[zi + 1]
+            if x1 - x0 < 0.01 or z1 - z0 < 0.01:
+                continue
+            cx, cz = (x0 + x1) * 0.5, (z0 + z1) * 0.5
+            if any(gap["minX"] < cx < gap["maxX"] and gap["minZ"] < cz < gap["maxZ"] for gap in gaps):
+                continue
+            cells.append([x0, x1, z0, z1])
+
+    def touches(a, b, along_x):
+        if along_x:
+            return abs(a[2] - b[2]) < 1e-4 and abs(a[3] - b[3]) < 1e-4 and abs(a[1] - b[0]) < 1e-4
+        return abs(a[0] - b[0]) < 1e-4 and abs(a[1] - b[1]) < 1e-4 and abs(a[3] - b[2]) < 1e-4
+
+    def merge(cells, along_x):
+        used = [False] * len(cells)
+        out = []
+        for i, cell in enumerate(cells):
+            if used[i]:
+                continue
+            run = list(cell)
+            used[i] = True
+            extended = True
+            while extended:
+                extended = False
+                for j, other in enumerate(cells):
+                    if used[j] or not touches(run, other, along_x):
+                        continue
+                    if along_x:
+                        run = [run[0], max(run[1], other[1]), min(run[2], other[2]), max(run[3], other[3])]
+                    else:
+                        run = [min(run[0], other[0]), max(run[1], other[1]), run[2], max(run[3], other[3])]
+                    used[j] = True
+                    extended = True
+            out.append(run)
+        return out
+
+    return [tuple(round(v, 4) for v in cell) for cell in merge(merge(cells, True), False)]
 
 
 def block_boxes(data: dict) -> list[Box]:
-    """Each declared floor of each block as one slab, plus the parapet that crowns it."""
+    """Each storey of each block, cut by the voids, plus whatever roof the data asks for."""
     out: list[Box] = []
     concrete = hexc("concrete", data)
     pale = hexc("concretePale", data)
@@ -146,19 +213,14 @@ def block_boxes(data: dict) -> list[Box]:
 
     for block in data["blocks"]:
         for floor in block["floors"]:
-            if is_voided(data, block, floor):
+            if block.get("openGround") and floor == 0:
                 continue
             y0 = floor_base(data, floor)
             y1 = y0 + data["frame"]["floorHeight"] - t
-            out.append(Box(block["minX"], block["maxX"], block["minZ"], block["maxZ"], y0, y1, concrete))
+            for x0, x1, z0, z1 in carve(data, block, floor):
+                out.append(Box(x0, x1, z0, z1, y0, y1, concrete))
 
-        top = max(block["floors"])
-        crown = floor_base(data, top) + data["frame"]["floorHeight"]
-        # The roof slab, and a parapet that is deliberately too tall for a building this size.
-        out.append(Box(block["minX"], block["maxX"], block["minZ"], block["maxZ"],
-                       crown, crown + 0.28, pale, kind="roof"))
-        out.append(Box(block["minX"], block["maxX"], block["minZ"], block["maxZ"],
-                       crown + 0.28, crown + 1.35, deep, kind="parapet"))
+        out.extend(roof_boxes(data, block, pale, deep))
 
     for slab in data.get("liftedSlabs", []):
         out.append(Box(slab["minX"], slab["maxX"], slab["minZ"], slab["maxZ"],
@@ -167,41 +229,90 @@ def block_boxes(data: dict) -> list[Box]:
     return out
 
 
-def window_bands(data: dict) -> list[Box]:
-    """A band of dark glass inset in each long face, one per floor, offset per block.
+def roof_boxes(data: dict, block: dict, pale: str, deep: str) -> list[Box]:
+    """The roof a block declares, built as declared: a slab and a parapet, a canopy, or a kerb."""
+    kind = block.get("roof", "flat")
+    spec = data["roofs"][kind]
+    top = max(block["floors"])
+    crown = floor_base(data, top) + data["frame"]["floorHeight"]
+    out: list[Box] = []
 
-    The two arms get different spacings on purpose: that is the declared misalignment, and drawing it
-    is the only way to see whether it reads as a mistake or as a decision.
+    if kind == "open":
+        k, h = spec["kerbThickness"], spec["kerbHeight"]
+        x0, x1, z0, z1 = block["minX"], block["maxX"], block["minZ"], block["maxZ"]
+        out.append(Box(x0, x1, z0, z0 + k, crown, crown + h, deep, kind="kerb"))
+        out.append(Box(x0, x1, z1 - k, z1, crown, crown + h, deep, kind="kerb"))
+        out.append(Box(x0, x0 + k, z0 + k, z1 - k, crown, crown + h, deep, kind="kerb"))
+        out.append(Box(x1 - k, x1, z0 + k, z1 - k, crown, crown + h, deep, kind="kerb"))
+        return out
+
+    slab = spec["slabThickness"]
+    if kind == "canopy":
+        o = spec["overhang"]
+        out.append(Box(block["minX"] - o, block["maxX"] + o, block["minZ"] - o, block["maxZ"] + o,
+                       crown, crown + slab, pale, kind="canopy"))
+        out.append(Box(block["minX"] - o, block["maxX"] + o, block["minZ"] - o, block["maxZ"] + o,
+                       crown - spec["fascia"], crown, deep, kind="canopy"))
+        return out
+
+    out.append(Box(block["minX"], block["maxX"], block["minZ"], block["maxZ"],
+                   crown, crown + slab, pale, kind="roof"))
+    out.append(Box(block["minX"], block["maxX"], block["minZ"], block["maxZ"],
+                   crown + slab, crown + slab + spec["parapet"], deep, kind="parapet"))
+    return out
+
+
+def window_step(data: dict, face: str | None) -> float:
+    """Band spacing per face. Unequal on purpose between the two arms; any other face gets none."""
+    return {"south": 2.6, "west": 2.15, "east": 2.15}.get(face or "", 0.0)
+
+
+def window_bands(data: dict) -> list[Box]:
+    """A band of dark glass in the face of each block that looks into the courtyard.
+
+    Bands break at the voids for the same reason the slabs do: a band cannot cross the classroom's opening.
     """
     out: list[Box] = []
     glass = hexc("glass", data)
     void = hexc("void", data)
-    fh = data["frame"]["floorHeight"]
-
-    spacing = {"teaching_block_spine": 2.6, "teaching_block_wing": 2.15}
+    w = data["windows"]
 
     for block in data["blocks"]:
-        if block["id"] not in spacing:
+        face = block.get("windowFace")
+        step = window_step(data, face)
+        if not face or step <= 0:
             continue
-        step = spacing[block["id"]]
+
         for floor in block["floors"]:
-            if is_voided(data, block, floor):
+            if block.get("openGround") and floor == 0:
                 continue
-            y0 = floor_base(data, floor) + 1.15
-            y1 = y0 + 1.75
-            # A deep reveal: the void behind, the glass a little in front of it.
-            if block["id"] == "teaching_block_spine":
-                count = int((block["maxX"] - block["minX"] - 1.2) / step)
-                for i in range(count):
-                    x0 = block["minX"] + 0.6 + i * step
-                    out.append(Box(x0, x0 + step * 0.62, block["maxZ"] - 0.02, block["maxZ"] + 0.02, y0, y1, void))
-                    out.append(Box(x0, x0 + step * 0.62, block["maxZ"], block["maxZ"] + 0.10, y0, y1, glass))
-            else:
-                count = int((block["maxZ"] - block["minZ"] - 1.2) / step)
-                for i in range(count):
-                    z0 = block["minZ"] + 0.6 + i * step
-                    out.append(Box(block["minX"] - 0.02, block["minX"] + 0.02, z0, z0 + step * 0.62, y0, y1, void))
-                    out.append(Box(block["minX"] - 0.10, block["minX"], z0, z0 + step * 0.62, y0, y1, glass))
+            y0 = floor_base(data, floor) + w["sill"]
+            y1 = y0 + w["height"]
+
+            for x0, x1, z0, z1 in carve(data, block, floor):
+                # A band belongs to the block's own face, so a piece that was cut back from it gets none:
+                # otherwise the storey the classroom is on would grow windows inside the room.
+                touches_face = (face == "east" and abs(x1 - block["maxX"]) < 1e-6) \
+                    or (face == "west" and abs(x0 - block["minX"]) < 1e-6) \
+                    or (face == "south" and abs(z0 - block["minZ"]) < 1e-6)
+                if not touches_face:
+                    continue
+                if face in ("east", "west"):
+                    span = (z1 - z0) - 2 * w["margin"]
+                    outer = block["maxX"] if face == "east" else block["minX"]
+                    for i in range(int(span / step)):
+                        a = z0 + w["margin"] + i * step
+                        b = a + step * w["glassFraction"]
+                        out.append(Box(outer - 0.02, outer + 0.02, a, b, y0, y1, void))
+                        out.append(Box(outer, outer + 0.10, a, b, y0, y1, glass) if face == "east"
+                                   else Box(outer - 0.10, outer, a, b, y0, y1, glass))
+                elif face == "south":
+                    span = (x1 - x0) - 2 * w["margin"]
+                    for i in range(int(span / step)):
+                        a = x0 + w["margin"] + i * step
+                        b = a + step * w["glassFraction"]
+                        out.append(Box(a, b, block["minZ"] - 0.02, block["minZ"] + 0.02, y0, y1, void))
+                        out.append(Box(a, b, block["minZ"] - 0.10, block["minZ"], y0, y1, glass))
 
     return out
 
@@ -249,7 +360,7 @@ def anchor_of(data: dict, block_id: str, wall: str) -> float:
 
 def ground_grid(data: dict) -> list[tuple[np.ndarray, np.ndarray]]:
     g = data["ground"]
-    y = data["frame"]["streetY"] + 0.02
+    y = data["frame"]["streetY"] + data["ground"]["gridLift"]
     lines = []
     x = g["gridOriginX"]
     while x <= g["gridOriginX"] + g["gridExtentX"]:
@@ -352,6 +463,7 @@ def draw_scene(ax, data, camera: Camera, *, line_width: float = 0.35):
                                            (b.z0 + b.z1) * 0.5 - camera.eye[2])) < far]
 
     polys, depths, colours, edges = [], [], [], []
+    kept_depths = []
 
     for box in boxes:
         for corners, normal in box.faces():
@@ -362,6 +474,7 @@ def draw_scene(ax, data, camera: Camera, *, line_width: float = 0.35):
             depth = float(np.linalg.norm(centre - camera.eye))
             polys.append(poly)
             depths.append(depth)
+            kept_depths.append(depth)
             colours.append(shade(box.colour, normal, SUN))
             # Only the silhouette and the roof planes get a line: a wireframe reads as a model, and a
             # model is not what this sheet is for.
@@ -426,12 +539,18 @@ def draw_scene(ax, data, camera: Camera, *, line_width: float = 0.35):
     # middle of the sheet.
     ax.set_aspect("equal")
     if polys:
-        allx = np.concatenate([p[:, 0] for p in polys])
-        ally = np.concatenate([p[:, 1] for p in polys])
-        mid_x, mid_y = (allx.min() + allx.max()) * 0.5, (ally.min() + ally.max()) * 0.5
-        half = max(allx.max() - allx.min(), ally.max() - ally.min()) * 0.5 * 1.10
-        ax.set_xlim(mid_x - half, mid_x + half)
-        ax.set_ylim(mid_y - half, mid_y + half)
+        # Crop to the shapes whose centres are actually in front of the camera. A face clipped at the near
+        # plane can project a kilometre off to the side, and one of those is enough to shrink the building
+        # to a speck in the corner of its own sheet.
+        keep = [p for p, d in zip(polys, kept_depths) if d <= camera.far]
+        if keep:
+            allx = np.concatenate([p[:, 0] for p in keep])
+            ally = np.concatenate([p[:, 1] for p in keep])
+            mid_x, mid_y = (allx.min() + allx.max()) * 0.5, (ally.min() + ally.max()) * 0.5
+            half = max(allx.max() - allx.min(), ally.max() - ally.min()) * 0.5 * 1.10
+            half = max(half, 1.0)
+            ax.set_xlim(mid_x - half, mid_x + half)
+            ax.set_ylim(mid_y - half, mid_y + half)
 
 
 def draw_object(ax, camera: Camera, obj: dict, data: dict):
@@ -492,15 +611,23 @@ def draw_plan(ax, data):
                 zorder=6, fontweight="bold",
                 bbox=dict(boxstyle="circle,pad=0.22", facecolor=PAPER, edgecolor=INK, lw=0.6))
 
-    # The voided column, drawn as what it is: nothing built on the floors above and below the room.
+    # The openings, drawn as what they are: rectangles the shell leaves empty on the storeys they name.
+    # Their labels come from the file, so a renamed void cannot leave a stale annotation on the plan.
+    void_labels = {
+        "classroom_opening": (zh("教室：这一层从楼板里切出来", "the classroom: cut out of this storey"),
+                              (0.5, 0.72)),
+        "fall_slot": (zh("门前的空档：一直通到街面", "the slot in front of the room, down to the street"),
+                      (0.5, 0.28)),
+    }
     for gap in data.get("voids", []):
         ax.add_patch(patches.Rectangle((gap["minX"], gap["minZ"]),
                                        gap["maxX"] - gap["minX"], gap["maxZ"] - gap["minZ"],
                                        facecolor=PAPER, edgecolor=MUTED, lw=0.5,
                                        ls=(0, (2, 2)), alpha=0.9, zorder=3.4))
-        ax.text((gap["minX"] + gap["maxX"]) * 0.5, gap["maxZ"] - 2.6,
-                zh("上下两层留空", "no floors above or below"), ha="center", va="top",
-                fontsize=5.4, color=MUTED, zorder=6)
+        text, (fx, fz) = void_labels.get(gap["id"], (gap.get("label", gap["id"]), (0.5, 0.5)))
+        ax.text(gap["minX"] + (gap["maxX"] - gap["minX"]) * fx,
+                gap["minZ"] + (gap["maxZ"] - gap["minZ"]) * fz,
+                text, ha="center", va="center", fontsize=5.6, color=MUTED, zorder=6)
 
     # The classroom, so the sheet can be read against the room it belongs to.
     room = data["classroomFootprint"]
@@ -520,7 +647,7 @@ def draw_plan(ax, data):
                                        facecolor=hexc("concretePale", data), edgecolor=INK,
                                        lw=0.8, ls=(0, (3, 1.6)), alpha=0.55, zorder=4.2))
         ax.text((slab["minX"] + slab["maxX"]) * 0.5, slab["minZ"] + 1.2,
-                zh("悬空楼板（9.4 m）", "lifted slab, 9.4 m"), ha="center", va="bottom",
+                zh(f"悬空楼板（{slab['y']:.1f} m）", f"lifted slab, {slab['y']:.1f} m"), ha="center", va="bottom",
                 fontsize=6.2, color=INK, zorder=5)
 
     # The fins, seen from above: 34 lines where a wall would be.
@@ -564,24 +691,30 @@ def sheet_plan(data, out: Path) -> None:
                    "only: no rooms, no stairs, nothing walkable."),
                 fontsize=7.6, color=MUTED, va="top")
 
+    slab = data["liftedSlabs"][0]
+    counts = {louvre["id"]: louvre["count"] for louvre in data["louvres"]}
     notes = (
-        "1  楼板悬空 —— 一块 32 × 22 m 的楼板停在 9.4 m，和楼下同一层高、同一厚度、同一柱网，下面什么都没有。\n"
-        "2  翼片比墙长 —— 南立面 34 片、北立面 26 片，都伸出墙体两端；北面是奇数，最后只剩半跨。\n"
+        f"1  楼板悬空 —— 一块 {slab['maxX'] - slab['minX']:.0f} × {slab['maxZ'] - slab['minZ']:.0f} m 的楼板停在 "
+        f"{slab['y']:.1f} m，和楼下同一厚度、同一柱网，下面什么都没有。\n"
+        f"2  翼片比墙长 —— 中庭立面 {counts.get('louvre_fin_court', 0)} 片、北立面 "
+        f"{counts.get('louvre_fin_north', 0)} 片，两组都伸出墙体两端。\n"
         "3  连廊通向无物 —— 东侧那段连廊从南翼出去，停在离地 4.2 m 的中庭上空，另一头没有楼。\n"
-        "4  没有地面的网格 —— 整片场地只是一层线，没有面；线跑过建筑脚下，再跑出去。\n"
+        "4  没有地面的网格 —— 整片场地只是一层线，没有面；线铺在街面上，跑过建筑脚下，再跑出去。\n"
         "5  窗户对不上层 —— 两翼的窗带用了不同的间距，转角处永远对不齐。"
     )
     notes_en = (
-        "1  A floor in the air - 32 x 22 m of slab at 9.4 m, on the block's own floor height, thickness and bay spacing,\n"
-        "     with nothing underneath it.\n"
-        "2  Fins that outlast the wall - 34 south, 26 north, every one past the ends; the north count is odd, so the last\n"
-        "     gap is half a bay.\n"
-        "3  A corridor to nothing - the east link leaves the wing and stops 4.2 m above the courtyard.\n"
-        "4  A grid with no ground - lines only, no surface, running under the buildings and past them.\n"
+        f"1  A floor in the air - {slab['maxX'] - slab['minX']:.0f} x {slab['maxZ'] - slab['minZ']:.0f} m of slab at "
+        f"{slab['y']:.1f} m, the block's own thickness and bay, with nothing underneath it.\n"
+        f"2  Fins that outlast the wall - {counts.get('louvre_fin_court', 0)} on the courtyard face, "
+        f"{counts.get('louvre_fin_north', 0)} on the north, both running past the wall's ends.\n"
+        "3  A corridor to nothing - the east link leaves the south arm and stops 4.2 m above the courtyard.\n"
+        "4  A grid with no ground - lines only, no surface, on the street and out past the buildings.\n"
         "5  Windows that never line up - the two arms use different spacings, so the corner never matches."
     )
-    key = "1 教学楼·北翼   2 教学楼·南翼   3 北门·门廊   4 器材室   5 连廊·北   6 连廊·东"
-    key_en = "1 north arm   2 south arm   3 north gate porch   4 equipment shed   5 north link   6 east link"
+    labels = [b.get("label", b["id"]) for b in data["blocks"]]
+    labels_en = [b.get("labelEn", b["id"]) for b in data["blocks"]]
+    key = "   ".join(f"{i} {name}" for i, name in enumerate(labels, start=1))
+    key_en = "   ".join(f"{i} {name}" for i, name in enumerate(labels_en, start=1))
     figure.text(0.04, 0.186, zh(key, key_en), fontsize=7.6, color=INK, va="top")
     figure.text(0.04, 0.128, zh("这张图里故意做错的五件事\n\n", "The five things this plan gets wrong on purpose\n\n")
                 + zh(notes, notes_en), fontsize=7.0, color=MUTED, va="top", linespacing=1.75)
