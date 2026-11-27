@@ -245,10 +245,10 @@ namespace PostSchool.World
             {
                 layout = JsonUtility.FromJson<CampusShellLayout>(json);
             }
-            catch (ArgumentException error)
+            catch (ArgumentException jsonError)
             {
-                throw new ArgumentException($"Campus shell '{sourceName}' is not valid JSON: {error.Message}",
-                    nameof(json), error);
+                throw new ArgumentException($"Campus shell '{sourceName}' is not valid JSON: {jsonError.Message}",
+                    nameof(json), jsonError);
             }
 
             if (layout == null)
@@ -256,9 +256,9 @@ namespace PostSchool.World
                 throw new ArgumentException($"Campus shell '{sourceName}' parsed into nothing.", nameof(json));
             }
 
-            if (!layout.Validate(out string error))
+            if (!layout.Validate(out string validationError))
             {
-                throw new ArgumentException($"Campus shell '{sourceName}' is unusable: {error}", nameof(json));
+                throw new ArgumentException($"Campus shell '{sourceName}' is unusable: {validationError}", nameof(json));
             }
 
             return layout;

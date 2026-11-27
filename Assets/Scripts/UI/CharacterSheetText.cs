@@ -40,9 +40,9 @@ namespace PostSchool.Ui
             {
                 text = JsonUtility.FromJson<CharacterSheetText>(json);
             }
-            catch (ArgumentException error)
+            catch (ArgumentException jsonError)
             {
-                throw new ArgumentException($"Character sheet text '{sourceName}' is not valid JSON: {error.Message}", nameof(json), error);
+                throw new ArgumentException($"Character sheet text '{sourceName}' is not valid JSON: {jsonError.Message}", nameof(json), jsonError);
             }
 
             if (text == null || text.attributes == null || text.attributes.Length == 0)
@@ -50,9 +50,9 @@ namespace PostSchool.Ui
                 throw new ArgumentException($"Character sheet text '{sourceName}' parsed without any attribute entries.", nameof(json));
             }
 
-            if (!text.Validate(out string error))
+            if (!text.Validate(out string validationError))
             {
-                throw new ArgumentException($"Character sheet text '{sourceName}' is unusable: {error}", nameof(json));
+                throw new ArgumentException($"Character sheet text '{sourceName}' is unusable: {validationError}", nameof(json));
             }
 
             return text;

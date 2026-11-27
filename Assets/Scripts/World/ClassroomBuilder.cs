@@ -43,8 +43,13 @@ namespace PostSchool.World
     {
         Material Surface(SurfaceRole role);
 
-        /// <summary>Emissive "light without scenery": the outside seen through glass and door panels.</summary>
-        Material Glow();
+        /// <summary>
+        /// Emissive "light without scenery": the outside seen through glass and door panels.
+        /// The role picks the colour and the strength sets how far it burns, so DuskCityBuilder can ask
+        /// for a lit window that is not the classroom's chalk glow. Defaults keep the old one-argument
+        /// call meaning exactly what it did.
+        /// </summary>
+        Material Glow(SurfaceRole role = SurfaceRole.Chalk, float strength = 1.35f);
     }
 
     /// <summary>

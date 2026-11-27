@@ -14,10 +14,15 @@ namespace PostSchool.World
     {
         private readonly Dictionary<SurfaceRole, Material> _surfaces = new Dictionary<SurfaceRole, Material>();
 
+        // Glows are cached by role so the street's windows share a material instead of making one each;
+        // the strength recorded is the brightest that has been asked for, because a glow is not dimmed
+        // back down by a later, weaker caller.
+        private readonly Dictionary<SurfaceRole, Material> _glows = new Dictionary<SurfaceRole, Material>();
+        private readonly Dictionary<SurfaceRole, float> _glowStrength = new Dictionary<SurfaceRole, float>();
+
         // Every material ever created, including one-off character materials; Dispose must free them all.
         private readonly List<Material> _created = new List<Material>();
         private readonly Shader _shader;
-        private Material _chalkGlow;
 
         public WorldSurfaceLibrary()
         {
@@ -74,8 +79,12 @@ namespace PostSchool.World
             return material;
         }
 
-        /// <summary>Emissive version of a surface, for lit windows in the street and the sky's low band.</summary>
-        public Material Glow(SurfaceRole role, float strength = 1f)
+        /// <summary>
+        /// Emissive version of a surface, for lit windows in the street and the sky's low band.
+        /// The strongest request for a role wins and the material is kept, so asking twice for the same
+        /// glow returns the same object instead of leaking a second copy.
+        /// </summary>
+        public Material Glow(SurfaceRole role = SurfaceRole.Chalk, float strength = 1.35f)
         {
             Color color;
             switch (role)
@@ -86,17 +95,16 @@ namespace PostSchool.World
                 default: color = ClassroomArtPalette.Chalk; break;
             }
 
-            Material material = Create("Glow " + role, color, 0f, Mathf.Max(0.05f, strength));
+            float requested = Mathf.Max(0.05f, strength);
+            if (_glows.TryGetValue(role, out Material cached) && cached != null && _glowStrength[role] >= requested)
+            {
+                return cached;
+            }
+
+            Material material = Create("Glow " + role, color, 0f, requested);
+            _glows[role] = material;
+            _glowStrength[role] = requested;
             return material;
-        }
-
-        /// <summary>Soft emitting material for the windows' borrowed light and the door panels.</summary>
-        public Material Glow()
-        {
-            if (_chalkGlow != null) return _chalkGlow;
-
-            _chalkGlow = Create("Surface Glow", ClassroomArtPalette.Chalk, 0.0f, 1.35f);
-            return _chalkGlow;
         }
 
         /// <summary>
@@ -142,7 +150,8 @@ namespace PostSchool.World
 
             _created.Clear();
             _surfaces.Clear();
-            _chalkGlow = null;
+            _glows.Clear();
+            _glowStrength.Clear();
         }
 
         private static void DestroyMaterial(Material material)

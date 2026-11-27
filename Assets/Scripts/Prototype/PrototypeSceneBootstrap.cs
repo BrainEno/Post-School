@@ -35,6 +35,13 @@ namespace PostSchool.Prototype
         /// <summary>The campus shell around the room. Massing only; see CampusShellBuilder.</summary>
         private const string CampusShellResourcePath = "World/campus_shell";
 
+        /// <summary>
+        /// The objective flag the walk-in sets, and the only thing that decides whether she can be
+        /// talked to. It is a constant because it is read in two places by design: the animator writes
+        /// it, the flag handler reads it.
+        /// </summary>
+        private const string TeacherArrivedFlag = "teacher_arrived";
+
         private WorldSurfaceLibrary _surfaces;
 
         /// <summary>The campus around the room, or null when its data is missing.</summary>
@@ -175,7 +182,11 @@ namespace PostSchool.Prototype
             _dialoguePresenter.Initialize(canvas.transform, _openingRunner, PauseWorldForDialogue, HandleDialogueEnded);
 
             // After the sheet exists, so the scene has the same build object the sheet spends points on.
-            CreateCurtainInteraction(canvas.transform);
+            CreateCurtainInteraction(canvas);
+
+            // The subscription above was made before the teacher existed, and a flag can be set before
+            // her trigger does: sync once here so the room starts in the state the save describes.
+            RefreshTeacherPresence();
 
             _playerMovement.InputEnabled = false;
             _playerMovement.enabled = false;
@@ -236,6 +247,8 @@ namespace PostSchool.Prototype
         private void OnDestroy()
         {
             RestoreWorldState();
+
+            if (_storyState != null) _storyState.FlagChanged -= OnStoryFlagChanged;
 
             // Meshes are runtime objects: Unity does not collect them with the GameObjects.
             if (_protagonist != null) _protagonist.DisposeMesh();
@@ -657,11 +670,25 @@ namespace PostSchool.Prototype
         /// not arrived. Driven by the objective flag the walk-in sets, not by a boolean, so a save that
         /// recorded "teacher_arrived" restores a room with a teacher standing in it.
         /// </summary>
+        /// <summary>
+        /// Every flag change is a chance for the room to be wrong: a save that was loaded, or her
+        /// walk-in finishing, sets "teacher_arrived" and nobody had told the trigger. Wiring the event
+        /// means presence follows the flag wherever it is written, instead of each writer remembering
+        /// to call RefreshTeacherPresence.
+        /// </summary>
+        private void OnStoryFlagChanged(StoryFlagChange change)
+        {
+            if (change.Namespace != StoryNamespace.Objective) return;
+            if (change.Flag != TeacherArrivedFlag) return;
+
+            RefreshTeacherPresence();
+        }
+
         private void RefreshTeacherPresence()
         {
             if (_teacherTarget == null) return;
 
-            bool arrived = _storyState != null && _storyState.IsSet(StoryNamespace.Objective, "teacher_arrived");
+            bool arrived = _storyState != null && _storyState.IsSet(StoryNamespace.Objective, TeacherArrivedFlag);
             if (arrived && !_teacherTarget.enabled) _teacherTarget.enabled = true;
             if (!arrived && _teacherTarget.enabled) _teacherTarget.enabled = false;
         }
@@ -714,15 +741,23 @@ namespace PostSchool.Prototype
             _qTurnClip = HumanoidClips.ClassmateTurnBeat();
             _qAwayClip = HumanoidClips.ClassmateAwayBeat();
             _qGlanceClip = HumanoidClips.ClassmateGlanceBeat(SetSquareYawFromQ());
-            if (!_wakeClip.Validate(_protagonist.Skeleton, out string wakeError)
-                || !_idleClip.Validate(_protagonist.Skeleton, out string idleError)
-                || !_qIdleClip.Validate(_protagonist.Skeleton, out string qError)
-                || !_qTurnClip.Validate(_protagonist.Skeleton, out string qTurnError)
-                || !_qAwayClip.Validate(_protagonist.Skeleton, out string qAwayError)
-                || !_qGlanceClip.Validate(_protagonist.Skeleton, out string qGlanceError))
+
+            // Every clip is checked, not the first one that fails: the `||` chain this replaced left
+            // the later out-parameters unassigned, and C# refuses to read an out variable a short
+            // circuit skipped (CS0165). One loop over the clips, and the error names the clip that
+            // broke, which is what you want when a bone name is wrong.
+            HumanoidClip[] clips = { _wakeClip, _idleClip, _qIdleClip, _qTurnClip, _qAwayClip, _qGlanceClip };
+            foreach (HumanoidClip clip in clips)
             {
-                throw new InvalidOperationException("Animation clip does not fit the skeleton: "
-                    + (wakeError ?? idleError ?? qError ?? qTurnError ?? qAwayError ?? qGlanceError));
+                if (clip == null)
+                {
+                    throw new InvalidOperationException("A staging clip failed to build; check HumanoidClips.");
+                }
+
+                if (!clip.Validate(_protagonist.Skeleton, out string clipError))
+                {
+                    throw new InvalidOperationException("Animation clip does not fit the skeleton: " + clipError);
+                }
             }
 
             // The fall clips are only ever built inside the curtain scene, which means a wrong bone name
@@ -731,10 +766,19 @@ namespace PostSchool.Prototype
             float drop = CurtainFallRules.DropMetres(_layout);
             HumanoidClip fallClip = HumanoidClips.FallFromTheCurtain(drop);
             HumanoidClip crashClip = HumanoidClips.CrashLanding(drop);
-            if (!fallClip.Validate(_protagonist.Skeleton, out string fallError)
-                || !crashClip.Validate(_protagonist.Skeleton, out string crashError))
+
+            // Same rule as above: no `||` between two out-parameter calls.
+            foreach (HumanoidClip clip in new[] { fallClip, crashClip })
             {
-                throw new InvalidOperationException("Curtain fall clip does not fit the skeleton: " + (fallError ?? crashError));
+                if (clip == null)
+                {
+                    throw new InvalidOperationException("A curtain fall clip failed to build; check HumanoidClips.");
+                }
+
+                if (!clip.Validate(_protagonist.Skeleton, out string clipError))
+                {
+                    throw new InvalidOperationException("Curtain fall clip does not fit the skeleton: " + clipError);
+                }
             }
             _playerMovement = player.AddComponent<PlayerMovement>();
             _playerMovement.InputEnabled = false;
@@ -902,7 +946,7 @@ namespace PostSchool.Prototype
                 _teacherAnimator.CaptureBaseHeight();
             }
 
-            _storyState.Set(StoryNamespace.Objective, "teacher_arrived");
+            _storyState.Set(StoryNamespace.Objective, TeacherArrivedFlag);
         }
 
         private static float PathLength(Vector2[] path)
@@ -953,7 +997,7 @@ namespace PostSchool.Prototype
         /// and its own component. The doorway is behind the curtain; the trigger is wide enough that the
         /// player finds it by walking at the missing wall, not by pixel-hunting a door handle.
         /// </summary>
-        private void CreateCurtainInteraction(Transform canvas)
+        private void CreateCurtainInteraction(Canvas canvas)
         {
             // Called once the character sheet has resolved the build: CurtainScene resolves attribute
             // checks against it and throws on null, by design.
