@@ -1,0 +1,420 @@
+{
+  "id": "prototype_campus_shell",
+  "status": "prototype_shell_pending_visual_review",
+  "note": "The campus outside the classroom, drawn to the owner's zone map: a three-storey teaching block, a north gate, two linking corridors, an equipment shed and a container. Shell and roof only — no rooms, no navigation, nothing walkable. The classroom you wake in is on the middle floor of the block that carries the north gate; its window wall faces west, its missing front wall faces south. Coordinates are metres in the classroom's own frame: +x east, +z north, y up with the classroom floor at 0 and the street 4.2 m below. Everything here is one source of truth: the offline proof reads this file for every view, so a viewpoint cannot disagree with the massing. Deliberate impossibilities are declared under 'impossibilities' with the reason for each, so the proof can report them as intended rather than as errors.",
+  "frame": {
+    "classroomFloorY": 0.0,
+    "streetY": -4.2,
+    "floorHeight": 4.15,
+    "floorCount": 3,
+    "slabThickness": 0.32,
+    "note": "floorHeight is slab-to-slab. The classroom ceiling is at 3.5, so 4.15 leaves the structure its depth without raising the room."
+  },
+  "classroomFootprint": {
+    "minX": -6.2,
+    "maxX": 6.2,
+    "minZ": -4.5,
+    "maxZ": 11.5,
+    "storey": 1,
+    "note": "From classroom_layout.json: 12.4 x 16.0, centreZ 3.5. Storey 1 is the middle floor.",
+    "windowWall": "west",
+    "missingWall": "south"
+  },
+  "materials": {
+    "note": "Cold, matte, no gloss anywhere: the palette is the brief's, and the only saturated thing on the site is the red ground mat and the blue container that was already there.",
+    "concrete": "A9AEB0",
+    "concreteDeep": "8A9195",
+    "concreteShadow": "6C7377",
+    "concretePale": "C6CAC8",
+    "steel": "7F8A8E",
+    "steelDark": "3E464A",
+    "glass": "8FA6A8",
+    "void": "12171A",
+    "grid": "5A6469",
+    "red": "A63A2E",
+    "ochre": "B08A4E",
+    "paper": "D8D9D2",
+    "foliage": "5D6B5E",
+    "foliageDark": "47544A"
+  },
+  "blocks": [
+    {
+      "id": "teaching_block_spine",
+      "label": "教学楼 · 北翼",
+      "minX": 3.4,
+      "maxX": 24.0,
+      "minZ": 11.5,
+      "maxZ": 21.0,
+      "floors": [
+        0,
+        1,
+        2
+      ],
+      "roof": "flat",
+      "note": "The long arm along the top of the zone map. Extends east past the classroom's own wall, so the classroom is tucked into its west end.",
+      "labelEn": "teaching block, north arm"
+    },
+    {
+      "id": "teaching_block_wing",
+      "label": "教学楼 · 南翼",
+      "minX": -6.2,
+      "maxX": 3.4,
+      "minZ": -9.5,
+      "maxZ": 11.5,
+      "floors": [
+        0,
+        1,
+        2
+      ],
+      "roof": "flat",
+      "note": "The arm that runs south from the spine, carrying the classroom on its east side. Together the two arms make the L the map draws.",
+      "labelEn": "teaching block, south arm"
+    },
+    {
+      "id": "north_gate",
+      "label": "北门 · 门廊",
+      "minX": 13.0,
+      "maxX": 18.2,
+      "minZ": 11.5,
+      "maxZ": 14.6,
+      "floors": [
+        0,
+        1,
+        2
+      ],
+      "roof": "canopy",
+      "note": "A three-storey porch driven into the north face of the spine, open at ground level and solid above. It is the one place the block admits you.",
+      "labelEn": "north gate"
+    },
+    {
+      "id": "equipment_shed",
+      "label": "器材室",
+      "minX": -16.0,
+      "maxX": -13.0,
+      "minZ": 11.5,
+      "maxZ": 15.6,
+      "floors": [
+        0
+      ],
+      "roof": "flat",
+      "note": "One storey, against the west end of the spine.",
+      "labelEn": "equipment shed"
+    },
+    {
+      "id": "corridor_north",
+      "label": "连廊 · 北",
+      "minX": -16.0,
+      "maxX": -10.0,
+      "minZ": 11.5,
+      "maxZ": 14.0,
+      "floors": [
+        1
+      ],
+      "roof": "open",
+      "link": "equipment_shed",
+      "note": "A single-storey link at the classroom's level, from the shed east to the spine. Open to the sky, so it reads as a bridge rather than a room.",
+      "labelEn": "north link"
+    },
+    {
+      "id": "corridor_south",
+      "label": "连廊 · 东",
+      "minX": 3.4,
+      "maxX": 8.6,
+      "minZ": -9.5,
+      "maxZ": -5.5,
+      "floors": [
+        1
+      ],
+      "roof": "open",
+      "link": "teaching_block_wing",
+      "note": "The second link, off the south end of the wing. The brief asks for two, and a campus with two of them has a circulation of its own.",
+      "labelEn": "east link"
+    }
+  ],
+  "liftedSlabs": [
+    {
+      "id": "slab_over_the_court",
+      "label": "悬空的楼板",
+      "minX": -30.0,
+      "maxX": 2.0,
+      "minZ": 2.0,
+      "maxZ": 24.0,
+      "y": 9.4,
+      "thickness": 0.55,
+      "tiltDegrees": -1.6,
+      "note": "A slab of the block's own floor, lifted clear of it and left hanging over the courtyard at the height of the top floor. It is the same concrete, the same thickness, the same bay spacing. Nothing holds it up."
+    }
+  ],
+  "louvres": [
+    {
+      "id": "louvre_fin_south",
+      "label": "翼片 · 南立面",
+      "wall": "south",
+      "block": "teaching_block_wing",
+      "along": {
+        "min": -9.5,
+        "max": 11.5,
+        "axis": "z"
+      },
+      "count": 34,
+      "projection": 2.35,
+      "thickness": 0.16,
+      "height": {
+        "from": 4.6,
+        "to": 13.6
+      },
+      "note": "The rows of fins from the second reference image, thrown out from the south face. Thirty-four of them, each one 2.35 m proud of the wall and thin enough to read as a blade. From the west they line up into a solid yellow wall; from anywhere else they are gaps."
+    },
+    {
+      "id": "louvre_fin_north",
+      "label": "翼片 · 北立面",
+      "wall": "north",
+      "block": "teaching_block_spine",
+      "along": {
+        "min": 3.4,
+        "max": 24.0,
+        "axis": "x"
+      },
+      "count": 26,
+      "projection": 1.6,
+      "thickness": 0.16,
+      "height": {
+        "from": 4.6,
+        "to": 13.6
+      },
+      "note": "The same device on the other long face, smaller. Counted, not even: the last gap is half a bay, because the block was not measured before it was clad."
+    }
+  ],
+  "ground": {
+    "gridOriginX": -34.0,
+    "gridOriginZ": -18.0,
+    "gridExtentX": 76.0,
+    "gridExtentZ": 72.0,
+    "gridSpacing": 3.0,
+    "gridThickness": 0.06,
+    "mat": {
+      "label": "红色地垫",
+      "minX": -6.0,
+      "maxX": 3.0,
+      "minZ": -24.0,
+      "maxZ": -16.0,
+      "note": "The red mat under the objects in the third reference image, laid on the courtyard where the grid runs out."
+    },
+    "note": "The whole site is one drawn grid, lines only, no surface: the ground is a diagram of a ground. It runs out past the buildings and stops."
+  },
+  "objects": [
+    {
+      "id": "chair_1",
+      "kind": "chair",
+      "x": 5.2,
+      "z": -12.4,
+      "yaw": 24,
+      "height": 0.95
+    },
+    {
+      "id": "chair_2",
+      "kind": "chair",
+      "x": 8.9,
+      "z": -15.1,
+      "yaw": -62,
+      "height": 0.95
+    },
+    {
+      "id": "chair_3",
+      "kind": "chair",
+      "x": 1.4,
+      "z": -18.6,
+      "yaw": 140,
+      "height": 0.95
+    },
+    {
+      "id": "table_1",
+      "kind": "table",
+      "x": 6.4,
+      "z": -17.2,
+      "yaw": 8,
+      "height": 0.74
+    },
+    {
+      "id": "lamp_1",
+      "kind": "lamp",
+      "x": 3.0,
+      "z": -13.2,
+      "yaw": 0,
+      "height": 1.62
+    },
+    {
+      "id": "rail_1",
+      "kind": "rail",
+      "x": 10.6,
+      "z": -9.4,
+      "yaw": 12,
+      "height": 1.05,
+      "length": 4.2
+    },
+    {
+      "id": "crate_1",
+      "kind": "crate",
+      "x": 2.2,
+      "z": -21.0,
+      "yaw": 31,
+      "height": 0.62
+    },
+    {
+      "id": "crate_2",
+      "kind": "crate",
+      "x": 3.1,
+      "z": -21.4,
+      "yaw": -14,
+      "height": 0.44
+    }
+  ],
+  "impossibilities": [
+    {
+      "id": "lifted_slab",
+      "label": "楼板悬空",
+      "evidence": "liftedSlabs",
+      "why": "The second and fourth reference images both put a building's own mass somewhere it cannot be. This is the mildest version that still reads: a floor of the block, at the block's own floor height, with nothing beneath it."
+    },
+    {
+      "id": "louvres_outlast_the_wall",
+      "label": "翼片比墙长",
+      "evidence": "louvres",
+      "why": "The fins run past both ends of the wall they are fixed to. On the north face the count is deliberately uneven, so the last gap is half a bay: the rhythm is right and the end is wrong, which is what happens when a drawing is extended instead of composed."
+    },
+    {
+      "id": "corridor_to_nowhere",
+      "label": "连廊通向无物",
+      "evidence": "corridor_south",
+      "why": "The east link leaves the wing and stops in the courtyard, 4.2 m up, with no building at its far end. The brief asks for two links; only the north one arrives."
+    },
+    {
+      "id": "grid_without_ground",
+      "label": "没有地面的网格",
+      "evidence": "ground",
+      "why": "The third reference image is a room with no walls and a floor drawn in perspective over nothing. The site grid is the same gesture: lines carrying no surface, running under the buildings and out past them."
+    },
+    {
+      "id": "fenestration_misaligned",
+      "label": "窗户对不上层",
+      "evidence": "blocks",
+      "why": "The window bands on the two arms are on different spacing, so the two faces that meet at the inside corner never line up across the join. Nobody would build it; nobody will notice at first."
+    }
+  ],
+  "viewpoints": [
+    {
+      "id": "plan",
+      "label": "总平面 · 俯视",
+      "labelEn": "Site plan",
+      "kind": "orthographic",
+      "elevation": 90,
+      "note": "正上方俯视，用来和作者给的区划草图对照。",
+      "noteEn": "Straight down, to compare against the zone map."
+    },
+    {
+      "id": "courtyard",
+      "label": "中庭 · 站着看",
+      "labelEn": "From the courtyard, standing",
+      "kind": "perspective",
+      "eye": [
+        -30.0,
+        3.0,
+        -26.0
+      ],
+      "target": [
+        4.0,
+        6.0,
+        10.0
+      ],
+      "fovDegrees": 57.8,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "站在中庭回看：两翼的 L、北门的门廊、南立面的翼片都在这一格。地面在街道以下 4.2 m，所以视点抬到 3 m。",
+      "noteEn": "Standing on the courtyard: both arms, the porch, the fins. The ground is 4.2 m below the classroom, so the eye is at 3 m."
+    },
+    {
+      "id": "fins_along",
+      "label": "翼片 · 侧面",
+      "labelEn": "The fins, edge on",
+      "kind": "perspective",
+      "eye": [
+        -34.0,
+        5.5,
+        -21.0
+      ],
+      "target": [
+        -4.0,
+        8.0,
+        -8.0
+      ],
+      "fovDegrees": 48.0,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "庭院一侧看南立面的翼片：一根根薄墙挑出墙体，只有几乎正对着看才会连成一整面。",
+      "noteEn": "The south face's fins from the courtyard: thin blades standing off the wall, closing into a single surface only when you look almost straight at them."
+    },
+    {
+      "id": "under_slab",
+      "label": "悬空楼板 · 侧下方",
+      "labelEn": "The lifted slab, edge on from below",
+      "kind": "perspective",
+      "eye": [
+        -44.0,
+        3.0,
+        -2.0
+      ],
+      "target": [
+        -8.0,
+        8.5,
+        10.0
+      ],
+      "fovDegrees": 66.0,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "从西侧低处看那块楼板：它和楼下同一层高、同一厚度、同一柱网，边缘朝着你，下面只有网格，什么都没有。",
+      "noteEn": "From low on the west side: the slab at the block's own floor height, its own thickness and bay spacing, edge toward you, with nothing beneath it but the grid."
+    },
+    {
+      "id": "north_gate",
+      "label": "北门 · 正面",
+      "labelEn": "The north gate, head on",
+      "kind": "perspective",
+      "eye": [
+        16.0,
+        3.0,
+        44.0
+      ],
+      "target": [
+        15.5,
+        5.0,
+        12.0
+      ],
+      "fovDegrees": 34.8,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "从北面走近校门：门廊三层高，底层是唯一让教学楼开口的地方。",
+      "noteEn": "Approaching from the north: the porch is three storeys, and its ground floor is the only place the block opens."
+    },
+    {
+      "id": "oblique",
+      "label": "整片 · 低处斜视",
+      "labelEn": "The whole block, oblique",
+      "kind": "perspective",
+      "eye": [
+        -50.0,
+        9.0,
+        -18.0
+      ],
+      "target": [
+        0.0,
+        6.0,
+        8.0
+      ],
+      "fovDegrees": 34.0,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "从西侧低处斜看：整个 L 形、悬空楼板、两段连廊同时在画面里。这一格回答“整片校园长什么样”。",
+      "noteEn": "Low and oblique from the west: the whole L, the lifted slab and both links at once. This is the view that answers what the campus looks like."
+    }
+  ]
+}
