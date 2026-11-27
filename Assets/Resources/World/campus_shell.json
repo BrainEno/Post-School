@@ -1,0 +1,490 @@
+{
+  "id": "prototype_campus_shell",
+  "status": "prototype_shell_pending_visual_review",
+  "note": "The campus outside the classroom, drawn to the owner's zone map: a three-storey teaching block, a north gate, two linking corridors, an equipment shed and a container. Shell and roof only — no rooms, no navigation, nothing walkable. The classroom you wake in is on the middle floor of the block that carries the north gate; its window wall faces west, its missing front wall faces south, and south is where the street and the container already are. Coordinates are metres in the classroom's own frame: +x east, +z north, y up with the classroom floor at 0 and the street 4.2 m below. Everything here is one source of truth: the offline proof reads this file for every view, so a viewpoint cannot disagree with the massing. Deliberate impossibilities are declared under 'impossibilities' with the reason for each, so the proof can report them as intended rather than as errors. Voids do two jobs: the classroom's shaft leaves the room's column empty on the storeys above and below it, and the fall slot keeps the ground floor out of the drop in front of the room.",
+  "frame": {
+    "classroomFloorY": 0.0,
+    "streetY": -4.2,
+    "floorHeight": 4.2,
+    "floorCount": 3,
+    "slabThickness": 0.32,
+    "note": "Storey 0 is the ground floor and its base is the street, 4.2 m below the classroom; storey 1 is the classroom's own; storey 2 is the one above. A floor of 4.2 is what makes those three numbers agree: the earlier 4.15 put storey 1 at 4.15 m while the room's floor is at 0, which left the whole L hovering over its own street and is why the room had to be cut out of floors 0 and 2 as well."
+  },
+  "classroomFootprint": {
+    "minX": -6.2,
+    "maxX": 6.2,
+    "minZ": -4.5,
+    "maxZ": 11.5,
+    "storey": 1,
+    "note": "From classroom_layout.json: 12.4 x 16.0, centreZ 3.5. Storey 1 is the middle floor.",
+    "windowWall": "west",
+    "missingWall": "south"
+  },
+  "materials": {
+    "note": "Cold, matte, no gloss anywhere: the palette is the brief's, and the only saturated thing on the site is the red ground mat and the blue container that was already there.",
+    "concrete": "A9AEB0",
+    "concreteDeep": "8A9195",
+    "concreteShadow": "6C7377",
+    "concretePale": "C6CAC8",
+    "steel": "7F8A8E",
+    "steelDark": "3E464A",
+    "glass": "8FA6A8",
+    "void": "12171A",
+    "grid": "5A6469",
+    "red": "A63A2E",
+    "ochre": "B08A4E",
+    "paper": "D8D9D2",
+    "foliage": "5D6B5E",
+    "foliageDark": "47544A"
+  },
+  "blocks": [
+    {
+      "id": "teaching_block_spine",
+      "label": "教学楼 · 北翼",
+      "labelEn": "teaching block, north arm",
+      "minX": 9.0,
+      "maxX": 24.0,
+      "minZ": 11.5,
+      "maxZ": 21.0,
+      "floors": [
+        0,
+        1,
+        2
+      ],
+      "roof": "flat",
+      "note": "The long arm along the top of the zone map, east of the south arm: the L's corner is at 9.0. Its courtyard face looks south over the dropped ground, carries the deep fins, and holds the window bands the fins shade.",
+      "windowFace": "south"
+    },
+    {
+      "id": "teaching_block_wing",
+      "label": "教学楼 · 南翼",
+      "labelEn": "teaching block, south arm",
+      "minX": -6.2,
+      "maxX": 9.0,
+      "minZ": -9.5,
+      "maxZ": 11.5,
+      "floors": [
+        0,
+        1,
+        2
+      ],
+      "roof": "flat",
+      "note": "The arm that runs south, and the building the classroom is in. The room occupies the west side of this arm and 2.8 m of floor is left east of it. Its west face is the room's own window wall, so the bands there are the bands the classroom looks through.",
+      "windowFace": "west"
+    },
+    {
+      "id": "north_gate",
+      "label": "北门 · 门廊",
+      "labelEn": "north gate",
+      "minX": 15.8,
+      "maxX": 21.0,
+      "minZ": 8.6,
+      "maxZ": 11.5,
+      "floors": [
+        0,
+        1,
+        2
+      ],
+      "roof": "canopy",
+      "note": "A three-storey porch driven into the courtyard face of the spine (z 11.5 is the spine's south side; the site's north is +z). Open at ground level, solid above, capped by a canopy that overhangs the walls on every side. It is the one place the block admits you.",
+      "openGround": true
+    },
+    {
+      "id": "equipment_shed",
+      "label": "器材室",
+      "labelEn": "equipment shed",
+      "minX": -16.0,
+      "maxX": -13.0,
+      "minZ": 11.5,
+      "maxZ": 15.6,
+      "floors": [
+        0
+      ],
+      "roof": "flat",
+      "note": "One storey at the west end of the north link, standing on the street. The link leaves its roof."
+    },
+    {
+      "id": "corridor_north",
+      "label": "连廊 · 北",
+      "labelEn": "north link",
+      "minX": -13.0,
+      "maxX": 9.0,
+      "minZ": 11.5,
+      "maxZ": 14.0,
+      "floors": [
+        1
+      ],
+      "roof": "open",
+      "link": "equipment_shed",
+      "note": "A link at the classroom's level from the shed's roof east to the spine's west face: it has to reach 9.0 to arrive at anything. No roof, only a kerb, so it reads as a bridge and not as a room."
+    },
+    {
+      "id": "corridor_south",
+      "label": "连廊 · 东",
+      "labelEn": "east link",
+      "minX": 9.0,
+      "maxX": 14.24,
+      "minZ": -4.5,
+      "maxZ": 0.5,
+      "floors": [
+        1
+      ],
+      "roof": "open",
+      "link": "teaching_block_wing",
+      "note": "The second link, off the south arm's east face at the classroom's level. The brief asks for two, and a campus with two of them has a circulation of its own. This one leaves the block and stops in the courtyard."
+    }
+  ],
+  "liftedSlabs": [
+    {
+      "id": "slab_over_the_court",
+      "label": "悬空的楼板",
+      "minX": -24.0,
+      "maxX": -8.0,
+      "minZ": 2.0,
+      "maxZ": 12.0,
+      "y": 10.6,
+      "thickness": 0.55,
+      "tiltDegrees": 1.6,
+      "note": "A floor of the block's own making, lifted clear of the roof and left hanging over the courtyard: the same concrete, the same thickness, the same bay, and nothing holding it up. It hangs over the side the classroom's windows look at, so the room sees the underside of a floor that should be resting on the building."
+    }
+  ],
+  "louvres": [
+    {
+      "id": "louvre_fin_court",
+      "label": "翼片 · 中庭立面",
+      "labelEn": "the fins, courtyard face",
+      "wall": "south",
+      "block": "teaching_block_spine",
+      "along": {
+        "min": 7.0,
+        "max": 26.5,
+        "axis": "x"
+      },
+      "count": 34,
+      "projection": 2.35,
+      "thickness": 0.16,
+      "height": {
+        "from": -2.0,
+        "to": 8.4
+      },
+      "note": "Thirty-four blades 2.35 m deep on the face that looks down the courtyard. The count is the owner's and unchanged; the run is 7.0..26.5 on a wall of 9.0..24.0, so both ends stand off nothing."
+    },
+    {
+      "id": "louvre_fin_north",
+      "label": "翼片 · 北立面",
+      "labelEn": "the fins, north face",
+      "wall": "north",
+      "block": "teaching_block_spine",
+      "along": {
+        "min": 6.0,
+        "max": 27.0,
+        "axis": "x"
+      },
+      "count": 26,
+      "projection": 1.6,
+      "thickness": 0.16,
+      "height": {
+        "from": -2.0,
+        "to": 8.4
+      },
+      "note": "The same device on the far face, shallower, fewer, and running past the wall's ends in the same way."
+    }
+  ],
+  "ground": {
+    "gridOriginX": -34.0,
+    "gridOriginZ": -18.0,
+    "gridExtentX": 76.0,
+    "gridExtentZ": 72.0,
+    "gridSpacing": 3.0,
+    "gridThickness": 0.06,
+    "mat": {
+      "label": "红色地垫",
+      "minX": -20.0,
+      "maxX": -12.0,
+      "minZ": -6.0,
+      "maxZ": 0.0,
+      "note": "The red mat from the third reference image, laid in the courtyard the classroom's windows look into, under the lifted slab."
+    },
+    "note": "The whole site is one drawn grid, lines only, no surface: the ground is a diagram of a ground. It lies on the street and runs out past the buildings.",
+    "gridLift": 0.02,
+    "matThickness": 0.02
+  },
+  "objects": [
+    {
+      "id": "chair_1",
+      "kind": "chair",
+      "x": -18.4,
+      "z": -4.8,
+      "yaw": 24,
+      "height": 0.95
+    },
+    {
+      "id": "chair_2",
+      "kind": "chair",
+      "x": -16.1,
+      "z": -2.1,
+      "yaw": -62,
+      "height": 0.95
+    },
+    {
+      "id": "chair_3",
+      "kind": "chair",
+      "x": -12.6,
+      "z": -5.4,
+      "yaw": 140,
+      "height": 0.95
+    },
+    {
+      "id": "table_1",
+      "kind": "table",
+      "x": -14.8,
+      "z": -0.6,
+      "yaw": 8,
+      "height": 0.74
+    },
+    {
+      "id": "lamp_1",
+      "kind": "lamp",
+      "x": -19.2,
+      "z": -0.2,
+      "yaw": 0,
+      "height": 1.62
+    },
+    {
+      "id": "rail_1",
+      "kind": "rail",
+      "x": -12.0,
+      "z": 0.4,
+      "yaw": 88,
+      "height": 1.05,
+      "length": 4.2
+    },
+    {
+      "id": "crate_1",
+      "kind": "crate",
+      "x": -17.6,
+      "z": 0.2,
+      "yaw": 31,
+      "height": 0.62
+    },
+    {
+      "id": "crate_2",
+      "kind": "crate",
+      "x": -16.7,
+      "z": 0.6,
+      "yaw": -14,
+      "height": 0.44
+    }
+  ],
+  "impossibilities": [
+    {
+      "id": "lifted_slab",
+      "label": "楼板悬空",
+      "evidence": "liftedSlabs",
+      "why": "The second and fourth reference images both put a building's own mass somewhere it cannot be. This is the mildest version that still reads: a floor of the block, at the block's own thickness and bay, ten metres up with nothing beneath it."
+    },
+    {
+      "id": "louvres_outlast_the_wall",
+      "label": "翼片比墙长",
+      "evidence": "louvres",
+      "why": "The fins run past both ends of the wall they are fixed to: 9.0..28.5 on a wall that is 6.46..24.0, so a third of the run bolts to nothing. The rhythm is right and the end is wrong, which is what happens when a drawing is extended instead of composed."
+    },
+    {
+      "id": "corridor_to_nowhere",
+      "label": "连廊通向无物",
+      "evidence": "corridor_south",
+      "why": "The east link leaves the south arm and stops in the courtyard 4.2 m up, with no building at its far end. The brief asks for two links; only the north one arrives."
+    },
+    {
+      "id": "grid_without_ground",
+      "label": "没有地面的网格",
+      "evidence": "ground",
+      "why": "The third reference image is a room with no walls and a floor drawn in perspective over nothing. The site grid is the same gesture: lines carrying no surface, on the street and out past the buildings."
+    },
+    {
+      "id": "fenestration_misaligned",
+      "label": "窗户对不上层",
+      "evidence": "blocks",
+      "why": "The window bands on the two arms are on different spacing, so the two faces that meet at the inside corner never line up across the join."
+    }
+  ],
+  "viewpoints": [
+    {
+      "id": "plan",
+      "label": "总平面 · 俯视",
+      "labelEn": "Site plan",
+      "kind": "orthographic",
+      "elevation": 90,
+      "note": "正上方俯视，用来和作者给的区划草图对照。",
+      "noteEn": "Straight down, to compare against the zone map."
+    },
+    {
+      "id": "courtyard",
+      "label": "中庭 · 站着看",
+      "labelEn": "From the courtyard, standing",
+      "kind": "perspective",
+      "eye": [
+        -36.0,
+        2.4,
+        -14.0
+      ],
+      "target": [
+        -2.0,
+        6.0,
+        7.0
+      ],
+      "fovDegrees": 50.0,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "站在教室窗外的中庭里：西侧是教室所在的南翼，东南是北翼的短边与翼片，头顶是被吊起来的楼板。",
+      "noteEn": "Standing in the courtyard outside the classroom's windows: the arm the room is in, the other arm's fins, and the lifted slab overhead."
+    },
+    {
+      "id": "fins_along",
+      "label": "翼片 · 侧面",
+      "labelEn": "The fins, edge on",
+      "kind": "perspective",
+      "eye": [
+        -34.0,
+        -1.5,
+        -6.0
+      ],
+      "target": [
+        14.0,
+        3.5,
+        11.5
+      ],
+      "fovDegrees": 40.0,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "从西侧低处看北翼的中庭立面：三十四片薄板挑出墙体、伸出墙的两端，只有在几乎正对着看时才连成一整面。",
+      "noteEn": "From low on the west side, the north arm's courtyard face: thirty-four blades stand off the wall and past both of its ends, closing into one surface only when you look nearly straight down them."
+    },
+    {
+      "id": "under_slab",
+      "label": "悬空楼板 · 侧下方",
+      "labelEn": "The lifted slab, edge on from below",
+      "kind": "perspective",
+      "eye": [
+        -34.0,
+        -0.5,
+        -16.0
+      ],
+      "target": [
+        -15.0,
+        10.0,
+        6.0
+      ],
+      "fovDegrees": 52.0,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "从西侧低处看那块楼板：它和楼下同一层厚、同一柱网，边缘朝着你，下面只有网格，什么都没有。",
+      "noteEn": "From low on the west side: the slab at the block's own thickness and bay, edge toward you, with nothing beneath it but the grid."
+    },
+    {
+      "id": "north_gate",
+      "label": "北门 · 正面",
+      "labelEn": "The north gate, head on",
+      "kind": "perspective",
+      "eye": [
+        16.0,
+        3.0,
+        44.0
+      ],
+      "target": [
+        15.5,
+        5.0,
+        12.0
+      ],
+      "fovDegrees": 34.8,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "从北面走近校门：门廊三层高，底层是唯一让教学楼开口的地方。",
+      "noteEn": "Approaching from the north: the porch is three storeys, and its ground floor is the only place the block opens."
+    },
+    {
+      "id": "oblique",
+      "label": "整片 · 低处斜视",
+      "labelEn": "The whole block, oblique",
+      "kind": "perspective",
+      "eye": [
+        -44.0,
+        10.0,
+        -32.0
+      ],
+      "target": [
+        2.0,
+        3.0,
+        8.0
+      ],
+      "fovDegrees": 44.0,
+      "near": 0.4,
+      "far": 400.0,
+      "note": "从西侧低处斜看：整个 L 形、悬空楼板、两段连廊同时在这一格里。",
+      "noteEn": "From low on the west side: the whole L, the lifted slab and both links in one frame."
+    }
+  ],
+  "voids": [
+    {
+      "id": "classroom_opening",
+      "label": "教室所在的那一层：把教室从楼板里切出来",
+      "labelEn": "the classroom's own storey, cut out of the slab",
+      "minX": -6.2,
+      "maxX": 6.2,
+      "minZ": -4.5,
+      "maxZ": 11.5,
+      "floors": [
+        1
+      ],
+      "note": "The classroom's own rectangle, minus nothing: the room occupies this much of the storey, so this is what the slab leaves empty. The arm keeps its floor east of it (6.2..9.0), south of it, and above it. Deleting the whole storey instead, as the first version did, left the middle floor of the south arm missing and made the room look like a hole in the building rather than a room inside it."
+    },
+    {
+      "id": "fall_slot",
+      "label": "教室门前的空档",
+      "labelEn": "the slot in front of the classroom",
+      "minX": -6.2,
+      "maxX": 6.46,
+      "minZ": -9.5,
+      "maxZ": -4.24,
+      "floors": [
+        0,
+        1
+      ],
+      "note": "The room's missing wall faces south, and south of it the ground floor and the room's own storey are both left open, so the drop reaches the street. Everything in that drop is built by DuskCityBuilder: the street 4.2 m down and the blue container that catches you. Filling it in would put concrete round the container and turn the fall into a fall into a wall. The storey above stays, so the arm bridges over the opening."
+    }
+  ],
+  "roofs": {
+    "note": "Roof construction per type, in metres. The shell never uses a roof to hide a gap: what the type says is what gets built.",
+    "flat": {
+      "slabThickness": 0.28,
+      "parapet": 1.07,
+      "note": "A slab and a parapet far too tall for a three-storey school."
+    },
+    "canopy": {
+      "slabThickness": 0.22,
+      "overhang": 1.2,
+      "fascia": 0.45,
+      "note": "The north gate's: a slab bigger than the thing under it, on every side."
+    },
+    "open": {
+      "kerbHeight": 0.35,
+      "kerbThickness": 0.12,
+      "note": "No roof at all, just a kerb around the last floor, so a link reads as a bridge."
+    }
+  },
+  "windows": {
+    "sill": 1.15,
+    "height": 1.75,
+    "margin": 0.6,
+    "glassFraction": 0.62,
+    "note": "Window bands on the face of each block that looks into the courtyard. The two arms keep different spacings (the spacing is a property of the face, in the builder) because the join at the inside corner is one of the things that is wrong on purpose. A band breaks at a void: it cannot cross the classroom's opening, and a piece of slab that was cut back from the face gets no band at all.",
+    "reveal": 0.04,
+    "glassDepth": 0.1
+  },
+  "porch": {
+    "lintel": 0.6,
+    "pierFraction": 0.18,
+    "pierClearance": 0.4,
+    "note": "The north gate's opening at ground level: two piers of this fraction of the porch's width (but never deeper than its depth minus the clearance) and a lintel this tall on top."
+  }
+}
