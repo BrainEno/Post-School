@@ -21,11 +21,14 @@
 | 座位 | 6 列 × 4 排 = **24**，列 `[-4.9,-3.5,-2.1,2.1,3.5,4.9]`，排 `[2.9,4.5,6.1,7.7]` |
 | 黑板 | 5.6 × 1.45，sill 1.0，粉笔槽 0.16 |
 | 讲桌 | (0, 9.9)，1.7 × 0.8 × 1.02，配一把转过去的教师椅 |
-| 窗户 | **2 扇**，都在西墙（沿墙 11.0 / 7.0，宽 2.3，sill 0.95，高 1.9） |
+| 窗户 | **2 扇**，都在西墙（沿墙 11.0 / 7.0，宽 2.3，sill 0.95，高 1.9）；`treatment` 分别为 `dusk`（裸窗）与 `curtain`（被幕布遮住） |
 | 门 | **2 扇**：后墙员工门（沿墙 1.7，1.05 × 2.2）+ 前墙出口（沿墙 2.2，1.35 × 2.35） |
 | 醒来桌 | (0, 0.5)，2.2 × 1.6 × 0.82，椅背朝后拖开并转过 34° |
 | 吊灯 | 4 盏；第 4 盏倾斜 4.5° 且降到 3.05 m |
 | 地面粉笔圆 | 圆心 (0, 0.5)，r = 1.45，16 段——与醒来桌同心，是刻意的梦境处理 |
+| 前墙 | **不存在**。`frontWall.exists = false`，整面由一幅 10.6 m 宽、3.42 m 高、垂到地面的幕布代替 |
+| 门外 | 街道在教室地面下 **4.2 m**；集装箱盖比教室地面低 **5.7 m**，蓝色，12 × 6 m，高 2.0 m |
+| 晾衣绳 | `lineY = 1.0`（世界高度），跨 x −9…9，8 件衣服，在集装箱上方 |
 
 两扇门为什么这样放：后墙门若不与黑板错开，验证会报"门开在黑板里"；前墙门若不避开醒来桌，会报"门开在主角桌上"。这类检查在 `ClassroomLayout.Validate`（C#）和 `tools/check_unity_project.py::check_classroom_layout`（CI）里**各写一遍**，因为 CI 里没有 Editor，C# 规则跑不起来。
 
@@ -40,10 +43,41 @@
 5. **门是墙上的洞，不是贴纸**：每面墙按开口切成若干块实体板（`WallSegment`），门洞是真的空腔，门框、观察窗、把手都是独立构件。窗外与观察窗后面用同一块"纸白"发光面，暗示外面有光但没有具体景象。
 6. **低饱和固定色块**：整套颜色收在 `ClassroomArtPalette`，灰玫瑰砖红、雾蓝、鼠尾草绿、米白、深藏青、赭石，全部低饱和，**只有主角身上的袖标是饱和红**——从任何角度看，人都是画面里唯一"不属于这里"的色点。
 
+## 二·五、缺掉的那面墙：幕布、黄昏、六米
+
+这一节记录本轮新增的构图决定，因为它是整个开场里唯一一个**把房间打开**的动作。
+
+**为什么缺的是前墙（−z / 出口侧）。** 需求里"身后没有墙也没有窗户"的"前"有歧义。取"前墙 = 出口侧"这一解释，理由有三：出口门本来就在这面墙上，门洞天然是"人容易从那里掉下去"的位置；两扇窗都在西墙，于是"被帘子遮住的窗"和"被幕布代替的墙"可以共用同一套布料语言，遮住的窗成为缺失墙的伏笔；平面图上，一面虚线加一块布比在实墙上开一个六米高的洞更好读。**若作者不同意这个解释，只需要改 `windows[i].treatment` 两个字符串，墙体本身不用动。**
+
+**构图规则（都能在代码里指到）**
+
+1. **房间是暖的，外面是冷的。** 室内全部沿用既有低饱和色（米白墙、鼠尾草、赭石）；室外只用平涂色块，天空是**六条几何色带**（`DuskSkyHigh` → `DuskLow`），没有渐变 shader、没有贴图——这样离线校样图能读到同一份颜色。
+2. **全场景唯一的饱和色是集装箱。** `ContainerBlue #2F6E8C` 只出现在它身上，用来在"一片灰紫的城中村"里一眼指出落脚点。主角袖标的 `#B8442F` 是室内唯一饱和色，两个色点在同一画面里互相指认。
+3. **晾衣绳是"有人在住"的唯一证据。** 八件衣物是薄片加轻微扭转（`LaundryLine.garments`），不做布料模拟；读的是剪影，不是褶皱。
+4. **幕布用两种颜色做出折痕。** 26 折，交替 `Curtain #B8AE9A` / `CurtainFold #9C9280`，卷帘轨道与下摆各一条，门口留一道黑缝——那道缝是"后面不是墙"的唯一暗示。
+5. **被遮的窗用同一块布，同样垂到地。** `window_west_south` 的幕布与前一模一样，读者第二次看到它才会意识到前墙那块是同一件东西。
+6. **落差是量出来的，不是写死的。** `fall.roomFloorAboveStreet = 4.2`，`groundY = -4.2`，`DropMetres() = room.height - (groundY + containerHeight) = 5.7 m`。早期版本把 `groundY` 写成 0，落差算出来只有 0.9 m——**这张校样图第一次跑就把它抓出来了**。
+
+**判定规则（`CurtainFallRules`，纯函数，可离线测）**
+
+| 选择 | 检定 | 阈值 |
+|---|---|---|
+| 先掀开看 | 感知 | ≥ 2 才看清落脚点 |
+| 不看就走出去 | 体魄 | ≥ 4 |
+| 看过再走出去 | 体魄 | ≥ 3（看得见盖子，目标变低） |
+| 观察的代价 | 腿软概率 | `8% + (感知−1)×10%` → 8/18/28/38/48% |
+
+腿软仍会落在盖子上，但是以"摔"的姿态（`FallOutcome.CrashedOnContainer`）；体魄没过同理。**体魄是这个体系里唯一能接住下落的属性**——五个属性里没有敏捷，这一点写进了常量注释。随机只出现在"腿软"一处，且用注入的 `rollPercent` 委托，便于测试。
+
+**坠落是两套系统分开做工。** 姿态（`HumanoidPose.CrashOnContainer` / `LandingBrace`）只管身体，`CurtainScene` 的协程只管位移（`HumanoidAnimator.PlaceAt` 逐帧推），剪片本身**不含世界位移**。第一版让剪片的根偏移同时承担位移，两套系统都在动，落点会双倍——这条写进了 `HumanoidClip.FallFromTheCurtain` 的文档注释。
+
 ## 三、代码结构
 
 | 文件 | 职责 |
 |---|---|
+| `World/CurtainFallRules.cs` | 幕布场景的全部数值与判定（纯函数，无 Unity 依赖除 `Mathf`） |
+| `World/DuskCityBuilder.cs` | 窗外世界：天空色带、落日、街、五栋楼、晾衣绳、蓝集装箱 |
+| `Prototype/CurtainScene.cs` | 幕布交互：三选项、抬幕布、坠落协程、结果卡 |
 | `Assets/Scripts/World/ClassroomLayout.cs` | JSON → 强类型模型 + `Validate()`：24 座、门窗不穿墙角、门不撞黑板/主角桌、主角桌前留 0.70 m 站位 |
 | `Assets/Scripts/World/ClassroomBuilder.cs` | 纯几何装配：墙体与开口、门/窗构件、黑板与粉笔痕、讲桌、24 套桌椅、醒来桌、吊灯、地面与墙面标记、碰撞盒 |
 | `Assets/Scripts/World/ClassroomArtPalette.cs` | 唯一调色板（结构色 + 三处点缀色 + 主角专属色） |
@@ -134,14 +168,36 @@ NODE_PATH=/tmp/node_modules node docs/images/classroom-plan-proof.js \
 
 **这不是 Unity 渲染。** 它只证明坐标、开口、间距、遮挡关系自洽；材质、光照、相机实际观感、中文字体都不在其中。图中圆点代表主角醒来的位置，红色是"被破坏/不可能"的标注（悬空桌、下沉椅、倾斜吊灯）。
 
+### 幕布场景的离线校样：`tools/curtain_scene_proof.py`
+
+```bash
+python3 tools/curtain_scene_proof.py           # → docs/images/curtain-scene-proof.png
+# 中文字体：CURTAIN_PROOF_FONT=/path/to/NotoSansSC-Regular.ttf
+# （沙箱里用 npm pack @expo-google-fonts/noto-sans-sc，取 400Regular 的整字 TTF）
+```
+
+六格：**A 幕布垂着 / B 掀开后 / C 平面 / D 裸窗 / E 被遮的窗 / F 规则清单**。和平面打样一样，它读 `classroom_layout.json`，颜色从 `ClassroomArtPalette` 抄一份（改色时两边一起改）。
+
+它存在的理由只有一个：这个沙箱没有 Unity，而"幕布是不是真的到地、门外是不是真的没墙、落差是不是真的六米"是**可以被数值验伪**的。第一次运行就证明了这一点——落差当时算成 0.9 m，图上的人物落在与教室地面几乎齐平的集装箱上，一眼就不对；`fall.roomFloorAboveStreet` 因此才被加进布局并写进 `Validate` / CI。
+
+**它仍然不是截图。** 图里没有 Unity 的光照、没有字体解析、没有摄像机、不能证明任何一行 C# 能编译。要判断"好不好看"，只能在 Editor 里看。
+
 ## 七、验证状态（诚实清单）
 
 已运行并通过：
 
-- `python3 tools/check_unity_project.py --check`：236 个文件通过，含新增的教室布局规则。
+- `python3 tools/check_unity_project.py --check`：242 个文件（176 个在 `Assets/`）通过，含新增的"前墙缺失"十一条规则。
+- `python3 -m pytest tests/ci -q`：**40 passed**，其中 11 项是新增的 `MissingFrontWallTests`（前墙存在、幕布只垂一半、幕布太窄、出口门挪走、集装箱不在门下方、集装箱在室内、街道只有一栋楼、晾衣绳低于盖顶、两扇窗都被遮、未知 `treatment`）。
 - `python3 tools/skinned_figure_preview.py`：把 `HumanoidRig` / `HumanoidPose` / `HumanoidClips` / `SkinnedFigureFactory` 的数学**逐条移植到 Python** 后出图 `docs/images/skinned-figure-preview.png`（九宫格：绑定姿势、起身四个关键帧、走路四个相位、Q、比例对照）。这份图暴露并修掉了三个真实错误：髋骨被放到膝盖高度、趴桌时双腿甩到桌外、走路时脚离地 3 cm。
 - 姿势的接地是**解出来的不是调出来的**：每个关键帧的根高度都由 FK 反解到"最低踝 = ankleHeight"，并写成 EditMode 测试（`EveryWakeKeyKeepsTheSolesOnTheFloor` / `EveryWalkKeyKeepsAtLeastOneSoleOnTheFloor`）。
-- `python3 -m unittest discover -s tests/ci -p 'test_*.py'`：29 项通过，其中 9 项是新增的布局检查用例（少一座、少一扇门、开口穿角、门开在黑板/主角桌、主角桌前站位不足、缺 status）。
+- 本轮的排版校样 `docs/images/curtain-scene-proof.png`（脚本 `tools/curtain_scene_proof.py`，读同一份 JSON）：A 幕布垂着 / B 掀开后 / C 平面 / D 裸窗 / E 被遮的窗。**它第一次跑就抓出了真实缺陷：落差曾被算成 0.9 m。**修完是 5.7 m。
 - 平面打样脚本自检：24 座 / 2 窗 / 2 门 / 4 灯，0 problem。
 
-**没有**运行：Unity 导入与 C# 编译、EditMode/PlayMode 测试、Play Mode 观感、光照与后处理参数、中文字体解析。新增的 25 个 EditMode 断言（骨架完整性、权重归一、LBS 形变方向、片段校验、循环首尾一致、接地）在 Unity 里从未执行过；`skinned-figure-preview.png` 只是同一套数学的**离线复算**，不是渲染。本沙箱没有 Unity 6000.3.29f1。所有"好看"的判断都需要在 Editor 里复核；第一次打开场景时按 `Start()` 的顺序会先建教室再建玩家，任何布局校验失败都会抛异常并指出具体字段。
+**没有**运行：Unity 导入与 C# 编译、EditMode/PlayMode 测试、Play Mode 观感、光照与后处理参数、中文字体解析。新增的 EditMode 断言（骨架完整性、权重归一、LBS 形变方向、片段校验、循环首尾一致、接地，以及本轮的 `CurtainFallTests` 11 项）在 Unity 里从未执行过；`skinned-figure-preview.png` 与 `curtain-scene-proof.png` 都只是同一套数据的**离线复算**，不是渲染。本沙箱没有 Unity 6000.3.29f1。
+
+**本轮新增代码一次都没编译过。** 沙箱里没有 `dotnet`、`mcs`、Unity，所以下面这些只能靠人工核对与 CI 的静态检查（`check_unity_project.py` 查 GUID/命名/JSON/布局，不查 C# 语义）：
+
+- `CurtainScene` 与 `PrototypeSceneBootstrap` 的接线（触发体位置、`Initialize` 参数、角色控制器的开关时机）从未运行。
+- `HumanoidClips.FallFromTheCurtain(drop)` / `CrashLanding(drop)` 的落地键时刻按落差缩放，**没有在动画上看过**。
+- `HumanoidAnimator.PlaceAt` 是新增 API，父空间换算与 `BasePosition` 的语义只在纸面上推过。
+- 第一次在 Editor 里按 Play 时最可能出问题的地方，按风险排序：① 幕布触发体的尺寸/位置与玩家胶囊不重合，交互拾取不到；② 坠落协程把角色控制器关掉后，落地时重新启用导致 `CharacterController` 弹开；③ 抬幕布是整体上移 `Curtain` 组，门缝黑片会跟着上去，视觉上像"门也升起来了"。这三处都需要在 Editor 里实际看一眼再定。

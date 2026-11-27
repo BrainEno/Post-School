@@ -354,6 +354,63 @@ namespace PostSchool.Character
                 .With(HumanoidBones.ForearmLeft, new Vector3(-12f, 0f, 0f));
         }
 
+        /// <summary>
+        /// Landed on the container: knees deep, one hand down on the steel, head already turning to see
+        /// where the drop came from. This is the pose a successful body check buys — a landing you walk
+        /// out of. Root offset puts the soles on the container's lid.
+        /// </summary>
+        public static HumanoidPose LandingBrace()
+        {
+            return new HumanoidPose()
+                .WithRootOffset(0f, -0.52f, 0.06f)
+                .With(HumanoidBones.Hips, new Vector3(6f, 0f, 2f))
+                .With(HumanoidBones.Spine, new Vector3(20f, 0f, 0f))
+                .With(HumanoidBones.Chest, new Vector3(10f, 4f, 0f))
+                .With(HumanoidBones.Neck, new Vector3(-16f, 0f, 0f))
+                .With(HumanoidBones.Head, new Vector3(-22f, 24f, 4f))
+                .With(HumanoidBones.UpperArmLeft, new Vector3(-34f, 0f, 26f))
+                .With(HumanoidBones.ForearmLeft, new Vector3(-58f, 0f, 0f))
+                .With(HumanoidBones.UpperArmRight, new Vector3(-64f, 0f, -10f))
+                .With(HumanoidBones.ForearmRight, new Vector3(-24f, 0f, 0f))
+                .With(HumanoidBones.HandRight, new Vector3(-28f, 0f, 0f))
+                .With(HumanoidBones.ThighLeft, new Vector3(-72f, 0f, 9f))
+                .With(HumanoidBones.ThighRight, new Vector3(-58f, 0f, -7f))
+                .With(HumanoidBones.ShinLeft, new Vector3(96f, 0f, 0f))
+                .With(HumanoidBones.ShinRight, new Vector3(78f, 0f, 0f))
+                .With(HumanoidBones.FootLeft, new Vector3(-24f, 0f, 0f))
+                .With(HumanoidBones.FootRight, new Vector3(-20f, 0f, 0f));
+        }
+
+        /// <summary>
+        /// Landed badly: face down on the lid, legs still hanging over the edge, one arm folded under
+        /// the body, neck taking the last of the fall. The pose has to say "hurt" without a sound effect,
+        /// so the asymmetry is violent: shoulders twisted, one knee bent and one straight, head down.
+        /// </summary>
+        public static HumanoidPose CrashOnContainer()
+        {
+            return new HumanoidPose()
+                .WithRootOffset(0f, -0.44f, 0.18f)
+                .With(HumanoidBones.Hips, new Vector3(4f, 0f, -6f))
+                .With(HumanoidBones.Spine, new Vector3(74f, 6f, 0f))
+                .With(HumanoidBones.Chest, new Vector3(16f, -10f, 4f))
+                .With(HumanoidBones.Neck, new Vector3(-34f, 0f, 0f))
+                .With(HumanoidBones.Head, new Vector3(-16f, -46f, 10f))
+                .With(HumanoidBones.ShoulderLeft, new Vector3(0f, 0f, -10f))
+                .With(HumanoidBones.ShoulderRight, new Vector3(0f, 0f, 6f))
+                .With(HumanoidBones.UpperArmLeft, new Vector3(-84f, 0f, 34f))
+                .With(HumanoidBones.ForearmLeft, new Vector3(-96f, 0f, 0f))
+                .With(HumanoidBones.UpperArmRight, new Vector3(-38f, 0f, -22f))
+                .With(HumanoidBones.ForearmRight, new Vector3(-70f, 0f, 0f))
+                .With(HumanoidBones.HandLeft, new Vector3(-20f, 0f, 0f))
+                .With(HumanoidBones.HandRight, new Vector3(14f, 0f, 0f))
+                .With(HumanoidBones.ThighLeft, new Vector3(-84f, 0f, 12f))
+                .With(HumanoidBones.ShinLeft, new Vector3(52f, 0f, 0f))
+                .With(HumanoidBones.ThighRight, new Vector3(-12f, 0f, -8f))
+                .With(HumanoidBones.ShinRight, new Vector3(22f, 0f, 0f))
+                .With(HumanoidBones.FootLeft, new Vector3(-16f, 0f, 0f))
+                .With(HumanoidBones.FootRight, new Vector3(-6f, 0f, 0f));
+        }
+
         /// <summary>Q's resting stance: too straight, arms flat to the body, head level and unblinking.</summary>
         public static HumanoidPose ClassmateStill()
         {

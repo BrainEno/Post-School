@@ -382,6 +382,8 @@ def check_classroom_layout(files: dict[str, bytes]) -> list[Problem]:
                 if world_from < desk_to and world_to > desk_from:
                     fail(f"door '{opening_id}' opens onto the protagonist's desk")
 
+    problems.extend(_check_missing_front_wall(data, fail))
+
     for wall in CLASSROOM_WALLS:
         on_wall = sorted(
             (o for o in windows + doors if isinstance(o, dict) and o.get("wall") == wall),
@@ -393,6 +395,90 @@ def check_classroom_layout(files: dict[str, bytes]) -> list[Problem]:
                 fail(f"{previous['id']} and {current['id']} are only {gap:.2f} m apart on the {wall} wall")
 
     return problems
+
+
+def _check_missing_front_wall(data: dict, fail) -> list[Problem]:
+    """The exit side of the room is a curtain and a drop, not a wall.
+
+    Mirrors ClassroomLayout.ValidateFrontWall. Four things have to stay true or the scene stops making
+    sense: there is no front wall, the curtain is a full drop, the exit door is still on that side, and
+    there is a container below it to land on.
+    """
+    room = data.get("room") or {}
+    width = room.get("width", 0)
+    height = room.get("height", 0)
+    min_z = room.get("centerZ", 0) - room.get("depth", 0) / 2
+
+    front = data.get("frontWall")
+    if not isinstance(front, dict):
+        fail("layout has no 'frontWall' block; the exit side must declare that the wall is missing")
+        return []
+
+    if front.get("exists"):
+        fail("the front wall must not exist as a wall: the exit side is a curtain and a drop")
+    if front.get("treatment") != "curtain":
+        fail(f"front wall treatment '{front.get('treatment')}' is not supported; the exit side is a curtain")
+
+    top = front.get("curtainTop", 0)
+    bottom = front.get("curtainBottom", 1)
+    if top < 3 or bottom > front.get("fullHeightThreshold", 0.05):
+        fail(f"the front curtain must hang floor to ceiling (top {top}, bottom {bottom})")
+    if top > height + 0.01:
+        fail("the front curtain cannot hang above the ceiling")
+    span = front.get("curtainWidth", 0)
+    if span < width * 0.7:
+        fail(f"the front curtain ({span} m) is too narrow to close a {width} m room")
+
+    doors = data.get("doors") or []
+    exit_doors = [d for d in doors if isinstance(d, dict) and d.get("wall") == "front"]
+    if not exit_doors:
+        fail("the exit door must stay on the front wall: it is the way onto the drop")
+
+    fall = data.get("fall")
+    if not isinstance(fall, dict):
+        fail("layout has no 'fall' block; the missing wall needs something below it")
+        return []
+
+    container_height = fall.get("containerHeight", 0)
+    if not 1.6 <= container_height <= 3.2:
+        fail(f"a container to land on should be 1.6-3.2 m tall; layout says {container_height} m")
+    if fall.get("containerCenterZ", 0) > min_z - 1.5:
+        fail("the fall container must sit at least 1.5 m beyond the front wall")
+
+    if exit_doors:
+        exit_x = (-width / 2) + exit_doors[0].get("centerAlong", 0)
+        if abs(exit_x - fall.get("containerCenterX", 0)) > fall.get("containerWidth", 0) / 2 - 0.5:
+            fail("the exit door does not open above the container; a fall would miss it")
+
+    floor_above_street = fall.get("roomFloorAboveStreet", 0)
+    if floor_above_street < 2.2:
+        fail(f"the classroom floor is {floor_above_street} m above the street; a fall needs height")
+    drop = height - (fall.get("groundY", 0) + container_height)
+    if not 4.0 <= drop <= 7.0:
+        fail(f"the drop onto the container is {drop:.1f} m; it must read as a fall (4-7 m)")
+
+    heights = fall.get("buildingHeights") or []
+    if len(heights) < 3:
+        fail("the street beyond the drop needs at least three buildings")
+    for index, building in enumerate(heights):
+        if building < 4:
+            fail(f"building {index} is only {building} m tall; the street should dwarf the room")
+
+    laundry = data.get("laundry")
+    if isinstance(laundry, dict) and laundry.get("garments"):
+        # Both are world heights; containerHeight is a size, so the lid has to be added to groundY.
+        lid = fall.get("groundY", 0) + container_height
+        if laundry.get("lineY", 0) <= lid + 1.0:
+            fail("the washing line hangs below the container top")
+        if laundry.get("lineToX", 0) - laundry.get("lineFromX", 0) < 6:
+            fail("the washing line is too short to read as a line across the street")
+
+    windows = data.get("windows") or []
+    treatments = sorted(w.get("treatment") for w in windows if isinstance(w, dict))
+    if treatments != ["curtain", "dusk"]:
+        fail(f"the two windows must be one bare 'dusk' window and one 'curtain' window; layout says {treatments}")
+
+    return []
 
 
 def _check_effects(path: str, node_id: str, effects: object) -> list[Problem]:

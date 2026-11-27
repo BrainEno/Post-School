@@ -1,7 +1,7 @@
 {
   "id": "prototype_classroom_layout",
   "status": "prototype_layout_pending_visual_review",
-  "note": "Coordinate frame: +z is the blackboard wall, -z is the exit wall, +x is east, y is up. Units are metres. Openings are measured along their wall from that wall's low corner: front/back walls start at minX and run +x, west/east walls start at minZ and run +z. This file is the single source of truth for the classroom composition: the runtime builder and the offline plan proof both read it.",
+  "note": "Coordinate frame: +z is the blackboard wall, -z is the exit wall, +x is east, y is up. Units are metres. Openings are measured along their wall from that wall's low corner: front/back walls start at minX and run +x, west/east walls start at minZ and run +z. This file is the single source of truth for the classroom composition: the runtime builder and the offline plan proof both read it. 2026-11-27: the front (exit) wall no longer exists as a wall — it is a floor-to-ceiling curtain, and beyond it there is no wall, window or floor, only the street below (see 'frontWall', 'fall', 'laundry'). The north-west window is bare and looks onto a dusk street with washing on a line; the south-west window sits behind a closed curtain.",
   "room": {
     "width": 12.4,
     "depth": 16.0,
@@ -23,8 +23,20 @@
     "height": 1.02
   },
   "seating": {
-    "columns": [-4.9, -3.5, -2.1, 2.1, 3.5, 4.9],
-    "rows": [2.9, 4.5, 6.1, 7.7],
+    "columns": [
+      -4.9,
+      -3.5,
+      -2.1,
+      2.1,
+      3.5,
+      4.9
+    ],
+    "rows": [
+      2.9,
+      4.5,
+      6.1,
+      7.7
+    ],
     "deskWidth": 1.15,
     "deskDepth": 0.55,
     "deskHeight": 0.74,
@@ -46,7 +58,8 @@
       "centerAlong": 11.0,
       "width": 2.3,
       "sillHeight": 0.95,
-      "height": 1.9
+      "height": 1.9,
+      "treatment": "dusk"
     },
     {
       "id": "window_west_south",
@@ -54,7 +67,8 @@
       "centerAlong": 7.0,
       "width": 2.3,
       "sillHeight": 0.95,
-      "height": 1.9
+      "height": 1.9,
+      "treatment": "curtain"
     }
   ],
   "doors": [
@@ -74,15 +88,84 @@
     }
   ],
   "ceilingLights": [
-    { "x": -3.2, "z": 3.2, "length": 2.6, "tiltDegrees": 0.0, "height": 3.42 },
-    { "x": 3.2, "z": 3.2, "length": 2.6, "tiltDegrees": 0.0, "height": 3.42 },
-    { "x": -3.2, "z": 7.4, "length": 2.6, "tiltDegrees": 0.0, "height": 3.42 },
-    { "x": 3.2, "z": 7.4, "length": 2.6, "tiltDegrees": 4.5, "height": 3.05 }
+    {
+      "x": -3.2,
+      "z": 3.2,
+      "length": 2.6,
+      "tiltDegrees": 0.0,
+      "height": 3.42
+    },
+    {
+      "x": 3.2,
+      "z": 3.2,
+      "length": 2.6,
+      "tiltDegrees": 0.0,
+      "height": 3.42
+    },
+    {
+      "x": -3.2,
+      "z": 7.4,
+      "length": 2.6,
+      "tiltDegrees": 0.0,
+      "height": 3.42
+    },
+    {
+      "x": 3.2,
+      "z": 7.4,
+      "length": 2.6,
+      "tiltDegrees": 4.5,
+      "height": 3.05
+    }
   ],
   "chalkCircle": {
     "centerX": 0.0,
     "centerZ": 0.5,
     "radius": 1.45,
     "segments": 16
+  },
+  "frontWall": {
+    "exists": false,
+    "treatment": "curtain",
+    "curtainTop": 3.42,
+    "curtainBottom": 0.0,
+    "curtainWidth": 10.6,
+    "curtainCenterAlong": 6.2,
+    "fullHeightThreshold": 0.05
+  },
+  "fall": {
+    "containerCenterX": 0.0,
+    "containerCenterZ": -8.4,
+    "containerWidth": 12.0,
+    "containerLength": 6.0,
+    "containerHeight": 2.0,
+    "groundY": -4.2,
+    "streetWidth": 9.0,
+    "streetCenterZ": -15.9,
+    "buildingDepth": 6.0,
+    "buildingRowZ": -18.0,
+    "buildingHeights": [
+      8.5,
+      11.0,
+      7.2,
+      12.5,
+      9.4
+    ],
+    "roomFloorAboveStreet": 4.2
+  },
+  "laundry": {
+    "lineZ": -14.4,
+    "lineY": 1.0,
+    "lineFromX": -9.0,
+    "lineToX": 9.0,
+    "garments": [
+      "shirt",
+      "sheet",
+      "trousers",
+      "towel",
+      "shirt",
+      "sheet",
+      "dress",
+      "towel"
+    ]
   }
 }

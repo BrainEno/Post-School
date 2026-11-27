@@ -7,12 +7,21 @@ namespace PostSchool.World
     [Serializable]
     public sealed class WallOpening
     {
+        /// <summary>How a window is dressed. <see cref="Dusk"/> is bare, <see cref="Curtain"/> is covered.</summary>
+        public const string TreatmentDusk = "dusk";
+        public const string TreatmentCurtain = "curtain";
+
         public string id;
         public string wall;
         public float centerAlong;
         public float width;
         public float height;
         public float sillHeight;
+
+        /// <summary>Windows only: "dusk" (bare, onto the street) or "curtain" (covered).</summary>
+        public string treatment;
+
+        public bool HasCurtain => treatment == TreatmentCurtain;
 
         /// <summary>The range covered on the wall, in world units, always from low to high.</summary>
         public Vector2 AlongRange => new Vector2(centerAlong - width * 0.5f, centerAlong + width * 0.5f);
@@ -103,6 +112,81 @@ namespace PostSchool.World
     }
 
     /// <summary>
+    /// The front wall, which is not a wall. The room's exit side is closed by a floor-to-ceiling
+    /// curtain hung on a rail; behind it there is no wall, no window and no floor, only the drop to the
+    /// street. Everything about that is data here so the builder and the offline proofs agree.
+    /// </summary>
+    [Serializable]
+    public sealed class CurtainWall
+    {
+        /// <summary>False for the authored room: the curtain is the wall.</summary>
+        public bool exists;
+
+        public string treatment = "curtain";
+
+        /// <summary>Rail height; the curtain reaches the ceiling and stops just above the floor.</summary>
+        public float curtainTop = 3.42f;
+        public float curtainBottom;
+
+        public float curtainWidth = 10.6f;
+        public float curtainCenterAlong = 6.2f;
+
+        /// <summary>Below this at the bottom, a curtain counts as a full drop ("幕布").</summary>
+        public float fullHeightThreshold = 0.05f;
+
+        /// <summary>True when the curtain hangs from near the ceiling to near the floor.</summary>
+        public bool IsFullDrop => curtainTop >= 3f && curtainBottom <= fullHeightThreshold;
+    }
+
+    /// <summary>
+    /// What is outside the missing wall, and where a falling body lands. One blue container, a street,
+    /// and a row of buildings with a washing line across them.
+    /// </summary>
+    [Serializable]
+    public sealed class FallZone
+    {
+        public float containerCenterX;
+        public float containerCenterZ = -8.4f;
+        public float containerWidth = 12f;
+        public float containerLength = 6f;
+        public float containerHeight = 2.6f;
+
+        /// <summary>How far the classroom floor is above the street. The whole drop hangs off this.</summary>
+        public float roomFloorAboveStreet = 4.2f;
+
+        /// <summary>
+        /// The street surface, in the room's own world coordinates. Negative: the street is below the
+        /// classroom, and every outdoor height is measured down from it.
+        /// </summary>
+        public float groundY = -4.2f;
+
+        public float streetWidth = 9f;
+        public float streetCenterZ = -11.6f;
+        public float buildingDepth = 6f;
+        public float buildingRowZ = -18f;
+        public float[] buildingHeights = Array.Empty<float>();
+
+        /// <summary>
+        /// The container top as a world height; this is what a successful check lands on. Read it as
+        /// "how far below the classroom floor the lid is": the drop is room.height - ContainerTopY.
+        /// </summary>
+        public float ContainerTopY => groundY + containerHeight;
+
+        public Vector3 ContainerCenter => new Vector3(containerCenterX, groundY + containerHeight * 0.5f, containerCenterZ);
+    }
+
+    /// <summary>Washing on a line: the one domestic thing visible from a classroom window.</summary>
+    [Serializable]
+    public sealed class LaundryLine
+    {
+        public float lineZ = -15.2f;
+        public float lineY = 6.4f;
+        public float lineFromX = -9f;
+        public float lineToX = 9f;
+        public string[] garments = Array.Empty<string>();
+    }
+
+    /// <summary>
     /// Classroom composition data. Kept in a JSON resource so the layout can be re-authored without
     /// touching C#, and so the offline plan proof can draw the same numbers. See docs/CLASSROOM_ART.md.
     /// </summary>
@@ -121,6 +205,9 @@ namespace PostSchool.World
         public WallOpening[] doors = Array.Empty<WallOpening>();
         public CeilingLightPlacement[] ceilingLights = Array.Empty<CeilingLightPlacement>();
         public ChalkCircle chalkCircle = new ChalkCircle();
+        public CurtainWall frontWall = new CurtainWall();
+        public FallZone fall = new FallZone();
+        public LaundryLine laundry = new LaundryLine();
 
         public static ClassroomLayout FromJson(string json, string sourceName)
         {
@@ -259,6 +346,13 @@ namespace PostSchool.World
                 return false;
             }
 
+            string frontWallError;
+            if (!ValidateFrontWall(out frontWallError))
+            {
+                error = frontWallError;
+                return false;
+            }
+
             string openingError;
             if (!ValidateOpenings(windows, "window", out openingError) || !ValidateOpenings(doors, "door", out openingError))
             {
@@ -294,6 +388,151 @@ namespace PostSchool.World
             {
                 error = "Chalk circle needs a radius between 0.8 m and 40% of the room width, and at least 8 segments.";
                 return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        /// <summary>
+        /// The exit side of the room is deliberately incomplete: a full-drop curtain instead of a wall,
+        /// and a container below it to land on. A half-drawn curtain or a container out of reach makes
+        /// the scene unshootable, so both are checked here rather than discovered in the Editor.
+        /// </summary>
+        private bool ValidateFrontWall(out string error)
+        {
+            if (frontWall == null)
+            {
+                error = "The front wall block is missing; the exit side must declare its curtain.";
+                return false;
+            }
+
+            if (frontWall.exists)
+            {
+                error = "The front wall must not exist as a wall: this room's exit side is a curtain and a drop.";
+                return false;
+            }
+
+            if (frontWall.treatment != "curtain")
+            {
+                error = $"Front wall treatment '{frontWall.treatment}' is not supported; the exit side is a curtain.";
+                return false;
+            }
+
+            if (!frontWall.IsFullDrop)
+            {
+                error = $"The front curtain must hang from near the ceiling to the floor (top {frontWall.curtainTop:0.00} m, bottom {frontWall.curtainBottom:0.00} m).";
+                return false;
+            }
+
+            if (frontWall.curtainTop > room.height + 0.01f)
+            {
+                error = "The front curtain cannot hang above the ceiling.";
+                return false;
+            }
+
+            if (frontWall.curtainWidth < room.width * 0.7f)
+            {
+                error = $"The front curtain ({frontWall.curtainWidth:0.0} m) is too narrow to close a {room.width:0.0} m room.";
+                return false;
+            }
+
+            float curtainFrom = frontWall.curtainCenterAlong - frontWall.curtainWidth * 0.5f;
+            float curtainTo = frontWall.curtainCenterAlong + frontWall.curtainWidth * 0.5f;
+            if (curtainFrom > 0.4f || curtainTo < room.width - 0.4f)
+            {
+                error = "The front curtain leaves a gap at a corner; the room would still read as walled.";
+                return false;
+            }
+
+            // The exit door has to be reachable: it opens onto the drop, which is the point.
+            bool exitDoorOnFront = false;
+            foreach (WallOpening door in doors)
+            {
+                if (door.wall == "front") exitDoorOnFront = true;
+            }
+
+            if (!exitDoorOnFront)
+            {
+                error = "The exit door must stay on the front wall: it is the way onto the drop.";
+                return false;
+            }
+
+            if (fall == null)
+            {
+                error = "The front wall opens onto nothing; declare the fall zone (container, street, buildings).";
+                return false;
+            }
+
+            if (fall.containerHeight < 1.6f || fall.containerHeight > 3.2f)
+            {
+                error = $"A container to land on should be 1.6-3.2 m tall; layout says {fall.containerHeight:0.00} m.";
+                return false;
+            }
+
+            // The container must sit outside the room and under the opening, not somewhere off to a side.
+            if (fall.containerCenterZ > room.MinZ - 1.5f)
+            {
+                error = "The fall container must sit at least 1.5 m beyond the front wall, or a fall lands indoors.";
+                return false;
+            }
+
+            float exitCenterX = room.MinX;
+            foreach (WallOpening door in doors)
+            {
+                if (door.wall != "front") continue;
+                exitCenterX = WorldAlong("front", door.centerAlong);
+                // The container's x extent is its width; length runs away from the wall.
+                if (Mathf.Abs(exitCenterX - fall.containerCenterX) > fall.containerWidth * 0.5f - 0.5f)
+                {
+                    error = "The exit door does not open above the container; a fall would miss it.";
+                    return false;
+                }
+            }
+
+            // A fall from a classroom window has to actually be one. Below ~4 m the scene reads as a
+            // stumble, above ~7 m nobody walks away from it and the "safe landing" branch turns into a lie.
+            if (fall.roomFloorAboveStreet < 2.2f)
+            {
+                error = $"The classroom floor is only {fall.roomFloorAboveStreet:0.0} m above the street; a fall needs height.";
+                return false;
+            }
+
+            float drop = room.height - fall.ContainerTopY;
+            if (drop < 4f || drop > 7f)
+            {
+                error = $"The drop onto the container is {drop:0.0} m; it must read as a fall (4-7 m).";
+                return false;
+            }
+
+            if (fall.buildingHeights == null || fall.buildingHeights.Length < 3)
+            {
+                error = "The street beyond the drop needs at least three buildings to read as a city.";
+                return false;
+            }
+
+            for (int i = 0; i < fall.buildingHeights.Length; i++)
+            {
+                if (fall.buildingHeights[i] < 4f)
+                {
+                    error = $"Building {i} is only {fall.buildingHeights[i]:0.0} m tall; the street should dwarf the room.";
+                    return false;
+                }
+            }
+
+            if (laundry != null && laundry.garments != null && laundry.garments.Length > 0)
+            {
+                if (laundry.lineY <= fall.ContainerTopY + 1f)
+                {
+                    error = "The washing line hangs below the container top; laundry would be inside the street clutter.";
+                    return false;
+                }
+
+                if (laundry.lineToX - laundry.lineFromX < 6f)
+                {
+                    error = "The washing line is too short to read as a line across the street.";
+                    return false;
+                }
             }
 
             error = string.Empty;

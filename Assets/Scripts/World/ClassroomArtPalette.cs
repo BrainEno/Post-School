@@ -33,8 +33,31 @@ namespace PostSchool.World
         public static readonly Color AccentSage = Hex("71806B");
         public static readonly Color AccentOchre = Hex("C39D59");
 
+        // What is outside the room. The dusk sky is the only warm gradient the scene has, so everything
+        // that belongs to the street stays muted except the blue container.
+        public static readonly Color DuskSkyHigh = Hex("5B4A63");
+        public static readonly Color DuskSkyLow = Hex("E2A05C");
+        public static readonly Color DuskHaze = Hex("C98A63");
+        public static readonly Color Building = Hex("4A4450");
+        public static readonly Color BuildingNear = Hex("3B3742");
+        public static readonly Color BuildingFar = Hex("6C5F66");
+        public static readonly Color WindowLit = Hex("F0C070");
+        public static readonly Color Street = Hex("4E4A48");
+        public static readonly Color ContainerBlue = Hex("2F6E8C");
+        public static readonly Color ContainerBlueShadow = Hex("24556C");
+        public static readonly Color Laundry = Hex("E6DFCB");
+        public static readonly Color LaundryWarm = Hex("D9A98F");
+        public static readonly Color Curtain = Hex("B8AE9A");
+        public static readonly Color CurtainFold = Hex("9C9280");
+
         // Character colours are not here: they belong to CharacterSkinPalette, next to the model they
         // colour. The room must never borrow from the cast, and the cast must never borrow from the room.
+
+        /// <summary>
+        /// Where the sun is. The layout cannot say it (lighting is the scene's, not the room's), but both
+        /// the offline proofs and the scene builder need the same direction for the long dusk shadows.
+        /// </summary>
+        public static readonly Vector3 SunDirection = new Vector3(-0.62f, 0.32f, 0.72f).normalized;
 
         public static Color Hex(string rgb)
         {

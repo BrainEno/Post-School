@@ -255,3 +255,52 @@ class ClassroomLayoutTests(unittest.TestCase):
         problems = checker.check_classroom_layout(layout_files(status=""))
         self.assertIn("no 'status' field", messages(problems))
 
+
+
+class MissingFrontWallTests(unittest.TestCase):
+    """The exit side is a curtain and a drop. Each rule here is one way to lose that."""
+
+    def test_shipped_layout_has_a_missing_front_wall(self) -> None:
+        self.assertEqual([], checker.check_classroom_layout(pinned_project()))
+
+    def test_a_front_wall_is_rejected(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(frontWall__exists=True))
+        self.assertIn("must not exist", messages(problems))
+
+    def test_a_half_length_curtain_is_rejected(self) -> None:
+        # A curtain that stops at the sill is a blind, and the exit side would read as a window.
+        problems = checker.check_classroom_layout(layout_files(frontWall__curtainBottom=1.0))
+        self.assertIn("floor to ceiling", messages(problems))
+
+    def test_a_narrow_curtain_is_rejected(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(frontWall__curtainWidth=3.0))
+        self.assertIn("too narrow", messages(problems))
+
+    def test_moving_the_exit_door_off_the_front_wall_is_rejected(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(doors__1__wall="east"))
+        self.assertIn("exit door", messages(problems))
+
+    def test_a_container_under_the_wrong_part_of_the_doorway_is_rejected(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(fall__containerCenterX=9.0))
+        self.assertIn("does not open above the container", messages(problems))
+
+    def test_a_container_inside_the_room_is_rejected(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(fall__containerCenterZ=-5.0))
+        self.assertIn("beyond the front wall", messages(problems))
+
+    def test_a_street_with_one_building_is_rejected(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(fall__buildingHeights=[9.0]))
+        self.assertIn("three buildings", messages(problems))
+
+    def test_a_washing_line_below_the_container_is_rejected(self) -> None:
+        # The line is a world height (the street is at -4.2), so this puts the washing level with the lid.
+        problems = checker.check_classroom_layout(layout_files(laundry__lineY=-3.5))
+        self.assertIn("below the container top", messages(problems))
+
+    def test_two_curtained_windows_are_rejected(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(windows__0__treatment="curtain"))
+        self.assertIn("one bare 'dusk' window", messages(problems))
+
+    def test_a_window_with_an_unknown_treatment_is_rejected(self) -> None:
+        problems = checker.check_classroom_layout(layout_files(windows__1__treatment="blinds"))
+        self.assertIn("one bare 'dusk' window", messages(problems))

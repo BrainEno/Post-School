@@ -46,6 +46,9 @@ namespace PostSchool.Prototype
         private HumanoidClip _idleClip;
         private HumanoidClip _qIdleClip;
         private Transform _qStudentRoot;
+        private Transform _curtain;
+        private CurtainScene _curtainScene;
+        private GameObject _classroomRoot;
         private Text _interactionPrompt;
         private Inspectable _conversationTarget;
         private float _temporaryPromptUntil;
@@ -67,8 +70,8 @@ namespace PostSchool.Prototype
                 new Vector3(-1.62f, 0.24f, 0.5f), new Vector3(0.5f, 0.42f, 0.34f), _surfaces.Surface(SurfaceRole.Ink));
             CreateInspectable("set_square", "三角尺（占位）", "【占位说明，待作者审定】这里可以检查一件课堂物品。", PrimitiveType.Cube,
                 new Vector3(2.1f, 0.79f, 2.9f), new Vector3(0.62f, 0.05f, 0.14f), _surfaces.Surface(SurfaceRole.Paper));
-            CreateInspectable("classroom_exit", "教室出口（占位）", "【占位】已到达本次纵切片的出口。", PrimitiveType.Cube,
-                new Vector3(-4.0f, 1.1f, -4.4f), new Vector3(1.3f, 2.2f, 0.22f), _surfaces.Surface(SurfaceRole.Ink));
+            // No "classroom_exit" placeholder: the curtain now occupies that doorway, and two triggers
+            // in the same gap would fight over the interaction raycast.
 
             TextAsset dialogueAsset = Resources.Load<TextAsset>(DialogueResourcePath);
             if (dialogueAsset == null)
@@ -89,6 +92,9 @@ namespace PostSchool.Prototype
             DialogueRunner runner = new DialogueRunner(script, _storyState, _characterBuild);
             _dialoguePresenter.Initialize(canvas.transform, runner, PauseWorldForDialogue, ResumeWorldAfterDialogue);
 
+            // After the sheet exists, so the scene has the same build object the sheet spends points on.
+            CreateCurtainInteraction(canvas.transform);
+
             _playerMovement.InputEnabled = false;
             _playerMovement.enabled = false;
             _playerInteractor.enabled = false;
@@ -107,6 +113,9 @@ namespace PostSchool.Prototype
                 _interactionPrompt.text = string.Empty;
                 return;
             }
+
+            // The curtain scene owns the screen while it is open.
+            if (_curtainScene != null && _curtainScene.IsOpen) return;
 
             if (_dialoguePresenter.IsActive) return;
 
@@ -167,7 +176,17 @@ namespace PostSchool.Prototype
             }
 
             _layout = ClassroomLayout.FromJson(layoutAsset.text, ClassroomLayoutResourcePath);
-            ClassroomBuilder.Build(_layout, _surfaces, transform);
+            _classroomRoot = ClassroomBuilder.Build(_layout, _surfaces, transform);
+
+            // The curtain that stands where the front wall should be. Its id is part of the scene's
+            // contract (CurtainScene), so a rename fails here instead of failing silently at dusk.
+            Transform curtain = _classroomRoot.transform.Find(ClassroomBuilder.FrontCurtainName);
+            if (curtain == null)
+            {
+                throw new InvalidOperationException($"The classroom has no '{ClassroomBuilder.FrontCurtainName}'.");
+            }
+
+            _curtain = curtain;
 
             // The exit trigger must sit in a doorway the layout actually cut, or the prologue has no end.
             if (Array.Find(_layout.doors, door => door.id == ClassroomBuilder.ExitDoorId) == null)
@@ -210,6 +229,18 @@ namespace PostSchool.Prototype
                 || !_qIdleClip.Validate(_protagonist.Skeleton, out string qError))
             {
                 throw new InvalidOperationException("Animation clip does not fit the skeleton: " + (wakeError ?? idleError ?? qError));
+            }
+
+            // The fall clips are only ever built inside the curtain scene, which means a wrong bone name
+            // would not show up until the player had already stepped through the wall. Build and check
+            // them here instead, at startup, with the drop the layout actually has.
+            float drop = CurtainFallRules.DropMetres(_layout);
+            HumanoidClip fallClip = HumanoidClips.FallFromTheCurtain(drop);
+            HumanoidClip crashClip = HumanoidClips.CrashLanding(drop);
+            if (!fallClip.Validate(_protagonist.Skeleton, out string fallError)
+                || !crashClip.Validate(_protagonist.Skeleton, out string crashError))
+            {
+                throw new InvalidOperationException("Curtain fall clip does not fit the skeleton: " + (fallError ?? crashError));
             }
             _playerMovement = player.AddComponent<PlayerMovement>();
             _playerMovement.InputEnabled = false;
@@ -328,17 +359,104 @@ namespace PostSchool.Prototype
             if (_qAnimator != null) _qAnimator.Play(_qIdleClip);
         }
 
+        /// <summary>
+        /// The curtain is the slice's only branching scene, so it gets a trigger across the whole opening
+        /// and its own component. The doorway is behind the curtain; the trigger is wide enough that the
+        /// player finds it by walking at the missing wall, not by pixel-hunting a door handle.
+        /// </summary>
+        private void CreateCurtainInteraction(Transform canvas)
+        {
+            // Called once the character sheet has resolved the build: CurtainScene resolves attribute
+            // checks against it and throws on null, by design.
+            if (_characterBuild == null) throw new InvalidOperationException("The curtain scene needs a character build.");
+            WallOpening exit = Array.Find(_layout.doors, door => door.id == ClassroomBuilder.ExitDoorId);
+            float exitX = _layout.room.MinX + exit.centerAlong;
+            float z = _layout.room.MinZ - _layout.room.wallThickness * 0.5f;
+
+            // Parented to the room, not the curtain: the curtain is lifted during the sequence, and a
+            // trigger riding up with it would stop being where the player is standing.
+            GameObject trigger = new GameObject("Curtain Trigger");
+            trigger.transform.SetParent(_classroomRoot.transform, true);
+            trigger.transform.position = new Vector3(exitX, 1.1f, z + 0.45f);
+
+            BoxCollider collider = trigger.AddComponent<BoxCollider>();
+            collider.size = new Vector3(exit.width + 1.4f, 2.2f, 1.1f);
+            collider.isTrigger = true;
+
+            Inspectable inspectable = trigger.AddComponent<Inspectable>();
+            inspectable.Configure(CurtainScene.CurtainPropId, "幕布（前墙）", "【占位】一块从天花板垂到地面的幕布，后面没有墙。");
+            inspectable.Inspected += OnInspectableUsed;
+
+            _curtainScene = trigger.AddComponent<CurtainScene>();
+            _curtainScene.Initialize(
+                canvas,
+                _characterBuild,
+                _layout,
+                _curtain,
+                _protagonistAnimator,
+                _idleClip,
+                HandleCurtainTeleport,
+                HandleCurtainFinished);
+        }
+
+        /// <summary>
+        /// Hands the body to the fall. The transform is not moved here: the fall clip travels it, and the
+        /// controller is switched off for the duration so gravity does not race the animation to the lid.
+        /// </summary>
+        private void HandleCurtainTeleport(Vector3? landing)
+        {
+            _playerMovement.InputEnabled = false;
+            _playerInteractor.enabled = false;
+            if (_playerCharacterController != null) _playerCharacterController.enabled = false;
+        }
+
+        /// <summary>
+        /// Called when the fall card is dismissed. The controller is put back on the lid (the figure was
+        /// moved by the fall, the controller was not), and the player only gets control back if they
+        /// landed well: a crash landing is not something this slice lets you walk out of.
+        /// </summary>
+        private void HandleCurtainFinished(bool fell, Vector3 landing)
+        {
+            if (!fell) return;
+
+            bool landedWell = _curtainScene != null && _curtainScene.LastOutcome == FallOutcome.LandedOnContainer;
+            _storyState.Set(StoryNamespace.Objective, landedWell ? "fell_landed_on_container" : "fell_crashed_on_container");
+
+            if (_playerCharacterController != null)
+            {
+                // Capsule is centred, so its pivot sits one metre above the lid; the figure rebase below
+                // then keeps the feet on the same spot.
+                Vector3 pivot = landing + Vector3.up * 1f;
+                _playerCharacterController.transform.position = pivot;
+                _playerCharacterController.enabled = true;
+                if (_protagonistAnimator != null)
+                {
+                    _protagonistAnimator.CaptureBaseHeight();
+                    _protagonistAnimator.PlaceAt(landing);
+                }
+            }
+
+            if (landedWell)
+            {
+                _playerMovement.enabled = true;
+                _playerMovement.InputEnabled = true;
+                _playerInteractor.enabled = true;
+            }
+        }
+
         private void OnInspectableUsed(Inspectable inspectable)
+        {
+            if (inspectable.PropId == CurtainScene.CurtainPropId)
+            {
+                _curtainScene.Begin();
+                return;
+            }
+
         {
             if (inspectable == _conversationTarget)
             {
                 _dialoguePresenter.Begin();
                 return;
-            }
-
-            if (inspectable.PropId == "classroom_exit")
-            {
-                _storyState.Set(StoryNamespace.Objective, "prototype_slice_exit_reached");
             }
 
             _interactionPrompt.text = inspectable.DisplayName + "\n" + inspectable.Description;
@@ -404,6 +522,9 @@ namespace PostSchool.Prototype
             _temporaryPromptUntil = Time.unscaledTime + 3.5f;
         }
 
+        /// <summary>True while the curtain scene is running; the scene's pause must respect it.</summary>
+        private bool CurtainSceneActive => _curtainScene != null && _curtainScene.IsOpen;
+
         private void CompleteCharacterBuild()
         {
             _buildComplete = true;
@@ -415,7 +536,7 @@ namespace PostSchool.Prototype
 
         private void PauseWorldForDialogue()
         {
-            if (_worldPaused) return;
+            if (_worldPaused || CurtainSceneActive) return;
             _worldPaused = true;
             _previousTimeScale = Time.timeScale;
             Time.timeScale = 0f;
