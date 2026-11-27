@@ -69,33 +69,19 @@ namespace PostSchool.World
             return _chalkGlow;
         }
 
-        public StudentModelMaterials CreateStudentMaterials(StudentModelStyle style)
+        /// <summary>
+        /// The material set for a skinned figure. Flat, near-matte, and lit only by the sun and the
+        /// ambient, which is what makes the figures read as cut paper rather than plastic.
+        /// </summary>
+        public CharacterSkin CreateCharacterSkin(FigureRole role)
         {
-            Material outerwear = Create("Student Outerwear " + style,
-                style == StudentModelStyle.MossCardigan ? ClassroomArtPalette.AccentSage : ClassroomArtPalette.AccentRose,
-                0.1f, 0f);
-
-            return new StudentModelMaterials(
-                Create("Student Skin", ClassroomArtPalette.ProtagonistSkin, 0.12f, 0f),
-                Create("Student Hair", ClassroomArtPalette.ProtagonistHair, 0.15f, 0f),
-                outerwear,
-                Surface(SurfaceRole.Paper),
-                Create("Student Trousers", ClassroomArtPalette.ProtagonistTrousers, 0.1f, 0f),
-                Create("Student Shoes", ClassroomArtPalette.Ink, 0.2f, 0f),
-                Create("Student Accent", ClassroomArtPalette.AccentOchre, 0.2f, 0f),
-                Create("Student Detail", ClassroomArtPalette.ProtagonistInk, 0.1f, 0f));
-        }
-
-        public ProtagonistMaterials CreateProtagonistMaterials()
-        {
-            return new ProtagonistMaterials(
-                Create("Protagonist Skin", ClassroomArtPalette.ProtagonistSkin, 0.14f, 0f),
-                Create("Protagonist Coat", ClassroomArtPalette.ProtagonistCoat, 0.12f, 0f),
-                Surface(SurfaceRole.Paper),
-                Create("Protagonist Trousers", ClassroomArtPalette.ProtagonistTrousers, 0.1f, 0f),
-                Create("Protagonist Hair", ClassroomArtPalette.ProtagonistHair, 0.18f, 0f),
-                Create("Protagonist Accent", ClassroomArtPalette.ProtagonistAccent, 0.22f, 0f),
-                Create("Protagonist Ink", ClassroomArtPalette.ProtagonistInk, 0.1f, 0f));
+            bool protagonist = role == FigureRole.Protagonist;
+            return new CharacterSkin(
+                Create(role + " Body", protagonist ? CharacterSkinPalette.ProtagonistSkin : CharacterSkinPalette.ClassmateSkin, 0.06f, 0f),
+                Create(role + " Hair", protagonist ? CharacterSkinPalette.ProtagonistHair : CharacterSkinPalette.ClassmateHair, 0.1f, 0f),
+                Create(role + " Coat", protagonist ? CharacterSkinPalette.ProtagonistCoat : CharacterSkinPalette.ClassmateCoat, 0.05f, 0f),
+                Create(role + " Shirt", protagonist ? CharacterSkinPalette.ProtagonistShirt : CharacterSkinPalette.ClassmateShirt, 0.04f, 0f),
+                Create(role + " Accent", protagonist ? CharacterSkinPalette.ProtagonistAccent : CharacterSkinPalette.ClassmateAccent, 0.12f, 0f));
         }
 
         private Material Create(string name, Color color, float smoothness, float emission)

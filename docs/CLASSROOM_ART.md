@@ -48,14 +48,37 @@
 | `Assets/Scripts/World/ClassroomBuilder.cs` | 纯几何装配：墙体与开口、门/窗构件、黑板与粉笔痕、讲桌、24 套桌椅、醒来桌、吊灯、地面与墙面标记、碰撞盒 |
 | `Assets/Scripts/World/ClassroomArtPalette.cs` | 唯一调色板（结构色 + 三处点缀色 + 主角专属色） |
 | `Assets/Scripts/World/WorldSurfaceLibrary.cs` | 唯一材质所有者，实现 `IClassroomSurfaceProvider`；负责释放 |
-| `Assets/Scripts/Character/ProtagonistModelMaterials.cs` | 主角材质输入 + `ProtagonistRig` + `ProtagonistModelFactory`（造型本体） |
-| `Assets/Scripts/Character/ProtagonistIdleMotion.cs` | 站立待机：呼吸、比身体慢半拍的头部偏转、永不站稳的重心 |
+| `Assets/Scripts/Character/HumanoidRig.cs` | 19 骨骼骨架 + 两套比例表（主角 / Q），带 `Validate()` |
+| `Assets/Scripts/Character/ProceduralSkeleton.cs` | 骨架数据、绑定姿势、线性混合蒙皮（LBS）与权重校验 |
+| `Assets/Scripts/Character/SkinnedMeshBuilder.cs` | 环形拓扑管体 / 椭球 / 四边形 / 盒体，按骨架权重写入顶点 |
+| `Assets/Scripts/Character/SkinnedFigureFactory.cs` | 造型本体：把比例表变成一张带 4 个材质子网格的蒙皮网格 |
+| `Assets/Scripts/Character/HumanoidPose.cs` | 姿势表（骨骼 → 局部旋转）+ 根高度偏移；全部关键姿势在这里 |
+| `Assets/Scripts/Character/HumanoidClip.cs` | 手写关键帧片段：`WakeFromDesk` / `StandingIdle` / `ClassmateIdle` / `ClassmateWalk` |
+| `Assets/Scripts/Character/HumanoidAnimator.cs` | 播放器：采样、crossfade、`Time.unscaledDeltaTime`（对话暂停时也能演） |
+| `Assets/Scripts/Character/CharacterSkin.cs` | 五槽材质（body/hair/coat/shirt/accent）+ 两角色色板 |
+| `Assets/Scripts/Character/ProceduralStudentModelFactory.cs` | **LEGACY**，只给 `VisualCalibrationSceneBuilder` 当对照，游戏内不再调用 |
 
-`PrototypeSceneBootstrap` 的改动：删掉旧的硬编码灰盒教室（4 张桌 A–D、占位黑板）、旧 14 槽 `MaterialAt` 调色板、旧 `BuildProtagonistPoseRig`；改为读布局 → 建教室 → 用 `ProtagonistModelFactory` 生成主角 → 序章动画前后 `Suspend()/Resume()` 待机动作。Q、未命名同学、书包、三角尺、出口五个占位交互物**重摆了位置**，全部挪到前区空场，不再和 24 套桌椅或讲桌重叠。
+`PrototypeSceneBootstrap` 的改动：删掉旧的硬编码灰盒教室（4 张桌 A–D、占位黑板）、旧 14 槽 `MaterialAt` 调色板、旧 `BuildProtagonistPoseRig`；改为读布局 → 建教室 → `SkinnedCharacterBuilder.Create` 生成主角与 Q → `HumanoidAnimator.Play(WakeFromDesk)` → 起身结束接 `StandingIdle`。序章不再手写"转五个枢轴"的协程，改为等片段的**自己的时钟**（`while (_protagonistAnimator.IsPlaying ...)`），所以改关键帧时间不会和剧情脱节。Q 的走近动画只驱动根节点位移，腿部动作交给 `WalkCycle` 片段——这是蒙皮角色的正确分工（片段管姿势，代码管位移）。未命名同学、书包、三角尺、出口四个占位交互物**重摆了位置**，全部挪到前区空场，不再和 24 套桌椅或讲桌重叠。
 
-碰撞：地板、天花板、四面墙各一组盒体，**两个门洞都留空**，玩家可以走进任何一个门；门楣上方有盒体挡住越顶。24 套桌椅不加碰撞（原型期为了交互射线便宜、也为了不被椅子卡住），只有讲桌旁那把教师椅是实体障碍。
+碰撞：地板、天花板、四面墙各一组盒体，**两个门洞都留空**，玩家可以走进任何一个门；门楣上方有盒体挡住越顶。**24 套桌椅现在都有实体碰撞**（每张桌一个盒体、每把椅子一个盒体，覆盖座面到椅背），醒来桌与讲桌同样是障碍。碰撞体挂在摆放组上而不是每个零件上，物体数量不涨。代价是玩家会被椅子挡住，这是作者要的"真的能撞到东西"。
 
-## 四、主角：年龄"卡在中间"怎么做出来
+角色碰撞：主角用 `CharacterController`（2 m 胶囊，中心在原点，脚在 −1 m）；Q 的交互触发器是一个 `CapsuleCollider`（`isTrigger`），挂在 Q 根节点下，不参与物理推挤。
+
+## 四、角色：真骨骼 + 手写关键帧（本轮重写）
+
+旧的"部件堆叠"模型（约 40 个胶囊/盒子挂在 5 个枢轴上）已被删除。现在两个角色共用一套 **19 骨骼蒙皮骨架**，造型是程序化生成的**单张网格**：
+
+| 项 | 值 |
+|---|---|
+| 骨骼 | `Hips, Spine, Chest, Neck, Head, Shoulder_L/R, UpperArm_L/R, Forearm_L/R, Hand_L/R, Thigh_L/R, Shin_L/R, Foot_L/R` |
+| 每顶点影响 | 最多 4 个，关节处按距离混合 |
+| 网格 | 一个 `SkinnedMeshRenderer`，4 个子网格 = 皮肤 / 头发 / 外套 / 衬衫（脸部画线与领口在最后一格） |
+| 片段 | `WakeFromDesk` 3.40 s · `StandingIdle` 6.00 s 循环 · `ClassmateIdle` 7.05 s 循环 · `WalkCycle` 1.10 s 循环 |
+| 时间源 | `Time.unscaledDeltaTime`，对话把 `timeScale` 压到 0 时动画照常 |
+
+为什么这么做：参考项目里的人只是整体剪切平移，没有骨骼；真蒙皮让肘、膝、腰在弯折时是**曲面**而不是两个圆柱互穿，也让"同一个片段在两个人身上跑"成为可能——差异全部来自比例表，不来自第二套动画。
+
+## 五、主角：年龄"卡在中间"怎么做出来
 
 设定是"成年之后因为说不清的原因回到学校，并迷失其中"。所以造型上**不能**给出任何一个能让人一眼定年龄的特征。做法是让两套比例互相打架：
 
@@ -70,23 +93,36 @@
 | 面部裂缝 | 从头顶裂到脸颊的一条铅笔线，旁边还有一条**对不上的**第二条线，左眼是一条画的缝、右眼是一个空洞 | 两张不同年龄的脸共用一个头；这是"迷失"的视觉锚点 |
 | 头发 | 两侧短、头顶长且往错的方向翘，硬边几何片 | 不是校规发型，也不是职场发型 |
 | 袖标 | 右臂一道饱和红袖标，没有编号 | 像学校发的，但哪个学校都没发过 |
-| 待机 | 头部比身体慢 0.35 s 跟着摆；呼吸不走满；重心永远差一点站稳 | 人是"被放在这里"的，不是"站在这里"的 |
+| 待机 | 一次性 6 s 循环：呼吸、左右看、重心偏移永不落定；起身后先"没站稳"再进入待机 | 人是"被放在这里"的，不是"站在这里"的 |
+| 骨架 | 与 Q 完全相同（19 骨），差异只来自比例表 | 一套片段两个人用，人物差异是**身体**的而不是动画的 |
 
 性别与族裔刻意不编码：没有可读的第二性征，没有发型/肤色/服饰的文化标记。玩家看到的是一个"学生/成年人"的模糊体。
 
-垂直标尺（米，地面为 0，与代码注释里的表一致）：
+### Q：同桌
+
+Q 和主角共用骨架与片段，但比例表换成 `HumanoidProportions.Classmate()`：更矮（1.615 m）、头骨更小（6.87 头身）、肩更窄、颈更长。造型层再补三点：
+
+- **脸几乎是空的**：两条水平的眼线 + 一条完全水平的嘴，没有裂缝、没有瞳孔。
+- **头发太整齐**：平贴的一片，没有翘起的方向——Q 身上唯一"符合规矩"的地方。
+- **待机不对**：`ClassmateIdle` 里没有呼吸，头是**阶梯式**转动（0.15 s 内几乎瞬移 22°），身体其余部分不动。主角的待机每帧都在飘，Q 的待机在大部分时间里完全静止，然后突然换一个方向。
+
+骨骼标尺（米，地面为 0；`HumanoidProportions` 里的值，`Validate()` 会核对脚踝与头顶）：
 
 ```
-鞋 0.000-0.070     膝 0.480-0.530     小腿 0.190-0.530
-髋 0.880（腿枢轴）  外套下摆 0.620-1.060
-胸廓 0.880-1.440   肩 1.320           颈 1.360-1.480
-下巴 1.460         眼线 1.600         头顶 1.710         发顶 1.755
-指尖 0.732
+主角 Proportions.Protagonist()
+  踝 0.070   膝 0.460   髋关节 0.870   骨盆(hips) 0.940
+  肩 1.370   颈 1.420   头骨 1.480     头顶 1.725（申报 1.72）
+  1.72 m / 7.02 头身
+
+Q Proportions.Classmate()
+  踝 0.065   膝 0.425   髋关节 0.800   骨盆(hips) 0.860
+  肩 1.260   头顶 1.615
+  1.615 m / 6.87 头身
 ```
 
-枢轴：`Head Pivot`、`Arm Left/Right Pivot`、`Leg Left/Right Pivot`——与序章起身动画使用的五个枢轴同名同职责，所以动画代码没有为新造型重写。视觉根节点原点在脚，出场时整体下沉 1 m 对齐 `CharacterController`（2 m 胶囊体中心在原点）。
+每个骨骼是"自己那一段的起点关节"：`Thigh` 是髋关节（不是髋的高度），`Shin` 是膝盖，`Foot` 是脚踝，脚底在踝下 `ankleHeight`。这条约定让"转髋"和"抬腿"是两件事——早期版本把 `Thigh` 放在膝盖高度，抬腿会从膝盖开始折，`Validate()` 现在会拦住这种错误（关节顺序 ankle < knee < hip）。
 
-## 五、离线验收：`docs/images/classroom-plan-proof.js`
+## 六、离线验收：`docs/images/classroom-plan-proof.js`
 
 ```bash
 cd /tmp && npm i @napi-rs/canvas      # 依赖不入库
@@ -98,12 +134,14 @@ NODE_PATH=/tmp/node_modules node docs/images/classroom-plan-proof.js \
 
 **这不是 Unity 渲染。** 它只证明坐标、开口、间距、遮挡关系自洽；材质、光照、相机实际观感、中文字体都不在其中。图中圆点代表主角醒来的位置，红色是"被破坏/不可能"的标注（悬空桌、下沉椅、倾斜吊灯）。
 
-## 六、验证状态（诚实清单）
+## 七、验证状态（诚实清单）
 
 已运行并通过：
 
-- `python3 tools/check_unity_project.py --check`：219 个文件通过，含新增的教室布局规则。
+- `python3 tools/check_unity_project.py --check`：236 个文件通过，含新增的教室布局规则。
+- `python3 tools/skinned_figure_preview.py`：把 `HumanoidRig` / `HumanoidPose` / `HumanoidClips` / `SkinnedFigureFactory` 的数学**逐条移植到 Python** 后出图 `docs/images/skinned-figure-preview.png`（九宫格：绑定姿势、起身四个关键帧、走路四个相位、Q、比例对照）。这份图暴露并修掉了三个真实错误：髋骨被放到膝盖高度、趴桌时双腿甩到桌外、走路时脚离地 3 cm。
+- 姿势的接地是**解出来的不是调出来的**：每个关键帧的根高度都由 FK 反解到"最低踝 = ankleHeight"，并写成 EditMode 测试（`EveryWakeKeyKeepsTheSolesOnTheFloor` / `EveryWalkKeyKeepsAtLeastOneSoleOnTheFloor`）。
 - `python3 -m unittest discover -s tests/ci -p 'test_*.py'`：29 项通过，其中 9 项是新增的布局检查用例（少一座、少一扇门、开口穿角、门开在黑板/主角桌、主角桌前站位不足、缺 status）。
 - 平面打样脚本自检：24 座 / 2 窗 / 2 门 / 4 灯，0 problem。
 
-**没有**运行：Unity 导入与 C# 编译、EditMode/PlayMode 测试、Play Mode 观感、光照与后处理参数、中文字体解析。本沙箱没有 Unity 6000.3.29f1。所有"好看"的判断都需要在 Editor 里复核；第一次打开场景时按 `Start()` 的顺序会先建教室再建玩家，任何布局校验失败都会抛异常并指出具体字段。
+**没有**运行：Unity 导入与 C# 编译、EditMode/PlayMode 测试、Play Mode 观感、光照与后处理参数、中文字体解析。新增的 25 个 EditMode 断言（骨架完整性、权重归一、LBS 形变方向、片段校验、循环首尾一致、接地）在 Unity 里从未执行过；`skinned-figure-preview.png` 只是同一套数学的**离线复算**，不是渲染。本沙箱没有 Unity 6000.3.29f1。所有"好看"的判断都需要在 Editor 里复核；第一次打开场景时按 `Start()` 的顺序会先建教室再建玩家，任何布局校验失败都会抛异常并指出具体字段。

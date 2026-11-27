@@ -33,13 +33,8 @@ namespace PostSchool.World
         public static readonly Color AccentSage = Hex("71806B");
         public static readonly Color AccentOchre = Hex("C39D59");
 
-        // The protagonist only.
-        public static readonly Color ProtagonistCoat = Hex("7E6A55");
-        public static readonly Color ProtagonistTrousers = Hex("3A3E45");
-        public static readonly Color ProtagonistSkin = Hex("C9A487");
-        public static readonly Color ProtagonistHair = Hex("2A2730");
-        public static readonly Color ProtagonistAccent = Hex("B8442F");
-        public static readonly Color ProtagonistInk = Hex("15151A");
+        // Character colours are not here: they belong to CharacterSkinPalette, next to the model they
+        // colour. The room must never borrow from the cast, and the cast must never borrow from the room.
 
         public static Color Hex(string rgb)
         {

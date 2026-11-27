@@ -19,7 +19,8 @@ namespace PostSchool.Prototype
     /// <summary>
     /// Wires the first playable slice in the prototype scene. The classroom itself is composed from
     /// Assets/Resources/World/classroom_layout.json by ClassroomBuilder; the protagonist is built by
-    /// ProtagonistModelFactory. Character rules and dialogue content live in their own model/data files.
+    /// SkinnedCharacterBuilder (see Assets/Scripts/Character). Character rules and dialogue content live
+    /// in their own model/data files.
     /// </summary>
     public sealed class PrototypeSceneBootstrap : MonoBehaviour
     {
@@ -37,8 +38,13 @@ namespace PostSchool.Prototype
         private PlayerMovement _playerMovement;
         private PlayerInteractor _playerInteractor;
         private CharacterController _playerCharacterController;
-        private ProtagonistRig _protagonistRig;
-        private ProtagonistIdleMotion _protagonistIdle;
+        private SkinnedFigure _protagonist;
+        private HumanoidAnimator _protagonistAnimator;
+        private SkinnedFigure _qFigure;
+        private HumanoidAnimator _qAnimator;
+        private HumanoidClip _wakeClip;
+        private HumanoidClip _idleClip;
+        private HumanoidClip _qIdleClip;
         private Transform _qStudentRoot;
         private Text _interactionPrompt;
         private Inspectable _conversationTarget;
@@ -56,10 +62,7 @@ namespace PostSchool.Prototype
             CreatePlayerAndCamera();
 
             // The cast stands in the empty front band, never inside the seating grid.
-            CreateInspectable("classmate_q", "Q", "【占位说明】靠近并按 E 开始一对一对话。", PrimitiveType.Capsule,
-                new Vector3(-2.9f, 0f, 1.1f), Vector3.one, null);
-            CreateOriginalStudent("Unlabeled Student Placeholder", new Vector3(3.5f, 0f, 1.7f), 205f,
-                1.66f, StudentModelStyle.ClayOvershirt);
+            CreateClassmateQ(new Vector3(-2.9f, 0f, 1.1f), 128f);
             CreateInspectable("schoolbag", "书包（占位）", "【占位说明，待作者审定】这里可以检查书包。", PrimitiveType.Cube,
                 new Vector3(-1.62f, 0.24f, 0.5f), new Vector3(0.5f, 0.42f, 0.34f), _surfaces.Surface(SurfaceRole.Ink));
             CreateInspectable("set_square", "三角尺（占位）", "【占位说明，待作者审定】这里可以检查一件课堂物品。", PrimitiveType.Cube,
@@ -142,6 +145,11 @@ namespace PostSchool.Prototype
         private void OnDestroy()
         {
             RestoreWorldState();
+
+            // Meshes are runtime objects: Unity does not collect them with the GameObjects.
+            if (_protagonist != null) _protagonist.DisposeMesh();
+            if (_qFigure != null) _qFigure.DisposeMesh();
+
             if (_surfaces != null)
             {
                 _surfaces.Dispose();
@@ -181,12 +189,28 @@ namespace PostSchool.Prototype
             _playerCharacterController.height = 2f;
             _playerCharacterController.radius = 0.42f;
             _playerCharacterController.center = Vector3.zero;
-            // The controller is a 2 m capsule centred on its transform, so the feet sit one metre below.
-            _protagonistRig = ProtagonistModelFactory.Build(
-                player.transform, _surfaces.CreateProtagonistMaterials(), new Vector3(0f, -1f, 0f));
-            _protagonistIdle = player.AddComponent<ProtagonistIdleMotion>();
-            _protagonistIdle.Initialize(_protagonistRig);
-            _protagonistIdle.Suspend();
+            // The controller is a 2 m capsule centred on its transform, so the figure hangs one metre
+            // below the pivot; its own origin is at the feet.
+            _protagonist = SkinnedCharacterBuilder.Create(
+                "Protagonist",
+                player.transform,
+                new Vector3(0f, -1f, 0f),
+                0f,
+                HumanoidProportions.Protagonist(),
+                FigureRole.Protagonist,
+                _surfaces.CreateCharacterSkin(FigureRole.Protagonist));
+            _protagonistAnimator = player.AddComponent<HumanoidAnimator>();
+            _protagonistAnimator.Initialize(_protagonist);
+
+            _wakeClip = HumanoidClips.WakeFromDesk();
+            _idleClip = HumanoidClips.StandingIdle();
+            _qIdleClip = HumanoidClips.ClassmateIdle();
+            if (!_wakeClip.Validate(_protagonist.Skeleton, out string wakeError)
+                || !_idleClip.Validate(_protagonist.Skeleton, out string idleError)
+                || !_qIdleClip.Validate(_protagonist.Skeleton, out string qError))
+            {
+                throw new InvalidOperationException("Animation clip does not fit the skeleton: " + (wakeError ?? idleError ?? qError));
+            }
             _playerMovement = player.AddComponent<PlayerMovement>();
             _playerMovement.InputEnabled = false;
             _playerInteractor = player.AddComponent<PlayerInteractor>();
@@ -205,32 +229,12 @@ namespace PostSchool.Prototype
 
         private void CreateInspectable(string id, string displayName, string description, PrimitiveType primitiveType, Vector3 position, Vector3 scale, Material material)
         {
-            GameObject prop;
-            if (id == "classmate_q")
-            {
-                prop = ProceduralStudentModelFactory.Create(
-                    displayName,
-                    transform,
-                    position,
-                    165f,
-                    1.60f,
-                    StudentModelStyle.MossCardigan,
-                    CreateStudentMaterials(StudentModelStyle.MossCardigan));
-                CapsuleCollider characterTrigger = prop.AddComponent<CapsuleCollider>();
-                characterTrigger.center = new Vector3(0f, 0.84f, 0f);
-                characterTrigger.height = 1.68f;
-                characterTrigger.radius = 0.42f;
-                characterTrigger.isTrigger = true;
-            }
-            else
-            {
-                prop = GameObject.CreatePrimitive(primitiveType);
-                prop.transform.position = position;
-                prop.transform.localScale = scale;
-                prop.GetComponent<Renderer>().sharedMaterial = material;
-                Collider collider = prop.GetComponent<Collider>();
-                collider.isTrigger = true;
-            }
+            GameObject prop = GameObject.CreatePrimitive(primitiveType);
+            prop.transform.position = position;
+            prop.transform.localScale = scale;
+            prop.GetComponent<Renderer>().sharedMaterial = material;
+            Collider collider = prop.GetComponent<Collider>();
+            collider.isTrigger = true;
 
             prop.SetActive(false);
             prop.name = displayName;
@@ -238,23 +242,6 @@ namespace PostSchool.Prototype
             inspectable.Configure(id, displayName, description);
             inspectable.Inspected += OnInspectableUsed;
             prop.SetActive(true);
-
-            if (id == "classmate_q")
-            {
-                _conversationTarget = inspectable;
-                _qStudentRoot = prop.transform;
-                AddNameMarker(prop.transform, "Q");
-            }
-        }
-
-        private void CreateOriginalStudent(string objectName, Vector3 position, float yaw, float height, StudentModelStyle style)
-        {
-            ProceduralStudentModelFactory.Create(objectName, transform, position, yaw, height, style, CreateStudentMaterials(style));
-        }
-
-        private StudentModelMaterials CreateStudentMaterials(StudentModelStyle style)
-        {
-            return _surfaces.CreateStudentMaterials(style);
         }
 
         private IEnumerator PlayClassroomOpening()
@@ -264,91 +251,56 @@ namespace PostSchool.Prototype
                 throw new InvalidOperationException("The classroom opening sequence requires both the player and Q.");
             }
 
-            Transform player = _playerCharacterController.transform;
-            if (_protagonistRig == null)
+            if (_protagonist == null || _protagonistAnimator == null || _wakeClip == null)
             {
-                throw new InvalidOperationException("The classroom opening sequence requires the protagonist pose rig.");
+                throw new InvalidOperationException("The classroom opening sequence requires the skinned protagonist and its wake clip.");
             }
 
-            // Lying face-down on the wake desk: the model's origin is at its feet, so the desk-side
-            // position is offset along +z and the body spans the desk top.
-            Vector3 sleepingPosition = new Vector3(0f, 1.02f, 1.4f);
-            Vector3 standingPosition = new Vector3(0f, 1f, -0.55f);
-            Vector3 qDestination = new Vector3(-1.7f, 0f, -0.15f);
+            Transform player = _playerCharacterController.transform;
+
+            // The figure's origin is at its feet, so the player transform is placed where the standing
+            // figure should end up; the clip's own root offset does the crouching and the lie-down. The
+            // wake desk is at z = 0.5, so the figure stands just in front of it and reaches back.
+            Vector3 standingPosition = new Vector3(0f, 1f, -0.75f);
+            Vector3 qDestination = new Vector3(-1.9f, 0f, -0.1f);
             Vector3 facingQ = qDestination - standingPosition;
             facingQ.y = 0f;
             Quaternion standingRotation = Quaternion.LookRotation(facingQ.normalized, Vector3.up);
 
-            _protagonistIdle.Suspend();
-            player.SetPositionAndRotation(sleepingPosition, Quaternion.Euler(90f, 0f, 0f));
-            _protagonistRig.HeadPivot.localRotation = Quaternion.Euler(18f, 0f, 0f);
-            _protagonistRig.LeftArmPivot.localRotation = Quaternion.Euler(30f, 0f, -24f);
-            _protagonistRig.RightArmPivot.localRotation = Quaternion.Euler(30f, 0f, 24f);
-            _protagonistRig.LeftLegPivot.localRotation = Quaternion.Euler(-8f, 0f, -3f);
-            _protagonistRig.RightLegPivot.localRotation = Quaternion.Euler(8f, 0f, 3f);
-            yield return new WaitForSecondsRealtime(0.45f);
-            yield return AnimateWakePose(_protagonistRig, player, sleepingPosition, standingPosition, standingRotation, 1.35f);
-            yield return new WaitForSecondsRealtime(0.2f);
-            yield return AnimateQApproach(_qStudentRoot, qDestination, player.position, 1.8f);
+            // While the clip plays, the character controller is off and the figure is driven by the
+            // clip; the crouch comes from the pose's root offset, not from moving the collider.
+            player.SetPositionAndRotation(standingPosition, standingRotation);
+            _protagonistAnimator.Play(_wakeClip);
 
-            // Idle motion takes over the pose once the protagonist is on their feet; the wake pose has
-            // already set every pivot to its resting value.
-            _protagonistIdle.Resume();
+            if (_qAnimator != null && _qIdleClip != null) _qAnimator.Play(_qIdleClip);
+
+            // Q walks over while the protagonist is still getting up: the two beats overlap, which is
+            // what makes the room feel occupied instead of staged.
+            const float qDelay = 1.15f;
+            yield return new WaitForSecondsRealtime(qDelay);
+            yield return AnimateQApproach(_qStudentRoot, new Vector3(qDestination.x, 0f, qDestination.z), player.position, 1.8f);
+
+            // Wait out the rest of the clip by the clip's own clock, so changing a key time cannot
+            // desynchronise the sequence from the animation.
+            while (_protagonistAnimator.IsPlaying && _protagonistAnimator.CurrentClip == _wakeClip)
+            {
+                yield return null;
+            }
+
+            _protagonistAnimator.Play(_idleClip);
             _openingSequenceActive = false;
             _dialoguePresenter.Begin();
         }
 
-        private static IEnumerator AnimateWakePose(
-            ProtagonistRig rig,
-            Transform player,
-            Vector3 startPosition,
-            Vector3 endPosition,
-            Quaternion upright,
-            float duration)
+        /// <summary>
+        /// Walks Q to their mark before the conversation. The legs are driven by the walk clip on Q's
+        /// own animator; this coroutine only owns the root path, which is exactly the split a skinned
+        /// character wants (clip = pose, code = locomotion).
+        /// </summary>
+        private IEnumerator AnimateQApproach(Transform q, Vector3 destination, Vector3 playerPosition, float duration)
         {
-            Quaternion lyingDown = Quaternion.Euler(90f, 0f, 0f);
-            Quaternion liftingHead = Quaternion.Euler(67f, 0f, 0f);
-            float elapsed = 0f;
+            if (q == null) yield break;
 
-            while (elapsed < duration)
-            {
-                float progress = Mathf.Clamp01(elapsed / duration);
-                float poseProgress = Mathf.SmoothStep(0f, 1f, progress);
-                rig.HeadPivot.localRotation = Quaternion.Slerp(Quaternion.Euler(18f, 0f, 0f), Quaternion.identity, poseProgress);
-                rig.LeftArmPivot.localRotation = Quaternion.Slerp(
-                    Quaternion.Euler(30f, 0f, -24f), Quaternion.Euler(0f, 0f, -8f), poseProgress);
-                rig.RightArmPivot.localRotation = Quaternion.Slerp(
-                    Quaternion.Euler(30f, 0f, 24f), Quaternion.Euler(0f, 0f, 8f), poseProgress);
-                rig.LeftLegPivot.localRotation = Quaternion.Slerp(Quaternion.Euler(-8f, 0f, -3f), Quaternion.identity, poseProgress);
-                rig.RightLegPivot.localRotation = Quaternion.Slerp(Quaternion.Euler(8f, 0f, 3f), Quaternion.identity, poseProgress);
-
-                if (progress < 0.28f)
-                {
-                    float liftProgress = Mathf.SmoothStep(0f, 1f, progress / 0.28f);
-                    player.rotation = Quaternion.Slerp(lyingDown, liftingHead, liftProgress);
-                    player.position = startPosition;
-                }
-                else
-                {
-                    float standProgress = Mathf.SmoothStep(0f, 1f, (progress - 0.28f) / 0.72f);
-                    player.rotation = Quaternion.Slerp(liftingHead, upright, standProgress);
-                    player.position = Vector3.Lerp(startPosition, endPosition, standProgress);
-                }
-
-                elapsed += Time.unscaledDeltaTime;
-                yield return null;
-            }
-
-            player.SetPositionAndRotation(endPosition, upright);
-            rig.HeadPivot.localRotation = Quaternion.identity;
-            rig.LeftArmPivot.localRotation = Quaternion.Euler(0f, 0f, -8f);
-            rig.RightArmPivot.localRotation = Quaternion.Euler(0f, 0f, 8f);
-            rig.LeftLegPivot.localRotation = Quaternion.identity;
-            rig.RightLegPivot.localRotation = Quaternion.identity;
-        }
-
-        private static IEnumerator AnimateQApproach(Transform q, Vector3 destination, Vector3 playerPosition, float duration)
-        {
             Vector3 startPosition = q.position;
             Vector3 endPosition = q.parent != null ? q.parent.TransformPoint(destination) : destination;
             Vector3 facing = playerPosition - endPosition;
@@ -357,29 +309,23 @@ namespace PostSchool.Prototype
 
             Quaternion startRotation = q.rotation;
             Quaternion endRotation = Quaternion.LookRotation(facing.normalized, Vector3.up);
-            Transform leftArm = q.Find("Arm_Left_Upper");
-            Transform rightArm = q.Find("Arm_Right_Upper");
-            Quaternion leftArmRest = leftArm != null ? leftArm.localRotation : Quaternion.identity;
-            Quaternion rightArmRest = rightArm != null ? rightArm.localRotation : Quaternion.identity;
-            float elapsed = 0f;
 
+            if (_qAnimator != null) _qAnimator.Play(HumanoidClips.ClassmateWalk(), 0.15f);
+
+            float elapsed = 0f;
             while (elapsed < duration)
             {
                 float progress = Mathf.Clamp01(elapsed / duration);
                 float eased = Mathf.SmoothStep(0f, 1f, progress);
-                float stride = Mathf.Sin(progress * Mathf.PI * 8f);
-                q.position = Vector3.Lerp(startPosition, endPosition, eased) + Vector3.up * (Mathf.Abs(stride) * 0.035f);
-                q.rotation = Quaternion.Slerp(startRotation, endRotation, eased) * Quaternion.Euler(0f, 0f, stride * 1.5f);
-                if (leftArm != null) leftArm.localRotation = leftArmRest * Quaternion.Euler(stride * 12f, 0f, 0f);
-                if (rightArm != null) rightArm.localRotation = rightArmRest * Quaternion.Euler(-stride * 12f, 0f, 0f);
+                q.position = Vector3.Lerp(startPosition, endPosition, eased);
+                q.rotation = Quaternion.Slerp(startRotation, endRotation, eased);
 
                 elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
 
             q.SetPositionAndRotation(endPosition, endRotation);
-            if (leftArm != null) leftArm.localRotation = leftArmRest;
-            if (rightArm != null) rightArm.localRotation = rightArmRest;
+            if (_qAnimator != null) _qAnimator.Play(_qIdleClip);
         }
 
         private void OnInspectableUsed(Inspectable inspectable)
