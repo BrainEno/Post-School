@@ -112,6 +112,58 @@ namespace PostSchool.Tests.EditMode
         }
 
         [Test]
+        public void TheTeachersPodiumLoopHasThreeBeatsAndAPause()
+        {
+            HumanoidClip idle = HumanoidClips.TeacherAtPodiumIdle();
+            Assert.IsTrue(idle.Loops, "she stands there while the player reads the room");
+            Assert.GreaterOrEqual(idle.Duration, 3f);
+
+            // Loops: last key matches the first.
+            Assert.Less(
+                Quaternion.Angle(idle.Sample(0f).RotationOf(HumanoidBones.Neck), idle.Sample(idle.Duration).RotationOf(HumanoidBones.Neck)),
+                1f);
+
+            // Three beats: she nods, one hand leaves the podium, she looks up. If any of the three
+            // stops moving she is a statue and the scene loses its whole point.
+            float neckMotion = 0f;
+            float handMotion = 0f;
+            float headMotion = 0f;
+            const int samples = 18;
+            for (int i = 1; i <= samples; i++)
+            {
+                float t = idle.Duration * i / samples;
+                float previous = idle.Duration * (i - 1) / samples;
+                neckMotion += Quaternion.Angle(idle.Sample(previous).RotationOf(HumanoidBones.Neck), idle.Sample(t).RotationOf(HumanoidBones.Neck));
+                handMotion += Quaternion.Angle(idle.Sample(previous).RotationOf(HumanoidBones.HandRight), idle.Sample(t).RotationOf(HumanoidBones.HandRight));
+                headMotion += Quaternion.Angle(idle.Sample(previous).RotationOf(HumanoidBones.Head), idle.Sample(t).RotationOf(HumanoidBones.Head));
+            }
+
+            Assert.Greater(neckMotion, 10f, "the nod");
+            Assert.Greater(handMotion, 10f, "the hand on the register");
+            Assert.Greater(headMotion, 5f, "looking up at the room");
+        }
+
+        [Test]
+        public void TheTeachersHandsSitAtPodiumHeightNotAtHerSides()
+        {
+            // The podium top is at 1.02 m. Arms hanging at her sides would put the hands at 0.72 m;
+            // the whole read of "leaning on the podium" depends on the hands being forward and high.
+            HumanoidClip idle = HumanoidClips.TeacherAtPodiumIdle();
+            HumanoidPose pose = idle.Sample(0.7f);
+            pose.ApplyClean(_skeleton);
+
+            Transform hand = _skeleton.Bone(_skeleton.IndexOf(HumanoidBones.HandRight));
+            Transform shoulder = _skeleton.Bone(_skeleton.IndexOf(HumanoidBones.UpperArmRight));
+            Assert.Greater(hand.position.y, shoulder.position.y - 0.34f, "the hand is not hanging");
+            Assert.Greater(hand.position.z, shoulder.position.z + 0.08f, "the hand reaches toward the podium");
+
+            // And it actually lands on the podium rather than an inch above it: the palm's underside has
+            // to be within 40 mm of the cap (podium height 1.02 m + the 0.07 m top slab). This is the
+            // assertion that fails if someone "tidies up" the arm angles.
+            Assert.That(hand.position.y - 0.072f, Is.InRange(1.02f, 1.10f), "the heel of the hand rests on the podium");
+        }
+
+        [Test]
         public void TheWalkCycleAlternatesLegsAndLoops()
         {
             HumanoidClip walk = HumanoidClips.ClassmateWalk();

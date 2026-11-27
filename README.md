@@ -153,6 +153,7 @@ Unity 版本：6000.3.29f1 / 其他（请填写）
 - [docs/CORE_GAMEPLAY_IMPLEMENTATION.md](docs/CORE_GAMEPLAY_IMPLEMENTATION.md) — 当前玩法实现、架构、已验证项和限制。
 - [docs/UNITY_TECHNICAL_BASELINE.md](docs/UNITY_TECHNICAL_BASELINE.md) — Unity/URP 技术约定。
 - [docs/UNITY_CI.md](docs/UNITY_CI.md) — CI 与自动化测试说明。
+- [docs/CLASSROOM_ART.md](docs/CLASSROOM_ART.md) — 开场教室、幕布与角色（主角 / Q / N）的美术与技术说明，含离线证明图的读法。
 - [docs/VISUAL_CALIBRATION.md](docs/VISUAL_CALIBRATION.md) — 单独的视觉校准场景及尚未完成的视觉验收。
 - [docs/ASSET_PROVENANCE.md](docs/ASSET_PROVENANCE.md) — 美术、代码和对白来源/授权记录。
 - [docs/PROJECT_RELATIONSHIP.md](docs/PROJECT_RELATIONSHIP.md)、[docs/PORTING_MATRIX.md](docs/PORTING_MATRIX.md) — 与 Godot 原项目的关系及哪些内容可复用。

@@ -20,6 +20,7 @@ namespace PostSchool.Prototype
         private Action _onEnded;
         private Image _panel;
         private Text _stream;
+        private Text _title;
         private Text _status;
         private ScrollRect _scroll;
         private Button _advanceButton;
@@ -43,7 +44,7 @@ namespace PostSchool.Prototype
                 new Color(0.075f, 0.078f, 0.085f, 0.97f));
             Transform root = _panel.transform;
 
-            PrototypeUiFactory.CreateText(root, "Dialogue Title", new Vector2(0.045f, 0.91f), new Vector2(0.65f, 0.99f), "序章 · 教室", 24, Color.white);
+            _title = PrototypeUiFactory.CreateText(root, "Dialogue Title", new Vector2(0.045f, 0.91f), new Vector2(0.65f, 0.99f), "序章 · 教室", 24, Color.white);
             PrototypeUiFactory.CreateButton(root, "Smaller Text", new Vector2(0.70f, 0.92f), new Vector2(0.80f, 0.985f), "A−", () => ChangeFontSize(-2), 18);
             PrototypeUiFactory.CreateButton(root, "Larger Text", new Vector2(0.82f, 0.92f), new Vector2(0.92f, 0.985f), "A+", () => ChangeFontSize(2), 18);
             _status = PrototypeUiFactory.CreateText(root, "Attribute Check Status", new Vector2(0.045f, 0.85f), new Vector2(0.95f, 0.92f), string.Empty, 18, new Color(1f, 0.82f, 0.46f, 1f));
@@ -71,6 +72,23 @@ namespace PostSchool.Prototype
             _advanceButton = PrototypeUiFactory.CreateButton(root, "Dialogue Continue", new Vector2(0.60f, 0.055f), new Vector2(0.955f, 0.12f), "继续", AdvanceOrClose, 20);
             _advanceLabel = _advanceButton.GetComponentInChildren<Text>();
             SetVisible(false);
+        }
+
+        /// <summary>
+        /// Points the presenter at a different script. The prologue hands over to N's scene once it
+        /// ends, and both are played through this one panel; without this the panel would be pinned to
+        /// the opening script for the life of the process.
+        /// </summary>
+        public void SetRunner(DialogueRunner runner)
+        {
+            _runner = runner ?? throw new ArgumentNullException(nameof(runner));
+        }
+
+        /// <summary>The heading on the panel. The prologue and N's scene are not the same scene.</summary>
+        public void SetTitle(string title)
+        {
+            if (_title == null) return;
+            _title.text = string.IsNullOrWhiteSpace(title) ? string.Empty : title;
         }
 
         public void Begin()

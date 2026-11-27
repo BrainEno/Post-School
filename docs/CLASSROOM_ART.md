@@ -91,6 +91,8 @@
 | `Assets/Scripts/Character/HumanoidAnimator.cs` | 播放器：采样、crossfade、`Time.unscaledDeltaTime`（对话暂停时也能演） |
 | `Assets/Scripts/Character/CharacterSkin.cs` | 五槽材质（body/hair/coat/shirt/accent）+ 两角色色板 |
 | `Assets/Scripts/Character/ProceduralStudentModelFactory.cs` | **LEGACY**，只给 `VisualCalibrationSceneBuilder` 当对照，游戏内不再调用 |
+| `Assets/Resources/Dialogue/classroom_teacher_n.json` / `_revisit.json` | N 的两段对白（第一节课 / 之后的短对话），`status: owner_authored_excerpt`，待作者审定 |
+| `tools/teacher_n_proof.py` | 她的证明图：蒙皮复算 + 排版，出 `docs/images/teacher-n-proof.png` |
 
 `PrototypeSceneBootstrap` 的改动：删掉旧的硬编码灰盒教室（4 张桌 A–D、占位黑板）、旧 14 槽 `MaterialAt` 调色板、旧 `BuildProtagonistPoseRig`；改为读布局 → 建教室 → `SkinnedCharacterBuilder.Create` 生成主角与 Q → `HumanoidAnimator.Play(WakeFromDesk)` → 起身结束接 `StandingIdle`。序章不再手写"转五个枢轴"的协程，改为等片段的**自己的时钟**（`while (_protagonistAnimator.IsPlaying ...)`），所以改关键帧时间不会和剧情脱节。Q 的走近动画只驱动根节点位移，腿部动作交给 `WalkCycle` 片段——这是蒙皮角色的正确分工（片段管姿势，代码管位移）。未命名同学、书包、三角尺、出口四个占位交互物**重摆了位置**，全部挪到前区空场，不再和 24 套桌椅或讲桌重叠。
 
@@ -182,22 +184,62 @@ python3 tools/curtain_scene_proof.py           # → docs/images/curtain-scene-p
 
 **它仍然不是截图。** 图里没有 Unity 的光照、没有字体解析、没有摄像机、不能证明任何一行 C# 能编译。要判断"好不好看"，只能在 Editor 里看。
 
-## 七、验证状态（诚实清单）
+## 七、N：代课老师
+
+她是第三个角色，也是第一个**成年人**。她进场的整条链路（造型 → 骨骼姿势 → 片段 → 走位 → 交互 → 对白）都是数据驱动的，没有任何一处为她写第二套骨架或第二套动画。
+
+| 项 | 值 | 在哪 |
+|---|---|---|
+| 身高 | 1.650 m，**7.37 头身**（主角 7.02、Q 6.87） | `HumanoidRig.TeacherN()` |
+| 肩宽 | 0.320 m（主角 0.41），头因此显小 | 同上 |
+| 头长 / 半径 | 0.224 / 0.079 m | 同上 |
+| 胸深 | 0.106 m | 同上 |
+| 骨架 | **同一套 19 骨**，同一 LBS 权重场 | `ProceduralSkeleton` |
+| 造型 | 单张网格第 4 个 `FigureRole`：齐耳短发（bob）、开衫、衬衫 | `SkinnedFigureFactory` 的 `role == FigureRole.TeacherN` 分支 |
+| 姿势 | `TeacherAtPodium()` 原地站着、双手撑讲台 | `HumanoidPose` |
+| 片段 | `TeacherAtPodiumIdle()`，3.6 s 循环，三拍 | `HumanoidClip` |
+| 走位 | 后墙员工门 → 沿黑板墙 → 讲台后 | `classroom_layout.json` 的 `teacher` |
+
+**为什么她值一个 `FigureRole` 而不是"改一改 Q"。** 三个角色共用骨架与片段，差异全部来自比例表；但"成年人"不能靠缩放得到。她的肩宽 0.320 m 比主角的 0.406 m 窄 0.086 m、头身比 7.37 比主角的 7.02 高出 0.35；手臂却是按成年人给的——前臂 0.265 m、手 0.235 m，而她的身高只有主角的 0.959，所以手臂相对她自己的身体是**偏长**的，这正是她能不弯腰就把手腕搭到 0.44 m 外讲台上的原因。这些数字合起来才是"她比学生更像一个已经定型的人"。造型层再叠三件事：齐耳短发（壳比颅骨宽、从眉线后退、下颌处切平，加两片侧板把耳朵露出来）、开衫下摆落在大腿中段且**不到膝**（`SkinnedCharacterTests.TheTeachersCardiganHangsBelowHerHipsAndStopsAboveHerKnee`）、以及脸上唯一有完整五官的一张脸（眉、下眼睑、低于鼻底的嘴、嘴角向下 2 mm、鼻翼两条软纹）。
+
+**色阶是她的辨识度。** 三个角色是三个明度键：主角深（外套灰值 0.430）、Q 中（0.475）、N 亮而冷（开衫 0.645）。她的头发也刻意不是最深的（0.300，主角 0.160、Q 0.227）——深色 bob 会和两个学生的后脑勺在远处合成同一个剪影。这条规则写成 EditMode 测试（`HumanoidRigTests.TeacherIsTheBrightColdValueKeyOfTheCast`）。
+
+**片段的三拍，以及那一段"没有事发生"。** 0.7 s 点头（颈 18°、头 14°、根下沉 20 mm）、2.0 s 右手离开讲台翻名册（上臂 −62°、前臂 −78°、颈转头 14°）、3.4 s 抬头看教室。**1.0–1.5 s 与 2.5–2.9 s 是回到基准姿势的空拍**：整条循环里她不动的时间比动的时间长，因为"手势加不成掌控"正是这个角色的演法。她的肩膀全程不随呼吸起伏（主角的待机会），这一条也写进了片段注释。
+
+**走位不写在代码里。** `teacher.entryPath` 三个点从员工门沿黑板墙到讲台后，`stand` 是她的标记点，`standYaw = 180`。玩家看见的是 `PrototypeSceneBootstrap.AnimateTeacherEntry()` 按路径长度与 `entrySeconds` 推根节点、由 `WalkCycle` 片段管腿；停下后 0.45 s 转身，再切到 `TeacherAtPodiumIdle()`，并 `CaptureBaseHeight()`（讲台姿势会抬髋 12 mm，基准高度要在切片段之后取，否则她在原地上下跳）。到达后才置 `Objective: teacher_arrived`，`RefreshTeacherPresence()` 据此开关交互体——所以读档回到"她已经到了"的房间，人也站在那里。
+
+**她能被交互到。** 根节点上一个 `isTrigger` 的 `CapsuleCollider`（中心 0.82 m、半径 0.45 m、高 1.64 m）+ `Inspectable`，走上去按 E 就进对话，和 Q 的入口是同一套。**注意 `_conversationTarget` 没有改成她**：Q 的对白入口不变，N 走的是自己的两个 `DialogueRunner`。
+
+**对白路由。** 序章结束前任何交互都还是序章（Q）；序章之后 `ResolveScene()` 看 `Recollection: n_first_class_heard`：没有就给 `classroom_teacher_n`（她的第一节课，一次），有就给 `classroom_teacher_n_revisit`（之后每次都是同一段短对话）。两份 JSON 的 `status` 都是 `owner_authored_excerpt`——**这是我按作者此前的中文语气续写的排演稿，尚未经作者逐句审定**，与序章那份从 Where Is School 逐字导入的摘录不同。她的第一节课有一个五选一的提问节点（B 老师去哪了 / 课本还没发 / 生态系统 / 受精卵 / 什么都不问），每个分支都会回到同一条"自习"收尾，其中"课本还没发"会置 `Objective: textbook_missing`。
+
+**她的证明图：`docs/images/teacher-n-proof.png`**（脚本 `tools/teacher_n_proof.py`）。七格：A 三人同一比例尺（含 1.72 / 1.61 / 1.65 m 与 7.02 / 6.87 / 7.37 头）、B 讲台循环四个关键帧（正面视角看不见的点头与手向前，用同一套 FK 算出的毫米数标在下面）、C 她的脸放大 3 倍叠上标准的脸部比例带（眼线 0.47–0.53、鼻底 0.30–0.36）、D 三套色阶与灰阶条、E 平面走位、F 参数表、G 开场时间线。
+
+```bash
+python3 tools/teacher_n_proof.py docs/images/teacher-n-proof.png
+# 依赖 matplotlib + numpy（只在生成时安装，不入库）；无中文字体依赖，图内文字全英文
+```
+
+**这张图是蒙皮画出来的，不是拼贴。** 脚本为每个角色建一套与 `ProceduralSkeleton` 同构的骨骼表，把静默态网格点按最近两根骨骼做线性混合蒙皮（混合带 0.06 m），再用正交投影画轮廓——所以 B 格里弯腰时的袖子、下摆会跟着弯，而不是几个圆柱互穿。**它有一处诚实的缺陷**：正交投影没有深度排序，只能按材质手动定画序（裤/靴 → 开衫 → 皮肤 → 头发 → 衬衫），并且视角固定在正面 0°。绕 y 轴转 35° 试过，轮廓在袖口与下摆处会撕开，已回退；代价是**点头和手向前在图上根本看不见**（这两种位移主要在 z 轴），所以 B 格改用文字标注实测位移（点头 头 −5.7 mm；翻名册 手 +138 mm 向上、31 mm 向内；抬头 头 +2.6 mm）。这些数字由画图同一个 FK 现算现写，不是手抄的。
+
+## 八、验证状态（诚实清单）
 
 已运行并通过：
 
-- `python3 tools/check_unity_project.py --check`：242 个文件（176 个在 `Assets/`）通过，含新增的"前墙缺失"十一条规则。
-- `python3 -m pytest tests/ci -q`：**40 passed**，其中 11 项是新增的 `MissingFrontWallTests`（前墙存在、幕布只垂一半、幕布太窄、出口门挪走、集装箱不在门下方、集装箱在室内、街道只有一栋楼、晾衣绳低于盖顶、两扇窗都被遮、未知 `treatment`）。
+- `python3 tools/check_unity_project.py --check`：**252 个文件（182 个在 `Assets/`）通过**，含"前墙缺失"十一条规则与 N 的走位检查。
+- `python3 -m pytest tests/ci -q`：**50 passed**。其中 `MissingFrontWallTests` 11 项（前墙存在、幕布只垂一半、幕布太窄、出口门挪走、集装箱不在门下方、集装箱在室内、街道只有一栋楼、晾衣绳低于盖顶、两扇窗都被遮、未知 `treatment`），`TeacherBlockingTests` 10 项（路径穿桌、标记点在讲台里/座位上/房间外、未知门、走太短/太久、只有一个点、没有 `teacher` 段、线段裁剪不是包围盒）。
 - `python3 tools/skinned_figure_preview.py`：把 `HumanoidRig` / `HumanoidPose` / `HumanoidClips` / `SkinnedFigureFactory` 的数学**逐条移植到 Python** 后出图 `docs/images/skinned-figure-preview.png`（九宫格：绑定姿势、起身四个关键帧、走路四个相位、Q、比例对照）。这份图暴露并修掉了三个真实错误：髋骨被放到膝盖高度、趴桌时双腿甩到桌外、走路时脚离地 3 cm。
 - 姿势的接地是**解出来的不是调出来的**：每个关键帧的根高度都由 FK 反解到"最低踝 = ankleHeight"，并写成 EditMode 测试（`EveryWakeKeyKeepsTheSolesOnTheFloor` / `EveryWalkKeyKeepsAtLeastOneSoleOnTheFloor`）。
 - 本轮的排版校样 `docs/images/curtain-scene-proof.png`（脚本 `tools/curtain_scene_proof.py`，读同一份 JSON）：A 幕布垂着 / B 掀开后 / C 平面 / D 裸窗 / E 被遮的窗。**它第一次跑就抓出了真实缺陷：落差曾被算成 0.9 m。**修完是 5.7 m。
 - 平面打样脚本自检：24 座 / 2 窗 / 2 门 / 4 灯，0 problem。
+- N 的证明图 `docs/images/teacher-n-proof.png`（`tools/teacher_n_proof.py`）已重渲染多轮并逐格目视复核；它抓出的真实缺陷有三条：发壳纵向半径 0.44 头长时**盖不住颅顶**（顶 0.106 m < 颅顶 0.112 m，画出来是秃的，已改 0.47 并写进注释）、平面投影没有深度排序会把脸画在头发上（改为按材质定画序）、A 格里用横条表示讲台会被读成"第三条手臂"（改为手部圆点 + 高度标注）。
 
-**没有**运行：Unity 导入与 C# 编译、EditMode/PlayMode 测试、Play Mode 观感、光照与后处理参数、中文字体解析。新增的 EditMode 断言（骨架完整性、权重归一、LBS 形变方向、片段校验、循环首尾一致、接地，以及本轮的 `CurtainFallTests` 11 项）在 Unity 里从未执行过；`skinned-figure-preview.png` 与 `curtain-scene-proof.png` 都只是同一套数据的**离线复算**，不是渲染。本沙箱没有 Unity 6000.3.29f1。
+**没有**运行：Unity 导入与 C# 编译、EditMode/PlayMode 测试、Play Mode 观感、光照与后处理参数、中文字体解析。新增的 EditMode 断言（骨架完整性、权重归一、LBS 形变方向、片段校验、循环首尾一致、接地、`CurtainFallTests` 11 项，以及 N 的 `TheTeacherIsNotACloneOfTheClassmate` / `TheTeachersCardiganHangsBelowHerHipsAndStopsAboveHerKnee` / `TheTeachersPodiumLoopHasThreeBeatsAndAPause` / `TheTeachersHandsSitAtPodiumHeightNotAtHerSides`；全仓 115 处 `[Test]`/`[TestCase]`）在 Unity 里从未执行过；`skinned-figure-preview.png` 与 `curtain-scene-proof.png` 都只是同一套数据的**离线复算**，不是渲染。本沙箱没有 Unity 6000.3.29f1。
 
 **本轮新增代码一次都没编译过。** 沙箱里没有 `dotnet`、`mcs`、Unity，所以下面这些只能靠人工核对与 CI 的静态检查（`check_unity_project.py` 查 GUID/命名/JSON/布局，不查 C# 语义）：
 
 - `CurtainScene` 与 `PrototypeSceneBootstrap` 的接线（触发体位置、`Initialize` 参数、角色控制器的开关时机）从未运行。
 - `HumanoidClips.FallFromTheCurtain(drop)` / `CrashLanding(drop)` 的落地键时刻按落差缩放，**没有在动画上看过**。
 - `HumanoidAnimator.PlaceAt` 是新增 API，父空间换算与 `BasePosition` 的语义只在纸面上推过。
+- N 的接线同样从未运行：`AnimateTeacherEntry()` 的三段路径插值、0.45 s 转身 Slerp、`CaptureBaseHeight()` 的时机、`Inspectable` 触发体与玩家胶囊的重合。
+- **`VisualCalibrationSceneBuilder` 没有加 N。** 标定场景里只有主角、Q 和趴桌姿态的主角；N 的造型只在游戏场景里出现。这是有意的（标定场景是为了对照"手工角色 vs 纸片学生"，加第三个人会糊掉这个对照），但如果要审她的造型，需要在 Editor 里手动 `SkinnedCharacterBuilder.Create(..., FigureRole.TeacherN, ...)` 或临时加一行。
 - 第一次在 Editor 里按 Play 时最可能出问题的地方，按风险排序：① 幕布触发体的尺寸/位置与玩家胶囊不重合，交互拾取不到；② 坠落协程把角色控制器关掉后，落地时重新启用导致 `CharacterController` 弹开；③ 抬幕布是整体上移 `Curtain` 组，门缝黑片会跟着上去，视觉上像"门也升起来了"。这三处都需要在 Editor 里实际看一眼再定。

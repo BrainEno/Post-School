@@ -52,6 +52,18 @@
 
 判定规则在 `World/CurtainFallRules.cs`（纯函数，注入随机委托），CI 侧新增 11 条前墙/落差/晾衣绳规则；离线校样 `docs/images/curtain-scene-proof.png` 由 `tools/curtain_scene_proof.py` 从同一 JSON 画出，**第一次运行就抓出"落差被算成 0.9 m"的真实缺陷**。仍未运行：Unity 编译、EditMode/PlayMode、实际观感。
 
+## N：代课老师（本次追加）
+
+`FigureRole.TeacherN` 是第三个角色，与主角/Q 共用同一套 19 骨骨架、同一个蒙皮权重场、同一批片段。差异全部在数据里：`HumanoidProportions.TeacherN()` 是 1.650 m / 7.37 头身、肩宽 0.320 m（主角 0.41）、胸深 0.106 m；造型层按 role 分支给出齐耳短发、开衫（下摆过髋不到膝）和本作第一张有完整五官的脸；色阶上她是三人里最亮最冷的一档（开衫灰值 0.645，Q 0.475，主角 0.430），头发则刻意不是最深的（0.300），否则远处三个后脑勺会合成同一个剪影。
+
+姿势与片段：`HumanoidPoses.TeacherAtPodium()` 站定、双手落在讲台台面（1.02 m + 0.07 m 台板）上；`HumanoidClips.TeacherAtPodiumIdle()` 是 3.6 s 循环，点头（0.7 s）→ 右手翻名册（2.0 s）→ 抬头看教室（3.4 s），中间两段空拍比手势本身更长，这就是"手势加不成掌控"的演法。
+
+走位是数据：`classroom_layout.json` 的 `teacher.entryPath`（员工门 → 沿黑板墙 → 讲台后）、`stand`（0, 10.74）、`standYaw = 180`、`entrySeconds = 3.2`（4.51 m，1.41 m/s）。`PrototypeSceneBootstrap.AnimateTeacherEntry()` 只推根节点、腿交给 `WalkCycle`；停下后 0.45 s 转身、切待机片段、`CaptureBaseHeight()`，然后才置 `Objective: teacher_arrived`。交互是根节点上一个 trigger 胶囊 + `Inspectable`，和 Q 同一套入口；`_conversationTarget` 仍是 Q，N 用自己的两个 `DialogueRunner`。
+
+对白路由：序章未结束 → 序章（Q）；之后看 `Recollection: n_first_class_heard` → `classroom_teacher_n`（一次）或 `classroom_teacher_n_revisit`（之后每次）。两份 JSON 的 `status` 都是 `owner_authored_excerpt`，**是排演稿，未经作者逐句审定**。
+
+未运行：她的编译、EditMode 测试、进场协程、触发体、动画观感。证明图 `docs/images/teacher-n-proof.png`（`tools/teacher_n_proof.py`）是同一套数学的离线复算，**不是 Unity 渲染**。
+
 ## 已知限制
 
 - 属性上限 5 和确定性阈值比较只是原型；没有随机检定、技能树或属性描述文案。
@@ -60,4 +72,4 @@
 - 仍无场景转场、文本速度设置、完整可访问性、本地化字体资产和多轮对话 backlog 持久化。
 - 只有本次明确授权的 `q_wake` 开场摘录使用作者原文；未复用部分的新增对白/检视文案仍是占位，不是作者最终文本。
 - Unity Editor 未运行，场景导入、脚本编译、真实 Play Mode 和视觉体验都尚未验证。本次新增的教室构建器、主角模型与其材质库因此**只经过静态审查与离线平面打样**，未经过编译或观感确认。
-- 24 套桌椅在原型期不加碰撞（只有讲桌旁的教师椅是实体），因此玩家可以穿过课桌；这是为了不让交互射线与走位被家具卡住，属于待作者确认的取舍。
+- 24 套桌椅现在都有实体碰撞（每张桌一个盒体、每把椅子一个盒体），代价是玩家会被椅子挡住——这是作者要的"真的能撞到东西"，但走位手感未经实测。

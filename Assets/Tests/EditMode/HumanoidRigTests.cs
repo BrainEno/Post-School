@@ -48,11 +48,17 @@ namespace PostSchool.Tests.EditMode
 
         [TestCase(FigureRole.Protagonist)]
         [TestCase(FigureRole.ClassmateQ)]
+        [TestCase(FigureRole.TeacherN)]
         public void FiguresStandOnTheFloorAtTheirDeclaredHeight(FigureRole role)
         {
-            HumanoidProportions proportions = role == FigureRole.Protagonist
-                ? HumanoidProportions.Protagonist()
-                : HumanoidProportions.Classmate();
+            HumanoidProportions proportions;
+            switch (role)
+            {
+                case FigureRole.Protagonist: proportions = HumanoidProportions.Protagonist(); break;
+                case FigureRole.ClassmateQ: proportions = HumanoidProportions.Classmate(); break;
+                case FigureRole.TeacherN: proportions = HumanoidProportions.TeacherN(); break;
+                default: throw new System.ArgumentOutOfRangeException(nameof(role));
+            }
 
             ProceduralSkeleton skeleton = CreateSkeleton(proportions);
             Transform foot = skeleton.Bone(skeleton.IndexOf(HumanoidBones.FootLeft));
@@ -81,6 +87,58 @@ namespace PostSchool.Tests.EditMode
             Assert.Less(q.height, protagonist.height);
             Assert.Less(q.headLength, protagonist.headLength);
             Assert.Less(q.ShoulderWidth, protagonist.ShoulderWidth);
+        }
+
+        [Test]
+        public void TeacherIsTheTallestFigureAndNarrowestAcrossTheShoulders()
+        {
+            HumanoidProportions n = HumanoidProportions.TeacherN();
+            HumanoidProportions protagonist = HumanoidProportions.Protagonist();
+            HumanoidProportions q = HumanoidProportions.Classmate();
+
+            Assert.IsTrue(n.Validate(out string error), error);
+            Assert.Greater(n.height, protagonist.height, "the only adult in the room is the tallest");
+            Assert.Greater(n.HeadsTall, protagonist.HeadsTall, "7.4 heads against the protagonist's 7.0");
+            Assert.Less(n.ShoulderWidth, q.ShoulderWidth, "narrower than the classmate she is taller than");
+            Assert.Less(n.headLength, protagonist.headLength, "a smaller head is what makes her read as adult");
+        }
+
+        [Test]
+        public void TeacherIsTheBrightColdValueKeyOfTheCast()
+        {
+            // The rule the references follow: three figures, three value keys, and the teacher is the
+            // light one. Numbers, not adjectives, so a hand edit that darkens her cardigan fails here.
+            float protagonistCoat = CharacterSkinPalette.Grey(CharacterSkinPalette.ProtagonistCoat);
+            float qCoat = CharacterSkinPalette.Grey(CharacterSkinPalette.ClassmateCoat);
+            float nCoat = CharacterSkinPalette.Grey(CharacterSkinPalette.TeacherCardigan);
+
+            // Protagonist and Q were already 0.045 apart, which is under the palette's own 0.06
+            // separation floor; that is pre-existing and is not fixed by moving N. What must hold is
+            // that N sits clearly above both, in the same direction, by a step the eye can see at 4 m.
+            Assert.Greater(nCoat, protagonistCoat);
+            Assert.Greater(nCoat, qCoat, "N has to be clearly lighter than Q or the two greens merge");
+            Assert.Greater(nCoat - qCoat, 0.12f);
+            Assert.Greater(nCoat - protagonistCoat, 0.12f);
+
+            Assert.Greater(CharacterSkinPalette.Grey(CharacterSkinPalette.TeacherSkin),
+                CharacterSkinPalette.Grey(CharacterSkinPalette.ProtagonistSkin));
+            Assert.Greater(CharacterSkinPalette.Grey(CharacterSkinPalette.TeacherShirt),
+                CharacterSkinPalette.Grey(CharacterSkinPalette.ClassmateShirt));
+        }
+
+        [Test]
+        public void EveryFigureRoleHasItsOwnPalette()
+        {
+            // A role added without colours used to be painted as Q by a boolean. Now it throws.
+            foreach (FigureRole role in System.Enum.GetValues(typeof(FigureRole)))
+            {
+                CharacterSkinPalette.FigurePalette palette = CharacterSkinPalette.ForRole(role);
+                Assert.IsTrue(CharacterSkinPalette.Separate(palette.Skin, palette.Hair), role + " skin/hair");
+                Assert.IsTrue(CharacterSkinPalette.Separate(palette.Coat, palette.Shirt), role + " coat/shirt");
+            }
+
+            Assert.AreNotEqual(CharacterSkinPalette.ForRole(FigureRole.TeacherN).Coat,
+                CharacterSkinPalette.ForRole(FigureRole.ClassmateQ).Coat);
         }
 
         [Test]

@@ -105,13 +105,15 @@ namespace PostSchool.World
         /// </summary>
         public CharacterSkin CreateCharacterSkin(FigureRole role)
         {
-            bool protagonist = role == FigureRole.Protagonist;
+            // The colours come from the role table, not from a boolean: a figure added to FigureRole
+            // without a palette now fails here, loudly, instead of silently being painted as Q.
+            CharacterSkinPalette.FigurePalette palette = CharacterSkinPalette.ForRole(role);
             return new CharacterSkin(
-                Create(role + " Body", protagonist ? CharacterSkinPalette.ProtagonistSkin : CharacterSkinPalette.ClassmateSkin, 0.06f, 0f),
-                Create(role + " Hair", protagonist ? CharacterSkinPalette.ProtagonistHair : CharacterSkinPalette.ClassmateHair, 0.1f, 0f),
-                Create(role + " Coat", protagonist ? CharacterSkinPalette.ProtagonistCoat : CharacterSkinPalette.ClassmateCoat, 0.05f, 0f),
-                Create(role + " Shirt", protagonist ? CharacterSkinPalette.ProtagonistShirt : CharacterSkinPalette.ClassmateShirt, 0.04f, 0f),
-                Create(role + " Accent", protagonist ? CharacterSkinPalette.ProtagonistAccent : CharacterSkinPalette.ClassmateAccent, 0.12f, 0f));
+                Create(role + " Body", palette.Skin, 0.06f, 0f),
+                Create(role + " Hair", palette.Hair, 0.1f, 0f),
+                Create(role + " Coat", palette.Coat, 0.05f, 0f),
+                Create(role + " Shirt", palette.Shirt, 0.04f, 0f),
+                Create(role + " Accent", palette.Accent, 0.12f, 0f));
         }
 
         private Material Create(string name, Color color, float smoothness, float emission)

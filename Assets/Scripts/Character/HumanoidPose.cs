@@ -411,6 +411,42 @@ namespace PostSchool.Character
                 .With(HumanoidBones.FootRight, new Vector3(-6f, 0f, 0f));
         }
 
+        /// <summary>
+        /// N at the podium, three seconds into a class she is not holding. Arms forward and low because
+        /// the podium top is at 1.02 m and the hands rest on it; the spine tips forward 4 degrees; the
+        /// head is already turned a little toward the door, the way a substitute keeps checking whether
+        /// anyone else is coming. This is the base the podium loop breathes around.
+        /// </summary>
+        public static HumanoidPose TeacherAtPodium()
+        {
+            // Root at zero on purpose: her feet are on the floor and the podium's near edge is 0.44 m
+            // in front of them (stand z 10.74, podium back face z 10.30). The wrist lands 0.442 m in
+            // front of the spine, which is exactly that edge, so the pose only has to lean. A negative
+            // root offset here would sink her boots into the floor for nothing.
+            return new HumanoidPose()
+                .WithRootOffset(0f, 0f, 0f)
+                .With(HumanoidBones.Hips, new Vector3(2f, 0f, 0.8f))
+                .With(HumanoidBones.Spine, new Vector3(4f, 0f, 0.6f))
+                .With(HumanoidBones.Chest, new Vector3(2f, 0f, -0.4f))
+                .With(HumanoidBones.Neck, new Vector3(6f, -5f, 0f))
+                .With(HumanoidBones.Head, new Vector3(4f, -6f, 1.4f))
+                .With(HumanoidBones.ShoulderLeft, new Vector3(0f, 0f, -2f))
+                .With(HumanoidBones.ShoulderRight, new Vector3(0f, 0f, 2f))
+                // Arms solved, not eyeballed: upper arm -52 / forearm -60 puts the wrist at 1.164 m and
+                // 0.44 m in front of the spine, so the heel of the hand rests on the podium top (1.02 m
+                // surface, 1.09 m with the cap) instead of hovering over it or sinking into it.
+                .With(HumanoidBones.UpperArmLeft, new Vector3(-50f, 0f, 9f))
+                .With(HumanoidBones.UpperArmRight, new Vector3(-52f, 0f, -11f))
+                .With(HumanoidBones.ForearmLeft, new Vector3(-58f, 0f, 0f))
+                .With(HumanoidBones.ForearmRight, new Vector3(-60f, 0f, 0f))
+                .With(HumanoidBones.HandLeft, new Vector3(-10f, 0f, 0f))
+                .With(HumanoidBones.HandRight, new Vector3(-10f, 0f, 0f))
+                .With(HumanoidBones.ThighLeft, new Vector3(-3f, 0f, 1.5f))
+                .With(HumanoidBones.ThighRight, new Vector3(1f, 0f, -1.5f))
+                .With(HumanoidBones.ShinLeft, new Vector3(2f, 0f, 0f))
+                .With(HumanoidBones.ShinRight, new Vector3(1f, 0f, 0f));
+        }
+
         /// <summary>Q's resting stance: too straight, arms flat to the body, head level and unblinking.</summary>
         public static HumanoidPose ClassmateStill()
         {

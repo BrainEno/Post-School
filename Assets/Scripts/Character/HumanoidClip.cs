@@ -117,6 +117,7 @@ namespace PostSchool.Character
         public const string IdleName = "StandingIdle";
         public const string QIdleName = "ClassmateIdle";
         public const string WalkName = "WalkCycle";
+        public const string TeacherIdleName = "TeacherAtPodiumIdle";
         public const string FallName = "FallFromTheCurtain";
         public const string CrashName = "CrashLanding";
 
@@ -174,6 +175,54 @@ namespace PostSchool.Character
                 .Add(4.75f, other)
                 .Add(6.9f, other)
                 .Add(7.05f, rest);
+        }
+
+        /// <summary>
+        /// N's loop at the podium: a 3.6 s cycle with three beats, which is the whole acting note for a
+        /// substitute who has lost the room. She nods once at the list, one hand leaves the podium and
+        /// comes back, and then nothing happens for a full second — the pause is longer than either
+        /// gesture, because the thing that makes her read as out of her depth is that the gestures do
+        /// not add up to control.
+        ///
+        /// She never breathes with her whole chest the way the protagonist's loop does: the shoulders
+        /// stay where they were put.
+        /// </summary>
+        public static HumanoidClip TeacherAtPodiumIdle()
+        {
+            HumanoidPose basePose = HumanoidPoses.TeacherAtPodium();
+
+            // Beat 1: down at the register, a nod that is almost a bow.
+            HumanoidPose nod = basePose.Clone()
+                .With(HumanoidBones.Neck, new Vector3(18f, -4f, 0f))
+                .With(HumanoidBones.Head, new Vector3(14f, -5f, 1f))
+                .With(HumanoidBones.Chest, new Vector3(4f, 0f, -0.4f))
+                .WithRootOffset(0f, -0.02f, 0f);
+
+            // Beat 2: one hand comes off the podium and turns the register a quarter turn.
+            HumanoidPose turn = basePose.Clone()
+                .With(HumanoidBones.UpperArmRight, new Vector3(-62f, 0f, -18f))
+                .With(HumanoidBones.ForearmRight, new Vector3(-78f, 0f, 0f))
+                .With(HumanoidBones.HandRight, new Vector3(-26f, 0f, 14f))
+                .With(HumanoidBones.Neck, new Vector3(8f, -14f, 0f))
+                .With(HumanoidBones.Head, new Vector3(6f, -12f, 2f));
+
+            // Beat 3: back to the base, a touch more upright, looking at the room rather than the list.
+            HumanoidPose up = basePose.Clone()
+                .With(HumanoidBones.Spine, new Vector3(2f, 0f, 0.5f))
+                .With(HumanoidBones.Neck, new Vector3(0f, 6f, 0f))
+                .With(HumanoidBones.Head, new Vector3(-2f, 7f, 0f))
+                .WithRootOffset(0f, 0f, 0f);
+
+            return new HumanoidClip(TeacherIdleName, loops: true)
+                .Add(0f, basePose)
+                .Add(0.7f, nod)
+                .Add(1.0f, nod)
+                .Add(1.5f, basePose.Clone())
+                .Add(2.0f, turn)
+                .Add(2.5f, turn)
+                .Add(2.9f, basePose.Clone())
+                .Add(3.4f, up)
+                .Add(3.6f, basePose);
         }
 
         /// <summary>
@@ -294,7 +343,7 @@ namespace PostSchool.Character
         {
             return new[]
             {
-                WakeFromDesk(), StandingIdle(), ClassmateIdle(), ClassmateWalk(),
+                WakeFromDesk(), StandingIdle(), ClassmateIdle(), ClassmateWalk(), TeacherAtPodiumIdle(),
                 FallFromTheCurtain(6.4f), CrashLanding(6.4f),
             };
         }

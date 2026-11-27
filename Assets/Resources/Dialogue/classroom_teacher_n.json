@@ -1,0 +1,238 @@
+{
+  "id": "classroom_teacher_n",
+  "status": "owner_authored_excerpt",
+  "note": "N's first scene: the substitute walks in, tries to take the register, finds out how many people are missing, and gives up on the register in favour of questions. Entered from the prologue's end node. Speaker 'n' is already mapped by DialoguePresenter.",
+  "startNode": "n_1",
+  "nodes": [
+    {
+      "id": "n_1",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "上课。呃——人都到齐了吗？",
+      "next": "n_2",
+      "effects": []
+    },
+    {
+      "id": "n_2",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "……怎么这么少。我是来代课的 N 老师，原来的 B 老师今天请假。教务处给了我一张名单，我先点一下名。",
+      "next": "n_3",
+      "effects": []
+    },
+    {
+      "id": "n_3",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "我念到名字，你们站起来……或者坐着喊一声到，都行。",
+      "next": "n_calls",
+      "effects": []
+    },
+    {
+      "id": "n_calls",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "protagonist",
+      "text": "她念了七个人。两声「到」，都是坐着喊的。没有一个人站起来。",
+      "next": "n_6",
+      "effects": [
+        "recollection:heard_own_name_called"
+      ]
+    },
+    {
+      "id": "n_6",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "其他人呢？今天这个班……就来了这么几个人吗？",
+      "next": "q_answer",
+      "effects": []
+    },
+    {
+      "id": "q_answer",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "q",
+      "text": "都出去玩了吧。",
+      "next": "student_answer",
+      "effects": []
+    },
+    {
+      "id": "student_answer",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "student",
+      "text": "他们都逃课去上网了。",
+      "next": "n_react",
+      "effects": []
+    },
+    {
+      "id": "n_react",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "这么多人都不在？",
+      "next": "n_8",
+      "effects": []
+    },
+    {
+      "id": "n_8",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "算了。名字我先不点了。有人要问什么吗——生物方面的也行。",
+      "next": "n_question",
+      "effects": []
+    },
+    {
+      "id": "n_question",
+      "kind": "choice",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "有人要问什么吗——生物方面的也算。",
+      "choices": [
+        {
+          "text": "B 老师去哪儿了？",
+          "next": "p_where_b",
+          "effects": []
+        },
+        {
+          "text": "课本还没发。",
+          "next": "p_textbook",
+          "effects": [
+            "objective:textbook_missing"
+          ]
+        },
+        {
+          "text": "生态系统是什么？",
+          "next": "p_ecosystem",
+          "effects": []
+        },
+        {
+          "text": "受精卵是怎么变成人的？",
+          "next": "p_embryo",
+          "effects": []
+        },
+        {
+          "text": "（什么也没问。）",
+          "next": "p_silent",
+          "effects": []
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "p_where_b",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "B 老师去哪儿了？",
+      "next": "n_where_b",
+      "effects": []
+    },
+    {
+      "id": "n_where_b",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "请假。教务处的原话是「身体不适」，别的没写。我也是昨天晚上才接到电话的。",
+      "next": "n_turn_2",
+      "effects": []
+    },
+    {
+      "id": "p_textbook",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "课本还没发。",
+      "next": "n_textbook",
+      "effects": []
+    },
+    {
+      "id": "n_textbook",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "我也发现了。柜子里还剩十几本，不够一个班。要不……两个人看一本？",
+      "next": "n_turn_2",
+      "effects": []
+    },
+    {
+      "id": "p_ecosystem",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "生态系统是什么？",
+      "next": "n_ecosystem",
+      "effects": []
+    },
+    {
+      "id": "n_ecosystem",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "就是……一群生物，加上它们待的那个地方，再加上它们互相吃来吃去。这个解释太随便了，等我翻一下书。",
+      "next": "n_turn_2",
+      "effects": []
+    },
+    {
+      "id": "p_embryo",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "protagonist",
+      "text": "受精卵是怎么变成人的？",
+      "next": "n_embryo",
+      "effects": []
+    },
+    {
+      "id": "n_embryo",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "一个细胞一直分裂，然后开始分家，各自干各自的活……我这样讲，跟书上写的不一样。你先记着这个问题，下节课我讲。",
+      "next": "n_turn_2",
+      "effects": []
+    },
+    {
+      "id": "p_silent",
+      "kind": "line",
+      "presentation": "narration",
+      "speaker": "protagonist",
+      "text": "（什么也没问。）",
+      "next": "n_turn_2",
+      "effects": []
+    },
+    {
+      "id": "n_turn_2",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "想留在教室的就安静自习；想去操场活动也可以。别跑太远。",
+      "next": "n_turn_2b",
+      "effects": [
+        "objective:free_period_allowed",
+        "recollection:n_allows_free_period"
+      ]
+    },
+    {
+      "id": "n_turn_2b",
+      "kind": "line",
+      "presentation": "speech",
+      "speaker": "n",
+      "text": "我会待在这里改卷子。有问题的话……可以来问我。",
+      "next": "n_end",
+      "effects": []
+    },
+    {
+      "id": "n_end",
+      "kind": "end",
+      "presentation": "narration",
+      "speaker": "",
+      "text": "",
+      "effects": []
+    }
+  ]
+}

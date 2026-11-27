@@ -25,6 +25,8 @@ namespace PostSchool.Prototype
     public sealed class PrototypeSceneBootstrap : MonoBehaviour
     {
         private const string DialogueResourcePath = "Dialogue/classroom_opening";
+        private const string TeacherDialogueResourcePath = "Dialogue/classroom_teacher_n";
+        private const string TeacherRevisitResourcePath = "Dialogue/classroom_teacher_n_revisit";
         private const string SheetTextResourcePath = "CharacterSheet/character_sheet_text_placeholder";
         private const string SaveFileName = "prototype-save.json";
         private const string ClassroomLayoutResourcePath = "World/classroom_layout";
@@ -42,15 +44,27 @@ namespace PostSchool.Prototype
         private HumanoidAnimator _protagonistAnimator;
         private SkinnedFigure _qFigure;
         private HumanoidAnimator _qAnimator;
+        private SkinnedFigure _teacherFigure;
+        private HumanoidAnimator _teacherAnimator;
         private HumanoidClip _wakeClip;
         private HumanoidClip _idleClip;
         private HumanoidClip _qIdleClip;
+        private HumanoidClip _teacherIdleClip;
         private Transform _qStudentRoot;
+        private Transform _teacherRoot;
+        private Inspectable _teacherTarget;
+        private DialogueRunner _openingRunner;
+        private DialogueRunner _teacherRunner;
+        private DialogueRunner _teacherRevisitRunner;
+        private QuizScene _activeScene;
+        private bool _openingFinished;
+        private Vector3 _teacherMark;
+        private float _teacherYaw;
         private Transform _curtain;
         private CurtainScene _curtainScene;
         private GameObject _classroomRoot;
         private Text _interactionPrompt;
-        private Inspectable _conversationTarget;
+        private Inspectable _qTarget;
         private float _temporaryPromptUntil;
         private float _previousTimeScale = 1f;
         private bool _worldPaused;
@@ -66,6 +80,7 @@ namespace PostSchool.Prototype
 
             // The cast stands in the empty front band, never inside the seating grid.
             CreateClassmateQ(new Vector3(-2.9f, 0f, 1.1f), 128f);
+            CreateTeacherN();
             CreateInspectable("schoolbag", "书包（占位）", "【占位说明，待作者审定】这里可以检查书包。", PrimitiveType.Cube,
                 new Vector3(-1.62f, 0.24f, 0.5f), new Vector3(0.5f, 0.42f, 0.34f), _surfaces.Surface(SurfaceRole.Ink));
             CreateInspectable("set_square", "三角尺（占位）", "【占位说明，待作者审定】这里可以检查一件课堂物品。", PrimitiveType.Cube,
@@ -80,7 +95,27 @@ namespace PostSchool.Prototype
             }
 
             DialogueScript script = DialogueScript.FromJson(dialogueAsset.text);
+
+            // N's scene is a separate script because it starts where the opening ends: the prologue
+            // belongs to Q, and the substitute's first class is its own file with its own start node.
+            // Two runners over one StoryState is what keeps the prologue's text untouched.
+            TextAsset teacherAsset = Resources.Load<TextAsset>(TeacherDialogueResourcePath);
+            if (teacherAsset == null)
+            {
+                throw new InvalidOperationException($"Missing dialogue resource '{TeacherDialogueResourcePath}'. Check Assets/Resources/{TeacherDialogueResourcePath}.json and its import status.");
+            }
+
+            DialogueScript teacherScript = DialogueScript.FromJson(teacherAsset.text);
+
+            TextAsset revisitAsset = Resources.Load<TextAsset>(TeacherRevisitResourcePath);
+            if (revisitAsset == null)
+            {
+                throw new InvalidOperationException($"Missing dialogue resource '{TeacherRevisitResourcePath}'. Check Assets/Resources/{TeacherRevisitResourcePath}.json and its import status.");
+            }
+
+            DialogueScript revisitScript = DialogueScript.FromJson(revisitAsset.text);
             _storyState = new StoryState();
+            _storyState.FlagChanged += OnStoryFlagChanged;
             _characterBuild = new CharacterBuild();
             CharacterSheetText sheetText = LoadSheetText();
 
@@ -89,8 +124,10 @@ namespace PostSchool.Prototype
             _characterSheet = canvas.gameObject.AddComponent<CharacterSheetView>();
             _characterSheet.Initialize(canvas.transform, _characterBuild, sheetText, CompleteCharacterBuild);
             _dialoguePresenter = canvas.gameObject.AddComponent<DialoguePresenter>();
-            DialogueRunner runner = new DialogueRunner(script, _storyState, _characterBuild);
-            _dialoguePresenter.Initialize(canvas.transform, runner, PauseWorldForDialogue, ResumeWorldAfterDialogue);
+            _openingRunner = new DialogueRunner(script, _storyState, _characterBuild);
+            _teacherRunner = new DialogueRunner(teacherScript, _storyState, _characterBuild);
+            _teacherRevisitRunner = new DialogueRunner(revisitScript, _storyState, _characterBuild);
+            _dialoguePresenter.Initialize(canvas.transform, _openingRunner, PauseWorldForDialogue, HandleDialogueEnded);
 
             // After the sheet exists, so the scene has the same build object the sheet spends points on.
             CreateCurtainInteraction(canvas.transform);
@@ -200,6 +237,190 @@ namespace PostSchool.Prototype
             }
         }
 
+        /// <summary>
+        /// Q, built the same way the protagonist is: proportions -> skeleton -> one skinned mesh. This
+        /// method was called but never defined at HEAD, which meant the whole assembly did not compile;
+        /// it is written here rather than worked around, because Q is the figure the opening camera is
+        /// pointed at.
+        /// </summary>
+        private void CreateClassmateQ(Vector3 position, float yawDegrees)
+        {
+            _qFigure = SkinnedCharacterBuilder.Create(
+                "Q",
+                transform,
+                position,
+                yawDegrees,
+                HumanoidProportions.Classmate(),
+                FigureRole.ClassmateQ,
+                _surfaces.CreateCharacterSkin(FigureRole.ClassmateQ));
+
+            _qStudentRoot = _qFigure.Root;
+            _qAnimator = _qStudentRoot.gameObject.AddComponent<HumanoidAnimator>();
+            _qAnimator.Initialize(_qFigure);
+
+            // Q keeps the trigger the old placeholder capsule had, so "press E on Q" still starts the
+            // prologue. The name marker is only for the greybox camera, and it is the same one.
+            CapsuleCollider reach = _qStudentRoot.gameObject.AddComponent<CapsuleCollider>();
+            reach.isTrigger = true;
+            reach.center = new Vector3(0f, 0.8f, 0f);
+            reach.radius = 0.42f;
+            reach.height = 1.58f;
+
+            _qTarget = _qStudentRoot.gameObject.AddComponent<Inspectable>();
+            _qTarget.Configure("classmate_q", "Q", "【占位说明】靠近并按 E 开始一对一对话。");
+            _qTarget.Inspected += OnInspectableUsed;
+            AddNameMarker(_qStudentRoot, "Q");
+        }
+
+        /// <summary>
+        /// N, the substitute teacher. She enters through the staff door in the blackboard wall and
+        /// stands behind the podium, so the opening camera can find her the moment the player stands up:
+        /// Q is in front, N is at the back, and the room is populated at two depths.
+        ///
+        /// Her start is the first point of the layout's <c>teacher.entryPath</c>, so the blocking is
+        /// data. If the layout has no path, this throws instead of placing her somewhere arbitrary.
+        /// </summary>
+        private void CreateTeacherN()
+        {
+            if (_layout == null || _layout.teacher == null || _layout.teacher.entryPath.Length == 0)
+            {
+                throw new InvalidOperationException("The classroom layout has no teacher entry path.");
+            }
+
+            TeacherPlacement blocking = _layout.teacher;
+            Vector3 start = new Vector3(blocking.entryPath[0].x, 0f, blocking.entryPath[0].y);
+            _teacherMark = new Vector3(blocking.stand.x, 0f, blocking.stand.y);
+            _teacherYaw = blocking.standYaw;
+
+            // Face along the path, not at the mark: she walks on screen before she turns.
+            Vector3 facing = _teacherMark - start;
+            facing.y = 0f;
+            float startYaw = facing.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(facing.normalized, Vector3.up).eulerAngles.y
+                : _teacherYaw;
+
+            _teacherFigure = SkinnedCharacterBuilder.Create(
+                "N",
+                transform,
+                start,
+                startYaw,
+                HumanoidProportions.TeacherN(),
+                FigureRole.TeacherN,
+                _surfaces.CreateCharacterSkin(FigureRole.TeacherN));
+
+            _teacherRoot = _teacherFigure.Root;
+            _teacherAnimator = _teacherRoot.gameObject.AddComponent<HumanoidAnimator>();
+            _teacherAnimator.Initialize(_teacherFigure);
+            _teacherIdleClip = HumanoidClips.TeacherAtPodiumIdle();
+            if (!_teacherIdleClip.Validate(_teacherFigure.Skeleton, out string teacherClipError))
+            {
+                throw new InvalidOperationException("N's podium clip does not fit her skeleton: " + teacherClipError);
+            }
+
+            CreateTeacherInteraction();
+        }
+
+        /// <summary>
+        /// The three scripts the panel can play, in the order the slice reaches them. The title is part
+        /// of the scene, not of the script, because the panel is one panel.
+        /// </summary>
+        private static string TitleFor(QuizScene scene)
+        {
+            switch (scene)
+            {
+                case QuizScene.TeacherFirstClass: return "序章 · 代课老师";
+                case QuizScene.TeacherRevisit: return "N 老师";
+                default: return "序章 · 教室";
+            }
+        }
+
+        /// <summary>
+        /// Which conversation is due. The prologue plays once and belongs to Q; after it, N's first
+        /// class plays once; after that she only has the short revisit. All three share the one
+        /// StoryState, so the flags survive a save.
+        /// </summary>
+        private QuizScene ResolveScene()
+        {
+            if (!_openingFinished) return QuizScene.ClassroomOpening;
+            if (!_storyState.IsSet(StoryNamespace.Recollection, "n_first_class_heard")) return QuizScene.TeacherFirstClass;
+            return QuizScene.TeacherRevisit;
+        }
+
+        private DialogueRunner RunnerFor(QuizScene scene)
+        {
+            switch (scene)
+            {
+                case QuizScene.TeacherFirstClass: return _teacherRunner;
+                case QuizScene.TeacherRevisit: return _teacherRevisitRunner;
+                default: return _openingRunner;
+            }
+        }
+
+        /// <summary>
+        /// Points the panel at one script and opens it. Every way into a conversation goes through
+        /// here, so the title, the runner and the end-of-scene bookkeeping cannot drift apart.
+        /// </summary>
+        private void BeginDialogue(DialoguePresenter presenter, QuizScene scene)
+        {
+            _activeScene = scene;
+            presenter.SetRunner(RunnerFor(scene));
+            presenter.SetTitle(TitleFor(scene));
+            presenter.Begin();
+        }
+
+        private void HandleDialogueEnded()
+        {
+            // ResumeWorldAfterDialogue also re-enables movement, which puts the player back in control;
+            // without it the panel closing would leave the room frozen (world time is still zero).
+            ResumeWorldAfterDialogue();
+
+            if (_activeScene == QuizScene.ClassroomOpening)
+            {
+                _openingFinished = true;
+                _storyState.Set(StoryNamespace.Objective, "opening_finished");
+            }
+            else
+            {
+                _storyState.Set(StoryNamespace.Recollection, "n_first_class_heard");
+            }
+        }
+
+        /// <summary>
+        /// She is only there once she has walked in. Before that the figure is standing in the doorway
+        /// with its trigger off, which is what stops the player from interacting with a person who has
+        /// not arrived. Driven by the objective flag the walk-in sets, not by a boolean, so a save that
+        /// recorded "teacher_arrived" restores a room with a teacher standing in it.
+        /// </summary>
+        private void RefreshTeacherPresence()
+        {
+            if (_teacherTarget == null) return;
+
+            bool arrived = _storyState != null && _storyState.IsSet(StoryNamespace.Objective, "teacher_arrived");
+            if (arrived && !_teacherTarget.enabled) _teacherTarget.enabled = true;
+            if (!arrived && _teacherTarget.enabled) _teacherTarget.enabled = false;
+        }
+
+        /// <summary>
+        /// The teacher is a person, not a prop: a trigger on her root so that walking up to her and
+        /// pressing E starts her scene, the same way Q's conversation is started.
+        /// </summary>
+        private void CreateTeacherInteraction()
+        {
+            CapsuleCollider reach = _teacherRoot.gameObject.AddComponent<CapsuleCollider>();
+            reach.isTrigger = true;
+            reach.center = new Vector3(0f, 0.82f, 0f);
+            reach.radius = 0.45f;
+            reach.height = 1.64f;
+
+            _teacherTarget = _teacherRoot.gameObject.AddComponent<Inspectable>();
+            _teacherTarget.Configure(
+                "teacher_n",
+                "N 老师",
+                "【占位】代课的生物老师。她站在讲台后面，手上是还没改完的卷子。");
+            _teacherTarget.Inspected += OnInspectableUsed;
+            RefreshTeacherPresence();
+        }
+
         private void CreatePlayerAndCamera()
         {
             GameObject player = new GameObject("Player Placeholder");
@@ -305,6 +526,11 @@ namespace PostSchool.Prototype
 
             if (_qAnimator != null && _qIdleClip != null) _qAnimator.Play(_qIdleClip);
 
+            // The substitute comes in while the protagonist is still face-down on the desk. Nobody
+            // announces her, which is the point: by the time the player can look up, the room already
+            // has an adult in it.
+            Coroutine teacherEntry = StartCoroutine(AnimateTeacherEntry());
+
             // Q walks over while the protagonist is still getting up: the two beats overlap, which is
             // what makes the room feel occupied instead of staged.
             const float qDelay = 1.15f;
@@ -319,8 +545,98 @@ namespace PostSchool.Prototype
             }
 
             _protagonistAnimator.Play(_idleClip);
+
+            // The sheet is shown by the end of the opening, so the walk-in has to be finished or the
+            // player would look up to a teacher frozen mid-stride behind the UI.
+            yield return teacherEntry;
+
             _openingSequenceActive = false;
-            _dialoguePresenter.Begin();
+            BeginDialogue(_dialoguePresenter, QuizScene.ClassroomOpening);
+        }
+
+        /// <summary>
+        /// Walks N along the layout's entry path and turns her to face the room. One transform owns the
+        /// path and the walk clip owns the legs; the head is tilted down a few degrees at each corner so
+        /// the walk reads as someone finding her way rather than a slide along a spline.
+        /// </summary>
+        private IEnumerator AnimateTeacherEntry()
+        {
+            if (_teacherRoot == null || _layout == null || _layout.teacher == null) yield break;
+
+            TeacherPlacement blocking = _layout.teacher;
+            HumanoidClip walk = HumanoidClips.ClassmateWalk();
+            if (_teacherAnimator != null) _teacherAnimator.Play(walk, 0f);
+
+            Vector2[] path = blocking.entryPath;
+            float seconds = Mathf.Max(0.5f, blocking.entrySeconds);
+
+            for (int i = 1; i < path.Length; i++)
+            {
+                Vector3 from = new Vector3(path[i - 1].x, 0f, path[i - 1].y);
+                Vector3 to = new Vector3(path[i].x, 0f, path[i].y);
+                float legLength = Vector3.Distance(from, to);
+                float legSeconds = seconds * legLength / Mathf.Max(0.001f, PathLength(path));
+
+                Vector3 direction = to - from;
+                direction.y = 0f;
+                if (direction.sqrMagnitude > 0.0001f)
+                {
+                    // Turn into the corner before walking it: a teacher who uses the room's geometry.
+                    Quaternion target = Quaternion.LookRotation(direction.normalized, Vector3.up);
+                    float turn = 0f;
+                    const float turnSeconds = 0.35f;
+                    Quaternion startRotation = _teacherRoot.rotation;
+                    while (turn < turnSeconds)
+                    {
+                        turn += Time.unscaledDeltaTime;
+                        _teacherRoot.rotation = Quaternion.Slerp(startRotation, target, Mathf.SmoothStep(0f, 1f, turn / turnSeconds));
+                        yield return null;
+                    }
+
+                    _teacherRoot.rotation = target;
+                }
+
+                float legElapsed = 0f;
+                while (legElapsed < legSeconds)
+                {
+                    float t = Mathf.Clamp01(legElapsed / legSeconds);
+                    _teacherRoot.position = Vector3.Lerp(from, to, Mathf.SmoothStep(0f, 1f, t));
+                    legElapsed += Time.unscaledDeltaTime;
+                    yield return null;
+                }
+
+                _teacherRoot.position = to;
+            }
+
+            // She stops, turns to the room, and only then lets go of the walk clip.
+            Quaternion facing = Quaternion.Euler(0f, _teacherYaw, 0f);
+            Quaternion walkRotation = _teacherRoot.rotation;
+            float settle = 0f;
+            const float settleSeconds = 0.45f;
+            while (settle < settleSeconds)
+            {
+                settle += Time.unscaledDeltaTime;
+                _teacherRoot.rotation = Quaternion.Slerp(walkRotation, facing, Mathf.SmoothStep(0f, 1f, settle / settleSeconds));
+                yield return null;
+            }
+
+            _teacherRoot.SetPositionAndRotation(_teacherMark, facing);
+            if (_teacherAnimator != null)
+            {
+                _teacherAnimator.Play(_teacherIdleClip);
+                // The podium pose lifts her hips 12 mm; capture the mark as her base so the offset is
+                // measured from the floor, not from the middle of the walk.
+                _teacherAnimator.CaptureBaseHeight();
+            }
+
+            _storyState.Set(StoryNamespace.Objective, "teacher_arrived");
+        }
+
+        private static float PathLength(Vector2[] path)
+        {
+            float total = 0f;
+            for (int i = 1; i < path.Length; i++) total += Vector2.Distance(path[i - 1], path[i]);
+            return total;
         }
 
         /// <summary>
@@ -446,16 +762,25 @@ namespace PostSchool.Prototype
 
         private void OnInspectableUsed(Inspectable inspectable)
         {
-            if (inspectable.PropId == CurtainScene.CurtainPropId)
+            if (_curtainScene != null && inspectable.PropId == CurtainScene.CurtainPropId)
             {
                 _curtainScene.Begin();
                 return;
             }
 
-        {
-            if (inspectable == _conversationTarget)
+            if (_qTarget != null && inspectable == _qTarget)
             {
-                _dialoguePresenter.Begin();
+                // Q's questions are the prologue, and the prologue plays once. After that Q has
+                // nothing new to say in this slice, so the prompt shows the placeholder instead of
+                // starting a conversation that has already happened.
+                if (!_openingFinished) BeginDialogue(_dialoguePresenter, ResolveScene());
+                else ShowTemporaryPrompt("Q 已经在背知识点了。（此阶段没有新的对话。）");
+                return;
+            }
+
+            if (_teacherTarget != null && inspectable == _teacherTarget)
+            {
+                BeginDialogue(_dialoguePresenter, ResolveScene());
                 return;
             }
 

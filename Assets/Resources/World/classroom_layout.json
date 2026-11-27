@@ -22,6 +22,30 @@
     "depth": 0.8,
     "height": 1.02
   },
+  "teacher": {
+    "entryDoor": "door_back_staff",
+    "note": "Enters through the staff door at the blackboard end, walks the clear lane along the blackboard wall, and stands behind the podium with both hands on it. She is never in the seating grid: the lane is 0.94 m between the podium back and the wall, and the walk stays north of the last desk row.",
+    "entryPath": [
+      {
+        "x": -4.5,
+        "z": 10.95
+      },
+      {
+        "x": -2.0,
+        "z": 10.86
+      },
+      {
+        "x": 0.0,
+        "z": 10.74
+      }
+    ],
+    "stand": {
+      "x": 0.0,
+      "y": 10.74
+    },
+    "standYaw": 180.0,
+    "entrySeconds": 3.2
+  },
   "seating": {
     "columns": [
       -4.9,

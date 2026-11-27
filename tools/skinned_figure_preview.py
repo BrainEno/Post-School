@@ -109,6 +109,17 @@ def protagonist() -> Proportions:
     )
 
 
+def teacher() -> Proportions:
+    """N, mirroring HumanoidProportions.TeacherN(): 1.65 m, 7.37 heads, 0.32 m across the shoulders."""
+    return Proportions(
+        height=1.65, ankle=0.062,
+        hips=(0, 0.885, 0), spine=(0, 0.155, 0), chest=(0, 0.166, 0), neck=(0, 0.165, 0), head=(0, 0.055, 0),
+        shoulder=(0.040, 0.085, 0), upper_arm=(0.120, 0, 0), forearm=(0, -0.265, 0), hand=(0, -0.235, 0),
+        thigh=(0.082, -0.065, 0), shin=(0, -0.395, 0), foot=(0, -0.363, 0),
+        head_length=0.224, head_radius=0.079, chest_depth=0.106,
+    )
+
+
 def classmate() -> Proportions:
     return Proportions(
         height=1.615, ankle=0.065,
@@ -222,6 +233,38 @@ def walk_pass_left() -> Pose:
             .with_("UpperArm_L", (-2, 0, 4)).with_("Forearm_L", (-12, 0, 0)))
 
 
+def teacher_at_podium() -> Pose:
+    """Mirrors HumanoidPoses.TeacherAtPodium(): leaning on the podium, arms solved to land on it."""
+    return (Pose()
+            .with_("Hips", (2, 0, 0.8)).with_("Spine", (4, 0, 0.6)).with_("Chest", (2, 0, -0.4))
+            .with_("Neck", (6, -5, 0)).with_("Head", (4, -6, 1.4))
+            .with_("Shoulder_L", (0, 0, -2)).with_("Shoulder_R", (0, 0, 2))
+            .with_("UpperArm_L", (-50, 0, 9)).with_("UpperArm_R", (-52, 0, -11))
+            .with_("Forearm_L", (-58, 0, 0)).with_("Forearm_R", (-60, 0, 0))
+            .with_("Hand_L", (-10, 0, 0)).with_("Hand_R", (-10, 0, 0))
+            .with_("Thigh_L", (-3, 0, 1.5)).with_("Thigh_R", (1, 0, -1.5))
+            .with_("Shin_L", (2, 0, 0)).with_("Shin_R", (1, 0, 0)))
+
+
+def teacher_nod() -> Pose:
+    """Beat 1 of the podium loop: down at the register."""
+    return (teacher_at_podium()
+            .with_("Neck", (18, -4, 0)).with_("Head", (14, -5, 1)).with_("Chest", (4, 0, -0.4)))
+
+
+def teacher_turn() -> Pose:
+    """Beat 2: one hand off the podium, turning the register."""
+    return (teacher_at_podium()
+            .with_("UpperArm_R", (-62, 0, -18)).with_("Forearm_R", (-78, 0, 0)).with_("Hand_R", (-26, 0, 14))
+            .with_("Neck", (8, -14, 0)).with_("Head", (6, -12, 2)))
+
+
+def teacher_up() -> Pose:
+    """Beat 3: back to the base, looking at the room instead of the list."""
+    return (teacher_at_podium()
+            .with_("Spine", (2, 0, 0.5)).with_("Neck", (0, 6, 0)).with_("Head", (-2, 7, 0)))
+
+
 def classmate_pose() -> Pose:
     return (Pose().with_("Head", (0, 0, 0))
             .with_("UpperArm_L", (0, 0, 1.5)).with_("UpperArm_R", (0, 0, -1.5))
@@ -308,14 +351,32 @@ def body_primitives(p: Proportions, role: str):
     prims.append(("ellipsoid", (skull_centre, np.array([p.head_radius, p.head_length * 0.5, p.head_radius * 1.02])), ["Head"]))
     prims.append(("ellipsoid", (head + np.array([0, p.head_length * 0.2, 0.024]),
                                 np.array([p.head_radius * 0.8, p.head_length * 0.24, p.head_radius * 0.84])), ["Head"]))
-    prims.append(("ellipsoid", (skull_centre + np.array([0, p.head_length * 0.07, -0.006]),
-                                np.array([p.head_radius * 1.09, p.head_length * 0.47, p.head_radius * 1.1])), ["Head"]))
+    if role == "teacher":
+        # A cropped bob: narrower front-to-back, pulled off the brow, cut above the jaw, so the skull,
+        # the ears and the jaw all stay visible. Mirrors BuildHeadHair's TeacherN branch.
+        prims.append(("ellipsoid", (skull_centre + np.array([0, p.head_length * 0.07, -p.head_radius * 0.035]),
+                                    np.array([p.head_radius * 1.10, p.head_length * 0.44, p.head_radius * 1.12])), ["Head"]))
+    else:
+        prims.append(("ellipsoid", (skull_centre + np.array([0, p.head_length * 0.07, -0.006]),
+                                    np.array([p.head_radius * 1.09, p.head_length * 0.47, p.head_radius * 1.1])), ["Head"]))
 
     # Coat skirt.
     if role == "protagonist":
         waist = p.rest("Spine")
         hem = p.rest("Hips") + np.array([0, -0.31, 0])
         prims.append(("tube", ([waist, waist + (hem - waist) * 0.55, hem], [0.132, 0.152, 0.168]), ["Hips"]))
+
+    # N's cardigan: a hem below the belt, rolled cuffs, a bob that leaves the ears showing.
+    if role == "teacher":
+        hips = p.rest("Hips")
+        hem = hips + np.array([0, -0.135, 0])
+        prims.append(("tube", ([hips + np.array([0, 0.045, 0]), hips, hem], [0.134, 0.140, 0.132]), ["Hips"]))
+        for side in ("L", "R"):
+            elbow = p.rest(f"Forearm_{side}")
+            wrist = p.rest(f"Hand_{side}")
+            a = elbow + (wrist - elbow) * 0.86
+            b = elbow + (wrist - elbow) * 0.97
+            prims.append(("tube", ([a, b], [0.039, 0.038]), [f"Forearm_{side}"]))
 
     return prims
 
