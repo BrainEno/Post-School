@@ -49,6 +49,15 @@ namespace PostSchool.Character
 
         [SerializeField] private int[] _values;
 
+        /// <summary>
+        /// Points gained during play, counted apart from the creation budget.
+        ///
+        /// Without this the two spent the same purse and <see cref="IsValid"/> rejected any character
+        /// who had earned anything, because their total would exceed <see cref="StartingTotal"/>.
+        /// Creation points can be moved but not invented; earned points can be invented but not moved.
+        /// </summary>
+        [SerializeField] private int _earnedPoints;
+
         public CharacterBuild()
         {
             _values = new int[AttributeCount];
@@ -58,7 +67,11 @@ namespace PostSchool.Character
             }
         }
 
-        public int RemainingPoints => StartingTotal - Total;
+        /// <summary>Unspent creation points. Never includes anything earned during play.</summary>
+        public int RemainingPoints => StartingTotal - Total + _earnedPoints;
+
+        /// <summary>Points gained after creation, in total. Monotonic; nothing spends them.</summary>
+        public int EarnedPoints => _earnedPoints;
 
         public int Total
         {
@@ -114,6 +127,36 @@ namespace PostSchool.Character
             return true;
         }
 
+        /// <summary>
+        /// Raises one attribute by one point outside the creation budget, up to the same ceiling.
+        ///
+        /// This is the earned-growth door, and it exists because <see cref="TryAdjust"/> cannot be it:
+        /// that method refuses any increase once <see cref="RemainingPoints"/> is zero, and it is
+        /// always zero once play begins. Nothing here touches the budget, so a scene that rewards the
+        /// player cannot be mistaken for one that refunds character creation.
+        /// </summary>
+        public bool TryRaiseEarned(CoreAttribute attribute)
+        {
+            int index;
+            try
+            {
+                index = GetIndex(attribute);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return false;
+            }
+
+            if (_values[index] >= AttributeCap)
+            {
+                return false;
+            }
+
+            _values[index]++;
+            _earnedPoints++;
+            return true;
+        }
+
         public int[] CopyValues()
         {
             if (!IsValid(out string error))
@@ -124,7 +167,11 @@ namespace PostSchool.Character
             return (int[])_values.Clone();
         }
 
-        public bool TryRestoreValues(int[] values, out string error)
+        /// <summary>
+        /// Restores a saved build, including points earned during play. <paramref name="earnedPoints"/>
+        /// is what the save recorded; a save from before this field existed passes 0.
+        /// </summary>
+        public bool TryRestoreValues(int[] values, int earnedPoints, out string error)
         {
             if (values == null || values.Length != AttributeCount)
             {
@@ -144,15 +191,32 @@ namespace PostSchool.Character
                 total += values[i];
             }
 
-            if (total > StartingTotal)
+            // The earned count is stored, not inferred. It cannot be derived from the table: a total five
+            // points over the creation budget is either growth or a corrupt file, and the two look
+            // identical. Loading assumes the conservative reading unless the save says otherwise.
+            if (earnedPoints < 0)
             {
-                error = $"Saved character total {total} exceeds the starting budget {StartingTotal}.";
+                error = $"Saved earned points cannot be negative ({earnedPoints}).";
+                return false;
+            }
+
+            if (total - earnedPoints > StartingTotal)
+            {
+                error = $"Saved character total {total} with {earnedPoints} earned exceeds anything "
+                    + $"reachable from the starting budget {StartingTotal}.";
                 return false;
             }
 
             _values = (int[])values.Clone();
+            _earnedPoints = earnedPoints;
             error = string.Empty;
             return true;
+        }
+
+        /// <summary>Restores a build saved before earned growth existed.</summary>
+        public bool TryRestoreValues(int[] values, out string error)
+        {
+            return TryRestoreValues(values, 0, out error);
         }
 
         public void Reset()
@@ -161,6 +225,8 @@ namespace PostSchool.Character
             {
                 _values[i] = BaseValue;
             }
+
+            _earnedPoints = 0;
         }
 
         public bool IsValid(out string error)
@@ -180,9 +246,21 @@ namespace PostSchool.Character
                 }
             }
 
-            if (Total > StartingTotal)
+            // The creation *spend* is what has to fit: value above the five base points that was not
+            // earned during play. Table-wide totals above the starting budget are legitimate once the
+            // player has earned anything, but a total that could not have been reached either at
+            // creation or by spending a point per unit is still a corrupted build.
+            int created = Total - _earnedPoints;
+            if (created > StartingTotal)
             {
-                error = $"Character total {Total} exceeds the starting budget {StartingTotal}.";
+                error = $"Character total {Total} with {EarnedPoints} earned exceeds anything reachable "
+                    + $"from the starting budget {StartingTotal}.";
+                return false;
+            }
+
+            if (_earnedPoints < 0)
+            {
+                error = $"Earned points cannot be negative (was {_earnedPoints}).";
                 return false;
             }
 

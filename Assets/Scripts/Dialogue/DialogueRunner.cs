@@ -47,6 +47,7 @@ namespace PostSchool.Dialogue
         private readonly DialogueScript _script;
         private readonly StoryState _state;
         private readonly CharacterBuild _characterBuild;
+        private readonly InsightLedger _insight;
         private readonly Dictionary<string, DialogueNode> _nodes = new Dictionary<string, DialogueNode>(StringComparer.Ordinal);
         private readonly List<DialogueHistoryEntry> _history = new List<DialogueHistoryEntry>();
 
@@ -56,10 +57,21 @@ namespace PostSchool.Dialogue
         }
 
         public DialogueRunner(DialogueScript script, StoryState state, CharacterBuild characterBuild)
+            : this(script, state, characterBuild, null)
+        {
+        }
+
+        /// <summary>
+        /// Adds the earned-growth ledger. A runner built without one rejects insight effects at load
+        /// rather than silently discarding a reward the author wrote, so a scene either pays out or
+        /// fails loudly.
+        /// </summary>
+        public DialogueRunner(DialogueScript script, StoryState state, CharacterBuild characterBuild, InsightLedger insight)
         {
             _script = script ?? throw new ArgumentNullException(nameof(script));
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _characterBuild = characterBuild;
+            _insight = insight;
 
             IndexNodes();
             Validate();
@@ -159,8 +171,36 @@ namespace PostSchool.Dialogue
 
             foreach (string effect in effects)
             {
+                if (StoryEffect.IsInsight(effect))
+                {
+                    ApplyInsight(effect);
+                    continue;
+                }
+
                 StoryEffect.Apply(_state, effect);
             }
+        }
+
+        /// <summary>
+        /// Books an insight award against the ledger. Points are not granted here: the ledger converts
+        /// whole thresholds, and the scene grants them when the imagining ends, so the player is not
+        /// handed a point mid-sentence.
+        /// </summary>
+        private void ApplyInsight(string effect)
+        {
+            if (_insight == null)
+            {
+                throw new InvalidOperationException(
+                    $"Dialogue '{_script.id}' awards '{effect}', but this runner was built without an InsightLedger.");
+            }
+
+            StoryEffect.ParseInsight(effect, out string attributeName, out int amount);
+            if (!CoreAttributeNames.TryParse(attributeName, out CoreAttribute attribute))
+            {
+                throw new InvalidOperationException($"Dialogue '{_script.id}' awards insight in unknown attribute '{attributeName}'.");
+            }
+
+            _insight.Award(attribute, amount);
         }
 
         private void RequireCurrent(string expectedKind)
@@ -288,7 +328,18 @@ namespace PostSchool.Dialogue
             {
                 try
                 {
-                    StoryEffect.Parse(effect, out _, out _);
+                    if (StoryEffect.IsInsight(effect))
+                    {
+                        StoryEffect.ParseInsight(effect, out string attributeName, out _);
+                        if (!CoreAttributeNames.TryParse(attributeName, out _))
+                        {
+                            throw new FormatException($"unknown attribute '{attributeName}' in insight effect");
+                        }
+                    }
+                    else
+                    {
+                        StoryEffect.Parse(effect, out _, out _);
+                    }
                 }
                 catch (FormatException error)
                 {

@@ -221,6 +221,52 @@ namespace PostSchool.Character
             };
         }
 
+        /// <summary>
+        /// B, the biology teacher. She exists in two places and the proportions have to serve both:
+        /// the woman Q describes, and the figure the protagonist's imagination builds out of that
+        /// description. So the numbers are the description, held exactly:
+        ///
+        ///   - 1.64 m tall, the shortest adult in the cast (protagonist 1.72, N 1.65, Q 1.615);
+        ///   - slightly stooped: the spine and chest both sit forward, which is a posture the rest pose
+        ///     can carry because no clip is authored for her yet --- when one is, it has to preserve
+        ///     this lean rather than straighten her;
+        ///   - shoulders held high and near the ears (0.030 m out, 0.098 up, against N's 0.040/0.085),
+        ///     which is the hunch; a hunched figure reads as hunched from the shoulder line, not from
+        ///     a bent spine alone;
+        ///   - a long neck carried forward, so the head sits ahead of the shoulders. This is what makes
+        ///     the silhouette bird-like, and it is the one measurement a viewer will notice if it is
+        ///     removed;
+        ///   - a smaller skull than N's (0.076 against 0.079) on a body of similar height, because a
+        ///     small head at her height reads as a small person rather than a shrunken one. Her head is
+        ///     7.4 head-lengths, the same figure as N, so the size is in the radius, not the ratio.
+        ///
+        /// The hook nose, the spectacles, the white coiled hair and the bird skull are in the mesh
+        /// (BuildHeadFace and BuildHeadHair), not here: this table only places joints.
+        /// </summary>
+        public static HumanoidProportions TeacherB()
+        {
+            return new HumanoidProportions
+            {
+                height = 1.64f,
+                ankleHeight = 0.060f,
+                hips = new Vector3(0f, 0.875f, 0f),
+                spine = new Vector3(0f, 0.150f, 0.012f),      // the stoop starts here
+                chest = new Vector3(0f, 0.160f, 0.016f),      // and continues through the ribcage
+                neck = new Vector3(0f, 0.168f, 0.026f),       // the long neck, carried forward
+                head = new Vector3(0f, 0.062f, 0.014f),       // head ahead of the shoulders
+                shoulder = new Vector3(0.030f, 0.098f, 0f),   // high and close: the hunch
+                upperArm = new Vector3(0.108f, 0f, 0f),
+                forearm = new Vector3(0f, -0.252f, 0f),
+                hand = new Vector3(0f, -0.222f, 0f),
+                thigh = new Vector3(0.078f, -0.062f, 0f),
+                shin = new Vector3(0f, -0.392f, 0f),
+                foot = new Vector3(0f, -0.362f, 0f),
+                headLength = 0.222f,
+                headRadius = 0.076f,
+                chestDepth = 0.100f,
+            };
+        }
+
         /// <summary>How many head-lengths the figure is, crown to floor.</summary>
         public float HeadsTall => height / headLength;
 

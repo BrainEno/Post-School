@@ -195,13 +195,15 @@ namespace PostSchool.Tests.EditMode
             // bulges forward of the skull, so a mark placed at one fixed z ends up *inside* the chin and
             // the mouth. Nothing errors --- the quads are simply hidden behind the skin, and the face
             // reads as a blank with two eyes. This is the test that would have caught it.
-            foreach (FigureRole role in new[] { FigureRole.Protagonist, FigureRole.ClassmateQ, FigureRole.TeacherN })
+            foreach (FigureRole role in new[] { FigureRole.Protagonist, FigureRole.ClassmateQ, FigureRole.TeacherN, FigureRole.TeacherB })
             {
                 HumanoidProportions proportions = role == FigureRole.Protagonist
                     ? HumanoidProportions.Protagonist()
                     : role == FigureRole.ClassmateQ
                         ? HumanoidProportions.Classmate()
-                        : HumanoidProportions.TeacherN();
+                        : role == FigureRole.TeacherN
+                            ? HumanoidProportions.TeacherN()
+                            : HumanoidProportions.TeacherB();
 
                 SkinnedFigure figure = Build(proportions, role, out _);
                 Mesh mesh = figure.Mesh;

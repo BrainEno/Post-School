@@ -12,6 +12,13 @@ namespace PostSchool.Persistence
     {
         public int schemaVersion;
         public int[] attributeValues;
+
+        /// <summary>
+        /// Points gained after creation. Added after schema 1 shipped, so a schema-1 file has no such
+        /// field and JsonUtility leaves it at zero --- which is the correct reading for those saves,
+        /// since nothing could have earned anything when they were written.
+        /// </summary>
+        public int earnedPoints;
         public string[] objectiveFlags;
         public string[] recollectionFlags;
     }
@@ -47,6 +54,7 @@ namespace PostSchool.Persistence
                 {
                     schemaVersion = CurrentSchemaVersion,
                     attributeValues = build.CopyValues(),
+                    earnedPoints = build.EarnedPoints,
                     objectiveFlags = storyState.CopyObjectiveFlags(),
                     recollectionFlags = storyState.CopyRecollectionFlags(),
                 };
@@ -147,12 +155,12 @@ namespace PostSchool.Persistence
                 }
 
                 CharacterBuild validatedBuild = new CharacterBuild();
-                if (!validatedBuild.TryRestoreValues(data.attributeValues, out error)) return false;
+                if (!validatedBuild.TryRestoreValues(data.attributeValues, data.earnedPoints, out error)) return false;
                 StoryState validatedStory = new StoryState();
                 if (!validatedStory.TryRestoreFlags(data.objectiveFlags, data.recollectionFlags, out error)) return false;
 
                 // Validate all input before mutating either live state object.
-                if (!build.TryRestoreValues(data.attributeValues, out error)) return false;
+                if (!build.TryRestoreValues(data.attributeValues, data.earnedPoints, out error)) return false;
                 if (!storyState.TryRestoreFlags(data.objectiveFlags, data.recollectionFlags, out error)) return false;
 
                 error = string.Empty;

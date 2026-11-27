@@ -298,3 +298,30 @@ python3 tools/teacher_n_proof.py docs/images/teacher-n-proof.png
 - 新增的 EditMode 断言 `EveryDrawnFaceMarkSitsInFrontOfTheSkinItIsDrawnOn` 与 `PrologueStagingTests`（4 项）也从未执行。前者用 ±1.5 mm / ±4 mm 的取样窗比对同一高度上的皮肤 z；最紧的一处间隙只有 0.46 mm（N 的眼皮），所以这个窗口是按"最小间隙"选的，不是随手写的——但它仍然只是**离线复算过的假设**，不是跑过的结论。
 - **`VisualCalibrationSceneBuilder` 没有加 N。** 标定场景里只有主角、Q 和趴桌姿态的主角；N 的造型只在游戏场景里出现。这是有意的（标定场景是为了对照"手工角色 vs 纸片学生"，加第三个人会糊掉这个对照），但如果要审她的造型，需要在 Editor 里手动 `SkinnedCharacterBuilder.Create(..., FigureRole.TeacherN, ...)` 或临时加一行。
 - 第一次在 Editor 里按 Play 时最可能出问题的地方，按风险排序：① 幕布触发体的尺寸/位置与玩家胶囊不重合，交互拾取不到；② 坠落协程把角色控制器关掉后，落地时重新启用导致 `CharacterController` 弹开；③ 抬幕布是整体上移 `Curtain` 组，门缝黑片会跟着上去，视觉上像"门也升起来了"。这三处都需要在 Editor 里实际看一眼再定。
+
+## 想象中的生物老师 B（本轮，2026-11-26）
+
+`docs/images/biology-teacher-proof.png` 由 `tools/biology_teacher_proof.py` 生成，**离线绘制，不是 Unity 渲染**。形体参数按作者原文逐条落进 `HumanoidRig.TeacherB()`，一条未改：1.64 m、稍驼背、肩膀高、鹰钩鼻、眼小而集中、带帽檐眼镜、白发盘髻。
+
+量出来的结果（面板 F 逐条打印，与 `SkinnedFigureFactory.cs` 的常量一一对应）：
+
+| 作者说法 | 模型测得 |
+|---|---|
+| 个子小 | 冠顶 1.640 m，7.4 头身（N 1.65 / 主角 1.72） |
+| 稍驼背 | Chest 在 Hips 之上 310 mm，而脊柱前倾 16 mm |
+| 肩膀高、脖子前探，像站在电线上的鸟 | 头在肩之前 14 mm；肩宽 276 mm（N 320 / 主角 406） |
+| 鹰钩鼻 | 鼻尖之下再垂 11.5 mm，前伸 20 mm |
+| 眼小而集中 | 两眼相距 46 mm，单眼宽 24 mm |
+| 带帽檐眼镜 | 镜圈 46 mm，帽檐遮光板悬在镜面前 12 mm、前倾 24° |
+| 白发盘髻 | 发髻与发针在**颅后**，正面看不见——所以面板 C 不画，只在 F 里说明 |
+
+想象里她可以扭曲：`CreateImaginedTeacherB()` 给她 `localScale (0.94, 1.04, 1.02)`、yaw 偏离主角 18°，并另建一份 0.90×0.97 的**重影**（偏移 −0.48 / −0.30 m、yaw −7°），**不给 animator**。面板 D 画的就是这两层。
+
+### 这一轮证明图抓出的两个真实缺陷
+
+1. **脖子从来没被画过。** `tools/teacher_n_proof.py` 的共用部件表里没有脖子，`SkinnedFigureFactory.BuildHeadSkin` 却是有的。结果此前所有离线图（主角、Q、N）都把头颅画成悬在衣领之上，中间一道空隙。这一轮补上了 `Chest → Neck → Head` 的锥形管。
+2. **面板 C 的镜框、镜桥、眉宽三处数值与 C# 不符**：帧位置用了 `+π/8` 偏移（C# 用 `seg * π/4` 无偏移）、镜桥宽度按 `0.03·hr` 画（C# 是 `eyeX − 0.28·hr = 0.02·hr`）、眉半宽 `0.16` 画成 `0.17`。已逐项对齐。教训与上一轮相同：**校验器的数值必须从被检查的代码里读**，手抄一遍就等于在验证自己。
+
+### 仍未验证的部分
+
+沙箱里没有 Unity、没有 dotnet：**本轮全部 C# 未编译、未运行**。想象场景的接线（`SetImaginedTeacherVisible`、序章结束自动进想象、结束发点）、`InsightLedger` 的存档往返、`insight:` 效果在 `DialogueRunner` 里的分支，都只经过人工核对与静态检查。面板 D 里的 4% 纵向拉伸在真机上读起来是"不安"还是"失误"，只能在 Editor 里按 Play 才知道。
