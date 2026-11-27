@@ -5,5 +5,6 @@
 *.asset text eol=lf
 *.meta text eol=lf
 *.json text eol=lf
+*.asmdef text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
