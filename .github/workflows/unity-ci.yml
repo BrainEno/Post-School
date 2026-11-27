@@ -26,10 +26,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
+      - name: Install the geometry checks' one dependency
+        # tools/mesh_visibility_check.py computes triangle facing and face-mark clearance with numpy.
+        # Only numpy: the proof-image scripts also use matplotlib, and they are not run in CI.
+        run: python3 -m pip install --disable-pip-version-check numpy
+
       - name: Check the Unity project tree and pinned Editor version
         run: python3 tools/check_unity_project.py --check --github
 
       - name: Test the checker's own verdicts
+        # unittest, not pytest: the hosted image has no pytest, and a pytest-style file is silently
+        # not collected by discover. tests/ci/test_ci_ran_everything.py guards that.
         run: python3 -m unittest discover -s tests/ci -p 'test_*.py' -v
 
   editmode-tests:
