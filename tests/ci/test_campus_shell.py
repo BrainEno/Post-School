@@ -146,6 +146,10 @@ class CampusShellTests(unittest.TestCase):
         boxes = proof.block_boxes(layout)
         for declared in layout["blocks"]:
             for floor in declared["floors"]:
+                if proof.is_voided(layout, declared, floor):
+                    # Declared as a void: the classroom's column, above and below the room. Nothing
+                    # should be built there, and the next test checks that nothing is.
+                    continue
                 y0 = proof.floor_base(layout, floor)
                 matches = [b for b in boxes
                            if abs(b.x0 - declared["minX"]) < 1e-6 and abs(b.x1 - declared["maxX"]) < 1e-6
@@ -154,6 +158,114 @@ class CampusShellTests(unittest.TestCase):
                 self.assertEqual(len(matches), 1,
                                  f"{declared['id']} floor {floor} is declared but not built as a solid")
 
+    def test_nothing_is_built_in_the_classroom_column_but_the_room_itself(self):
+        """The one place the shell must stay out of, on every floor it does not own."""
+        sys.path.insert(0, str(ROOT / "tools"))
+        try:
+            import campus_shell_proof as proof  # noqa: E402
+        except ModuleNotFoundError as missing:
+            self.skipTest(f"the proof script needs {missing.name} to be imported")
+
+        layout = proof.load()
+        room = layout["classroomFootprint"]
+        for floor in (0, 2):
+            wing = next(b for b in layout["blocks"] if b["id"] == "teaching_block_wing")
+            self.assertTrue(proof.is_voided(layout, wing, floor),
+                            f"floor {floor} of the wing is built, so the shell intersects the classroom")
+
+        # And the storey the room is on is the one the data says it is.
+        self.assertEqual(room["storey"], 1)
+        self.assertEqual(layout["frame"]["floorCount"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ShellBuilderMirrorsTheData(unittest.TestCase):
+    """The C# builder and the layout must not drift apart.
+
+    There is no Unity in CI, so the C# cannot be executed. What can be checked is the thing that
+    actually breaks: a constant written into the builder that disagrees with the file it is supposed to
+    read, or a value the file carries that the builder silently ignores.
+    """
+
+    BUILDER = ROOT / "Assets/Scripts/World/CampusShellBuilder.cs"
+    DEFINITIONS = ROOT / "Assets/Scripts/World/CampusShellLayout.cs"
+
+    def builder_source(self) -> str:
+        return self.BUILDER.read_text(encoding="utf-8")
+
+    def test_the_builder_reads_the_file_and_does_not_restate_it(self):
+        source = self.builder_source()
+        # The block extents, floor heights and louvre counts all have to come from the layout. A number
+        # that appears in both the C# and the JSON is a number that will drift.
+        data_text = LAYOUT.read_text(encoding="utf-8")
+        for forbidden in ("12.4f", "16.0f", "9.4f", "0.94f", "1.04f"):
+            self.assertNotIn(forbidden, source,
+                             f"{forbidden} is written into the builder; it belongs in campus_shell.json")
+        layout = json.loads(data_text)
+        self.assertEqual(layout["frame"]["floorCount"], 3)
+
+    def test_the_builder_never_gives_the_shell_a_collider(self):
+        source = self.builder_source()
+        # The shell is scenery. A collider here would become a wall across the courtyard that nobody
+        # decided to build, and the classroom's own collision is built by ClassroomBuilder.
+        self.assertIn("Destroy(collider)", source)
+        self.assertNotIn("AddComponent<BoxCollider>", source)
+        self.assertNotIn("AddComponent<MeshCollider>", source)
+        self.assertNotIn("gameObject.AddComponent<Collider>", source)
+
+    def test_the_builder_skips_the_classroom_column(self):
+        source = self.builder_source()
+        self.assertIn("IsVoided", source)
+        self.assertIn("voids", source)
+        # And the storey comes from the data rather than from an assumption about "the middle floor".
+        self.assertIn("classroomFootprint.storey", source)
+
+    def test_the_lifted_slab_is_built_with_no_support(self):
+        source = self.builder_source()
+        start = source.index("private static void BuildLifted")
+        end = source.index("// ----------------------------------------------------------------- objects")
+        body = source[start:end]
+        for support_word in ("Column", "Cable", "Bracket", "Strut", "Pillar"):
+            self.assertNotIn(f'"{support_word}', body,
+                             f"the lifted slab gained a {support_word.lower()}, which is the one thing it must not have")
+
+    def test_the_data_classes_declare_every_key_the_file_uses(self):
+        """JsonUtility ignores unknown keys silently, so a missing field is a silently ignored value."""
+        definitions = self.DEFINITIONS.read_text(encoding="utf-8")
+        layout = json.loads(LAYOUT.read_text(encoding="utf-8"))
+
+        for key in layout["frame"]:
+            if key == "note":
+                continue
+            self.assertIn(f"public float {key};" if not key.startswith("floorCount") else "public int floorCount;",
+                          definitions, f"ShellFrame has no field for '{key}'")
+
+        for key in layout["classroomFootprint"]:
+            if key in ("note", "windowWall", "missingWall"):
+                continue
+            self.assertIn(key, definitions, f"classroomFootprint.{key} has no field in CampusShellLayout")
+
+        for key in layout["ground"]:
+            if key == "note":
+                continue
+            self.assertIn(key, definitions, f"ShellGround has no field for '{key}'")
+
+        for key in layout["louvres"][0]:
+            if key == "note":
+                continue
+            self.assertIn(key, definitions, f"ShellLouvre has no field for '{key}'")
+
+        for key in layout["objects"][0]:
+            self.assertIn(key, definitions, f"ShellObject has no field for '{key}'")
+
+    def test_the_materials_the_builder_uses_are_all_in_the_palette(self):
+        definitions = self.DEFINITIONS.read_text(encoding="utf-8")
+        layout = json.loads(LAYOUT.read_text(encoding="utf-8"))
+        for name in ("concrete", "concreteDeep", "concreteShadow", "concretePale", "steel", "steelDark",
+                     "glass", "void", "grid", "red", "ochre", "paper"):
+            self.assertIn(name, layout["materials"], f"the palette has no '{name}'")
+        # 'void' is a C# keyword, so the field is written with an escape; check it is there.
+        self.assertIn("@void", definitions)

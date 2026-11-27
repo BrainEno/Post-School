@@ -119,6 +119,23 @@ def floor_top(data: dict, floor: int) -> float:
     return floor_base(data, floor) + data["frame"]["floorHeight"] - data["frame"]["slabThickness"]
 
 
+def is_voided(data: dict, block: dict, floor: int) -> bool:
+    """True when this floor of this block falls inside a declared void.
+
+    The classroom is the middle floor of the building, so the storeys above and below it are not built
+    at all. CampusShellBuilder skips them for the same reason, and the two must agree: a proof that
+    drew a floor the runtime leaves out would be a picture of a building that does not exist.
+    """
+    for gap in data.get("voids", []):
+        if floor not in gap["floors"]:
+            continue
+        overlaps = (block["minX"] < gap["maxX"] and block["maxX"] > gap["minX"]
+                    and block["minZ"] < gap["maxZ"] and block["maxZ"] > gap["minZ"])
+        if overlaps:
+            return True
+    return False
+
+
 def block_boxes(data: dict) -> list[Box]:
     """Each declared floor of each block as one slab, plus the parapet that crowns it."""
     out: list[Box] = []
@@ -129,6 +146,8 @@ def block_boxes(data: dict) -> list[Box]:
 
     for block in data["blocks"]:
         for floor in block["floors"]:
+            if is_voided(data, block, floor):
+                continue
             y0 = floor_base(data, floor)
             y1 = y0 + data["frame"]["floorHeight"] - t
             out.append(Box(block["minX"], block["maxX"], block["minZ"], block["maxZ"], y0, y1, concrete))
@@ -166,6 +185,8 @@ def window_bands(data: dict) -> list[Box]:
             continue
         step = spacing[block["id"]]
         for floor in block["floors"]:
+            if is_voided(data, block, floor):
+                continue
             y0 = floor_base(data, floor) + 1.15
             y1 = y0 + 1.75
             # A deep reveal: the void behind, the glass a little in front of it.
@@ -470,6 +491,16 @@ def draw_plan(ax, data):
         ax.text(cx, cz, str(index), ha="center", va="center", fontsize=7.0, color=INK,
                 zorder=6, fontweight="bold",
                 bbox=dict(boxstyle="circle,pad=0.22", facecolor=PAPER, edgecolor=INK, lw=0.6))
+
+    # The voided column, drawn as what it is: nothing built on the floors above and below the room.
+    for gap in data.get("voids", []):
+        ax.add_patch(patches.Rectangle((gap["minX"], gap["minZ"]),
+                                       gap["maxX"] - gap["minX"], gap["maxZ"] - gap["minZ"],
+                                       facecolor=PAPER, edgecolor=MUTED, lw=0.5,
+                                       ls=(0, (2, 2)), alpha=0.9, zorder=3.4))
+        ax.text((gap["minX"] + gap["maxX"]) * 0.5, gap["maxZ"] - 2.6,
+                zh("上下两层留空", "no floors above or below"), ha="center", va="top",
+                fontsize=5.4, color=MUTED, zorder=6)
 
     # The classroom, so the sheet can be read against the room it belongs to.
     room = data["classroomFootprint"]

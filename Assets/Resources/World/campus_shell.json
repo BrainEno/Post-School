@@ -1,7 +1,7 @@
 {
   "id": "prototype_campus_shell",
   "status": "prototype_shell_pending_visual_review",
-  "note": "The campus outside the classroom, drawn to the owner's zone map: a three-storey teaching block, a north gate, two linking corridors, an equipment shed and a container. Shell and roof only — no rooms, no navigation, nothing walkable. The classroom you wake in is on the middle floor of the block that carries the north gate; its window wall faces west, its missing front wall faces south. Coordinates are metres in the classroom's own frame: +x east, +z north, y up with the classroom floor at 0 and the street 4.2 m below. Everything here is one source of truth: the offline proof reads this file for every view, so a viewpoint cannot disagree with the massing. Deliberate impossibilities are declared under 'impossibilities' with the reason for each, so the proof can report them as intended rather than as errors.",
+  "note": "The campus outside the classroom, drawn to the owner's zone map: a three-storey teaching block, a north gate, two linking corridors, an equipment shed and a container. Shell and roof only — no rooms, no navigation, nothing walkable. The classroom you wake in is on the middle floor of the block that carries the north gate; its window wall faces west, its missing front wall faces south. Coordinates are metres in the classroom's own frame: +x east, +z north, y up with the classroom floor at 0 and the street 4.2 m below. Everything here is one source of truth: the offline proof reads this file for every view, so a viewpoint cannot disagree with the massing. Deliberate impossibilities are declared under 'impossibilities' with the reason for each, so the proof can report them as intended rather than as errors. Voids: the classroom's own storey is the shell's only opening in the south arm; the storeys above and below it are not built at all, so nothing intersects the room.",
   "frame": {
     "classroomFloorY": 0.0,
     "streetY": -4.2,
@@ -141,7 +141,7 @@
       "maxZ": 24.0,
       "y": 9.4,
       "thickness": 0.55,
-      "tiltDegrees": -1.6,
+      "tiltDegrees": 1.6,
       "note": "A slab of the block's own floor, lifted clear of it and left hanging over the courtyard at the height of the top floor. It is the same concrete, the same thickness, the same bay spacing. Nothing holds it up."
     }
   ],
@@ -415,6 +415,22 @@
       "far": 400.0,
       "note": "从西侧低处斜看：整个 L 形、悬空楼板、两段连廊同时在画面里。这一格回答“整片校园长什么样”。",
       "noteEn": "Low and oblique from the west: the whole L, the lifted slab and both links at once. This is the view that answers what the campus looks like."
+    }
+  ],
+  "voids": [
+    {
+      "id": "classroom_shaft",
+      "label": "教室上下的空腔",
+      "labelEn": "the classroom's shaft",
+      "minX": -6.2,
+      "maxX": 6.2,
+      "minZ": -4.5,
+      "maxZ": 11.5,
+      "floors": [
+        0,
+        2
+      ],
+      "note": "The classroom is the middle floor, so storeys 0 and 2 above and below it are left out of the massing entirely. Without this the shell's ground floor would be a solid block through the room's floor slab, and its top floor would come down through the ceiling. Only storey 1, the classroom itself, exists — and that one is built by ClassroomBuilder, not by this file."
     }
   ]
 }

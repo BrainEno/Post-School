@@ -32,7 +32,13 @@ namespace PostSchool.Prototype
         private const string SaveFileName = "prototype-save.json";
         private const string ClassroomLayoutResourcePath = "World/classroom_layout";
 
+        /// <summary>The campus shell around the room. Massing only; see CampusShellBuilder.</summary>
+        private const string CampusShellResourcePath = "World/campus_shell";
+
         private WorldSurfaceLibrary _surfaces;
+
+        /// <summary>The campus around the room, or null when its data is missing.</summary>
+        private GameObject _campusRoot;
         private ClassroomLayout _layout;
         private CharacterBuild _characterBuild;
         private StoryState _storyState;
@@ -241,6 +247,29 @@ namespace PostSchool.Prototype
             }
         }
 
+        /// <summary>
+        /// The building the classroom sits inside, and the courtyard below it. Built after the room and
+        /// never touching it: the shell skips the column the room occupies on every floor.
+        ///
+        /// A missing shell is not fatal. The prototype's room still works without a building around it,
+        /// and a scene that refuses to start because a scenery file is absent is worse than a scene with
+        /// an honest hole in the sky.
+        /// </summary>
+        private void BuildCampusShell()
+        {
+            TextAsset shellAsset = Resources.Load<TextAsset>(CampusShellResourcePath);
+            if (shellAsset == null)
+            {
+                Debug.LogWarning(
+                    $"Missing campus shell '{CampusShellResourcePath}'. Check Assets/Resources/{CampusShellResourcePath}.json. " +
+                    "The classroom will stand on its own.");
+                return;
+            }
+
+            CampusShellLayout shell = CampusShellLayout.FromJson(shellAsset.text, CampusShellResourcePath);
+            _campusRoot = CampusShellBuilder.Build(shell, _surfaces, transform);
+        }
+
         private void BuildClassroom()
         {
             TextAsset layoutAsset = Resources.Load<TextAsset>(ClassroomLayoutResourcePath);
@@ -252,6 +281,7 @@ namespace PostSchool.Prototype
 
             _layout = ClassroomLayout.FromJson(layoutAsset.text, ClassroomLayoutResourcePath);
             _classroomRoot = ClassroomBuilder.Build(_layout, _surfaces, transform);
+            BuildCampusShell();
 
             // The curtain that stands where the front wall should be. Its id is part of the scene's
             // contract (CurtainScene), so a rename fails here instead of failing silently at dusk.
