@@ -447,6 +447,63 @@ namespace PostSchool.Character
                 .With(HumanoidBones.ShinRight, new Vector3(1f, 0f, 0f));
         }
 
+        /// <summary>
+        /// Q turned to the person they are talking to. He is overfamiliar, so the whole upper body comes
+        /// round, not just the head: the shoulders lead, the head follows a beat further, and he leans a
+        /// few centimetres in. Used as the first beat of the prologue, where he is the one who starts it.
+        /// </summary>
+        public static HumanoidPose ClassmateTurnsToYou()
+        {
+            return ClassmateStill()
+                .With(HumanoidBones.Hips, new Vector3(0f, 12f, 0f))
+                .With(HumanoidBones.Spine, new Vector3(-3f, 10f, 1f))
+                .With(HumanoidBones.Chest, new Vector3(-2f, 8f, 0f))
+                .With(HumanoidBones.Neck, new Vector3(2f, 6f, 0f))
+                .With(HumanoidBones.Head, new Vector3(-4f, 4f, 2f))
+                .With(HumanoidBones.UpperArmLeft, new Vector3(-16f, 0f, 4f))
+                .With(HumanoidBones.ForearmLeft, new Vector3(-34f, 0f, 0f))
+                .WithRootOffset(0f, 0f, 0.02f);
+        }
+
+        /// <summary>
+        /// Q looking away, at the board. This is the pose for the lines where he is reciting the story of
+        /// the zero rather than talking to a person --- the body turns back to the front and the head
+        /// turns further off to one side, which is what a classmate does when avoiding a subject.
+        /// </summary>
+        public static HumanoidPose ClassmateTurnsAway()
+        {
+            return ClassmateStill()
+                .With(HumanoidBones.Spine, new Vector3(0f, -4f, 0f))
+                .With(HumanoidBones.Neck, new Vector3(0f, -10f, 0f))
+                .With(HumanoidBones.Head, new Vector3(-6f, -16f, 3f))
+                .With(HumanoidBones.UpperArmRight, new Vector3(-8f, 0f, -3f));
+        }
+
+        /// <summary>
+        /// Q looking at something he has been told to look at. The yaw is split down the whole chain
+        /// instead of being given to the neck, because the thing he looks at in the prologue --- the
+        /// set square on the far side of the room --- is far enough off his facing that a head-only
+        /// turn would either miss it or read as an owl. Turning from the hips is also how someone
+        /// looks away from a person mid-sentence without leaving the conversation.
+        /// </summary>
+        /// <param name="yawDegrees">Signed turn needed, degrees, in Unity's yaw convention: positive
+        /// turns him clockwise seen from above, i.e. towards +X when he starts out facing +Z.</param>
+        public static HumanoidPose ClassmateGlance(float yawDegrees, float pitchDegrees = 0f)
+        {
+            float hips = yawDegrees * 0.28f;
+            float spine = yawDegrees * 0.24f;
+            float chest = yawDegrees * 0.16f;
+            float neck = yawDegrees * 0.17f;
+            float head = yawDegrees * 0.15f;
+
+            return ClassmateStill()
+                .With(HumanoidBones.Hips, new Vector3(0f, hips, 0f))
+                .With(HumanoidBones.Spine, new Vector3(0f, spine, 0f))
+                .With(HumanoidBones.Chest, new Vector3(pitchDegrees * 0.4f, chest, 0f))
+                .With(HumanoidBones.Neck, new Vector3(pitchDegrees * 0.3f, neck, 0f))
+                .With(HumanoidBones.Head, new Vector3(pitchDegrees * 0.3f, head, 2f));
+        }
+
         /// <summary>Q's resting stance: too straight, arms flat to the body, head level and unblinking.</summary>
         public static HumanoidPose ClassmateStill()
         {

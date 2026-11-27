@@ -221,17 +221,70 @@ python3 tools/teacher_n_proof.py docs/images/teacher-n-proof.png
 
 **这张图是蒙皮画出来的，不是拼贴。** 脚本为每个角色建一套与 `ProceduralSkeleton` 同构的骨骼表，把静默态网格点按最近两根骨骼做线性混合蒙皮（混合带 0.06 m），再用正交投影画轮廓——所以 B 格里弯腰时的袖子、下摆会跟着弯，而不是几个圆柱互穿。**它有一处诚实的缺陷**：正交投影没有深度排序，只能按材质手动定画序（裤/靴 → 开衫 → 皮肤 → 头发 → 衬衫），并且视角固定在正面 0°。绕 y 轴转 35° 试过，轮廓在袖口与下摆处会撕开，已回退；代价是**点头和手向前在图上根本看不见**（这两种位移主要在 z 轴），所以 B 格改用文字标注实测位移（点头 头 −5.7 mm；翻名册 手 +138 mm 向上、31 mm 向内；抬头 头 +2.6 mm）。这些数字由画图同一个 FK 现算现写，不是手抄的。
 
+## 七·二、造型细化（本轮新增）
+
+### N 的开衫门襟：从"两条竖线"改成真正的 V 领
+
+原来门襟是**两条平行的竖条**（x = ±0.026，各 11 × 115 mm），盖在开衫表面 1 mm 处。平行竖条在视觉上读作**大衣的门襟（placket）**，不是开衫——开衫的定义性特征就是领口敞开、露出里面的衬衫。
+
+改成 V 领的过程里，**画图抓出了两个用代码审阅发现不了的错误**：
+
+1. **倾角符号反了。** 第一版 `leanSign = +1`，结果是两条边在**领口收拢、在腰部张开**——一个倒过来的 V，读作燕尾服下摆。`docs/images/cardigan-v-proof.png` 第一格就是这个错版。
+2. **门襟条超出顶点，两条边在腰部以下交叉。** 第二版把条长给成 115 mm、中心给在 20 mm 高度，算出来的内下角在 **−29 mm 处穿过中线**，形成一个明显的 X。第二格是这一版。
+3. **衬衫只补了一部分缝隙。** 单块 60 mm 的方格放进从 77 mm 收到 0 的缝里，上面留边、下面戳穿——读作"打了一块补丁"。第三格是修正版：**三段叠起来的衬衫**，每段宽度按**它自己下边缘处的缝宽**取，所以永远窄于它所在的位置。
+
+最终参数是**解出来的**，不是调出来的：门襟半长 86.2 mm、中心在脊椎上方 (28.2, 53.0) mm，使每条门襟的**内下角恰好落在 (0, −29 mm)**（两条边的交点，也是开衫重新合拢的高度），外上角落在领口 135 mm。**因为两条内边都收敛到同一点并在那里结束，它们不可能交叉。** 缝隙宽度：领口 **77 mm**、胸 24 mm、腰 0。
+
+`tests/ci/test_cardigan_opening.py` 把这三条不变式钉死：**向上变宽**、**在腰部汇合且不交叉**、**每段衬衫既不戳穿也不覆盖不足**。第三条在写作时就抓到了我自己的一个 5 mm 溢出。
+
+**必须说明的：** 这张图是从 `SkinnedFigureFactory.cs` **直接读常量**画的（正则读 `const float`，读不到就退出并报错），所以它不会在代码改动后还继续"正确"。但它**仍然不是 Unity 渲染**，开衫的 `squashZ` 压缩、光照、材质都没在图上体现。
+
+## 七·五、序章演出层（本轮新增）
+
+序章的 19 个节点文本**一个字都没动**。新增的是"演出"——谁在看谁、什么时候转开——而不是台词。
+
+**为什么要加。** 序章原本只有对话框在动：房间里三个人都站着，姿势由 `ClassmateIdle` 一个循环撑完全程。最刺眼的是 `q_who_look` 这一行——作者写的舞台提示是"（Q 看向讲台上的三角尺）"，**却没有任何东西真的让 Q 去看**。一句话描写一个动作，不等于把动作做出来。
+
+**接线方式。** `DialoguePresenter` 新增 `NodeShown` 事件，在 `Begin()` / `Advance()` / `Choose()` 之后各报一次当前节点 id（同一节点不重复报）。`PrototypeSceneBootstrap.BeginDialogue()` 订阅它，用一张 `switch` 表把 **节点 id** 映射到一个**一次性片段**：
+
+| 节点 | 节拍 | 片段 |
+|---|---|---|
+| `q_1` | 他开始搭话，人已经转过来 | `ClassmateTurnBeat` |
+| `q_who_look` | 看向讲台上的三角尺 | `ClassmateGlanceBeat(θ)` |
+| `q_zero` / `q_blank_1` / `q_absent_1` | 视线离开主角、转到黑板方向（这几句他是在背书，不是在说话） | `ClassmateAwayBeat` |
+| `q_exam_end` | 审问结束，收回普通学生的站姿 | `ClassmateIdle` |
+
+**为什么是查表而不是逻辑。** 节点 id 若被改写或删除，对应的节拍**静默消失**——少一个手势，绝不会卡住对话。这是刻意选的失败方式。
+
+**`q_who_look` 的转角是算出来的，不是调出来的。** Q 走到 `(-1.9, 0, -0.1)` 停下，`AnimateQApproach` 结束时让他**面向主角**（世界朝向 108.9°），而三角尺在 `(2.1, 0, 2.9)`（朝向 53.1°），所以需要转 **−55.8°**。这里踩过一个坑：我第一版拿他**创建时**的 128° 当基准，算出来 −74.9°，**差 19°**，视觉上就是"看着那东西旁边"。转角由两个物体坐标算，且把整条骨链（髋→脊椎→胸→颈→头）按 28/24/16/17/15 分摊——只转脖子要么够不着，要么像猫头鹰。
+
+**原型之外没有改的：** N 在走廊入场、主角的头（属于玩家，任何节拍都不夺取控制权）。
+
+**这一层完全没有跑过。** 没有 Unity，`NodeShown` 的触发时机、`ClipFinished` 交还 idle 的衔接、转角的观感全部只在纸面上推过。见第八节。
+
 ## 八、验证状态（诚实清单）
 
 已运行并通过：
 
-- `python3 tools/check_unity_project.py --check`：**252 个文件（182 个在 `Assets/`）通过**，含"前墙缺失"十一条规则与 N 的走位检查。
-- `python3 -m pytest tests/ci -q`：**50 passed**。其中 `MissingFrontWallTests` 11 项（前墙存在、幕布只垂一半、幕布太窄、出口门挪走、集装箱不在门下方、集装箱在室内、街道只有一栋楼、晾衣绳低于盖顶、两扇窗都被遮、未知 `treatment`），`TeacherBlockingTests` 10 项（路径穿桌、标记点在讲台里/座位上/房间外、未知门、走太短/太久、只有一个点、没有 `teacher` 段、线段裁剪不是包围盒）。
+- `python3 tools/check_unity_project.py --check`：**265 个文件（186 个在 `Assets/`）通过**，含"前墙缺失"十一条规则与 N 的走位检查。
+- `python3 tools/check_case_labels.py`：**PASS**，86 个 `case 类型.成员` 标签全部指向已声明类型。**这个检查是本轮补的，因为它逮到了一个真的编译错误**（见下）。
+- `python3 tools/cardigan_v_proof.py`：从 `SkinnedFigureFactory.cs` 读常量出图 `docs/images/cardigan-v-proof.png`。**它抓出三个真实缺陷**（倾角反向、门襟交叉、衬衫盖不满），见第七·二节。
+- `python3 -m pytest tests/ci -q`：**58 passed**（其中 `test_cardigan_opening.py` 3 项是新增的门襟不变式，`test_check_case_labels.py` 3 项是新增的类型存在性检查）。其中 `MissingFrontWallTests` 11 项（前墙存在、幕布只垂一半、幕布太窄、出口门挪走、集装箱不在门下方、集装箱在室内、街道只有一栋楼、晾衣绳低于盖顶、两扇窗都被遮、未知 `treatment`），`TeacherBlockingTests` 10 项（路径穿桌、标记点在讲台里/座位上/房间外、未知门、走太短/太久、只有一个点、没有 `teacher` 段、线段裁剪不是包围盒）。
 - `python3 tools/skinned_figure_preview.py`：把 `HumanoidRig` / `HumanoidPose` / `HumanoidClips` / `SkinnedFigureFactory` 的数学**逐条移植到 Python** 后出图 `docs/images/skinned-figure-preview.png`（九宫格：绑定姿势、起身四个关键帧、走路四个相位、Q、比例对照）。这份图暴露并修掉了三个真实错误：髋骨被放到膝盖高度、趴桌时双腿甩到桌外、走路时脚离地 3 cm。
 - 姿势的接地是**解出来的不是调出来的**：每个关键帧的根高度都由 FK 反解到"最低踝 = ankleHeight"，并写成 EditMode 测试（`EveryWakeKeyKeepsTheSolesOnTheFloor` / `EveryWalkKeyKeepsAtLeastOneSoleOnTheFloor`）。
 - 本轮的排版校样 `docs/images/curtain-scene-proof.png`（脚本 `tools/curtain_scene_proof.py`，读同一份 JSON）：A 幕布垂着 / B 掀开后 / C 平面 / D 裸窗 / E 被遮的窗。**它第一次跑就抓出了真实缺陷：落差曾被算成 0.9 m。**修完是 5.7 m。
 - 平面打样脚本自检：24 座 / 2 窗 / 2 门 / 4 灯，0 problem。
 - N 的证明图 `docs/images/teacher-n-proof.png`（`tools/teacher_n_proof.py`）已重渲染多轮并逐格目视复核；它抓出的真实缺陷有三条：发壳纵向半径 0.44 头长时**盖不住颅顶**（顶 0.106 m < 颅顶 0.112 m，画出来是秃的，已改 0.47 并写进注释）、平面投影没有深度排序会把脸画在头发上（改为按材质定画序）、A 格里用横条表示讲台会被读成"第三条手臂"（改为手部圆点 + 高度标注）。
+
+### 本轮必须点名的一件事：`QuizScene` 从来没被定义过
+
+`PrototypeSceneBootstrap.cs` 里有 **14 处** `QuizScene.…`（`_activeScene` 字段、`TitleFor`、`ResolveScene`、`RunnerFor`、`BeginDialogue`、两个 `case` 分支、`q_who_look` 的过滤条件），而**全仓库没有任何地方声明 `enum QuizScene`**（`git grep` 在 HEAD 与全部 ref 上都查不到）。
+
+也就是说：**在我动手之前，这个工程就编不过。** 之前每一轮"CI 全绿"都不代表能编译——`check_unity_project.py` 查的是 GUID/.meta/命名/JSON/布局，`pytest tests/ci` 查的是几何与走位，两者都**不对 C# 的类型存在性发表任何意见**。这个缺陷一路穿过所有检查。
+
+本轮补齐了 `Assets/Scripts/Prototype/QuizScene.cs`（三个成员：`ClassroomOpening` / `TeacherFirstClass` / `TeacherRevisit`，与既有用法一一对应）与它的 `.meta`，并加了 `tools/check_case_labels.py`：所有 `case 类型.成员` 的限定名必须是 `Assets/Scripts/` 里声明过的类型。这个规则零误报（`case` 标签只能写枚举成员），且带负向自测（`tests/ci/test_check_case_labels.py` 用一个只含非法标签的临时目录验证它会 FAIL）。
+
+**但这仍然只是一个静态推断**：三个成员是**按调用点反推**的，没有 Unity 能确认没有第四个成员被别处用到。
 
 **没有**运行：Unity 导入与 C# 编译、EditMode/PlayMode 测试、Play Mode 观感、光照与后处理参数、中文字体解析。新增的 EditMode 断言（骨架完整性、权重归一、LBS 形变方向、片段校验、循环首尾一致、接地、`CurtainFallTests` 11 项，以及 N 的 `TheTeacherIsNotACloneOfTheClassmate` / `TheTeachersCardiganHangsBelowHerHipsAndStopsAboveHerKnee` / `TheTeachersPodiumLoopHasThreeBeatsAndAPause` / `TheTeachersHandsSitAtPodiumHeightNotAtHerSides`；全仓 115 处 `[Test]`/`[TestCase]`）在 Unity 里从未执行过；`skinned-figure-preview.png` 与 `curtain-scene-proof.png` 都只是同一套数据的**离线复算**，不是渲染。本沙箱没有 Unity 6000.3.29f1。
 
@@ -241,5 +294,7 @@ python3 tools/teacher_n_proof.py docs/images/teacher-n-proof.png
 - `HumanoidClips.FallFromTheCurtain(drop)` / `CrashLanding(drop)` 的落地键时刻按落差缩放，**没有在动画上看过**。
 - `HumanoidAnimator.PlaceAt` 是新增 API，父空间换算与 `BasePosition` 的语义只在纸面上推过。
 - N 的接线同样从未运行：`AnimateTeacherEntry()` 的三段路径插值、0.45 s 转身 Slerp、`CaptureBaseHeight()` 的时机、`Inspectable` 触发体与玩家胶囊的重合。
+- **本轮新增的面部几何与演出层同样没编译过。** 具体是：`AddFaceMark` / `TryFaceSurface` / `HeadShells` 三个 helper 与 17 处调用点；`AddCap(..., rimFirst)` 与 `AddBoxFans()` 的绕序修正；`ClassmateTurnsToYou` / `ClassmateTurnsAway` / `ClassmateGlance` 三个姿势与三个一次性片段；`DialoguePresenter.NodeShown` 事件与 `AnnounceNode()`；`PrototypeSceneBootstrap` 的节拍表、`SetSquareYawFromQ()`、`HandleQBeatFinished`。全部只经过人工核对、离线几何复算（`tools/mesh_visibility_check.py`）与静态检查。五官贴面与绕序有**离线数值证据**（见第六节），演出层**没有任何证据**——它只能靠 Editor 里按 Play。
+- 新增的 EditMode 断言 `EveryDrawnFaceMarkSitsInFrontOfTheSkinItIsDrawnOn` 与 `PrologueStagingTests`（4 项）也从未执行。前者用 ±1.5 mm / ±4 mm 的取样窗比对同一高度上的皮肤 z；最紧的一处间隙只有 0.46 mm（N 的眼皮），所以这个窗口是按"最小间隙"选的，不是随手写的——但它仍然只是**离线复算过的假设**，不是跑过的结论。
 - **`VisualCalibrationSceneBuilder` 没有加 N。** 标定场景里只有主角、Q 和趴桌姿态的主角；N 的造型只在游戏场景里出现。这是有意的（标定场景是为了对照"手工角色 vs 纸片学生"，加第三个人会糊掉这个对照），但如果要审她的造型，需要在 Editor 里手动 `SkinnedCharacterBuilder.Create(..., FigureRole.TeacherN, ...)` 或临时加一行。
 - 第一次在 Editor 里按 Play 时最可能出问题的地方，按风险排序：① 幕布触发体的尺寸/位置与玩家胶囊不重合，交互拾取不到；② 坠落协程把角色控制器关掉后，落地时重新启用导致 `CharacterController` 弹开；③ 抬幕布是整体上移 `Curtain` 组，门缝黑片会跟着上去，视觉上像"门也升起来了"。这三处都需要在 Editor 里实际看一眼再定。

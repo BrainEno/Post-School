@@ -69,11 +69,7 @@ namespace PostSchool.Character
             }
 
             int[] quads = { 0, 2, 3, 1, 4, 5, 7, 6, 0, 1, 5, 4, 2, 6, 7, 3, 0, 4, 6, 2, 1, 3, 7, 5 };
-            for (int q = 0; q < quads.Length; q += 4)
-            {
-                AddTriangle(startIndex + quads[q], startIndex + quads[q + 1], startIndex + quads[q + 2]);
-                AddTriangle(startIndex + quads[q], startIndex + quads[q + 2], startIndex + quads[q + 3]);
-            }
+            AddBoxFans(startIndex, quads);
         }
 
         /// <summary>
@@ -123,11 +119,14 @@ namespace PostSchool.Character
                 }
             }
 
-            if (capStart) AddCap(startIndex, sides, spine[0], spine[0] - RingDirection(spine, 0) * 0.01f, ringWeights[0]);
+            if (capStart) AddCap(startIndex, sides, spine[0], spine[0] - RingDirection(spine, 0) * 0.01f, ringWeights[0], rimFirst: false);
             if (capEnd)
             {
                 int lastRing = startIndex + (ringCount - 1) * sides;
-                AddCap(lastRing, sides, spine[ringCount - 1], spine[ringCount - 1] + RingDirection(spine, ringCount - 1) * 0.01f, ringWeights[ringCount - 1]);
+                // The end cap sweeps the ring the other way round relative to its tip, so it needs the
+                // other fan order. Getting this wrong does not look like a bug in code review: the cap
+                // simply disappears, and the tube reads as open and hollow from that end.
+                AddCap(lastRing, sides, spine[ringCount - 1], spine[ringCount - 1] + RingDirection(spine, ringCount - 1) * 0.01f, ringWeights[ringCount - 1], rimFirst: true);
             }
         }
 
@@ -169,7 +168,15 @@ namespace PostSchool.Character
             }
         }
 
-        /// <summary>A flat quad facing the given normal, used for drawn marks and cloth panels.</summary>
+        /// <summary>
+        /// A flat quad facing the given normal, used for drawn marks and cloth panels.
+        ///
+        /// The fan order is deliberate. Unity front-faces the side whose indices read clockwise on
+        /// screen, which for a right-handed cross product is the side *opposite* the cross-product
+        /// normal. Callers put these quads at +faceZ and expect them to show toward +Z, so the fan
+        /// sweeps (0,2,1) / (0,3,2) --- backwards by eye, correct on screen. Written the obvious way
+        /// round, every mark built here is culled and the faces read blank.
+        /// </summary>
         public void AddQuad(Vector3 center, Vector3 right, Vector3 up, float halfWidth, float halfHeight, BoneWeight4 weight, float normalOffset = 0f)
         {
             Vector3 normal = Vector3.Cross(up, right).normalized;
@@ -221,14 +228,28 @@ namespace PostSchool.Character
                 1, 3, 7, 5, // right
             };
 
+            AddBoxFans(startIndex, quads);
+        }
+
+        /// <summary>
+        /// Fans the six faces of a box. Shared by every hard shape so the order is written once.
+        ///
+        /// Each quad is listed counter-clockwise as seen from outside, which is the order a person
+        /// writes down naturally --- and the wrong order for Unity, which front-faces the clockwise
+        /// reading. The fan therefore has to sweep (a, c, b) / (a, d, c). With (a, b, c) / (a, c, d)
+        /// every face of every box faces inward: the boots, the bag and the shoulder caps are all
+        /// culled, and a figure reads as missing its feet.
+        /// </summary>
+        private void AddBoxFans(int startIndex, int[] quads)
+        {
             for (int q = 0; q < quads.Length; q += 4)
             {
                 int a = startIndex + quads[q];
                 int b = startIndex + quads[q + 1];
                 int c = startIndex + quads[q + 2];
                 int d = startIndex + quads[q + 3];
-                AddTriangle(a, b, c);
-                AddTriangle(a, c, d);
+                AddTriangle(a, c, b);
+                AddTriangle(a, d, c);
             }
         }
 
@@ -296,7 +317,16 @@ namespace PostSchool.Character
             }
         }
 
-        private void AddCap(int ringStart, int sides, Vector3 center, Vector3 tip, BoneWeight4 weight)
+        /// <summary>
+        /// A fan closing one end of a tube.
+        ///
+        /// Unity front-faces the quad whose indices read clockwise on screen, so a correctly wound
+        /// outward surface has cross-product normals pointing inward. Working that through for a fan
+        /// around the +axis at the start of a tube gives the apex-first order and, at the end of the
+        /// same tube, the rim-first order: the rim is traversed in the same direction but seen from the
+        /// opposite side. One order for both ends leaves one cap inside-out and invisible.
+        /// </summary>
+        private void AddCap(int ringStart, int sides, Vector3 center, Vector3 tip, BoneWeight4 weight, bool rimFirst)
         {
             int centerIndex = _vertices.Count;
             _vertices.Add(tip);
@@ -307,7 +337,18 @@ namespace PostSchool.Character
             for (int side = 0; side < sides; side++)
             {
                 int nextSide = (side + 1) % sides;
-                AddTriangle(centerIndex, ringStart + side, ringStart + nextSide);
+                int a = ringStart + side;
+                int b = ringStart + nextSide;
+                if (rimFirst)
+                {
+                    // The rim reversed, not just moved to the end: sweeping the rim in the same
+                    // direction and merely putting the apex last still faces the wrong way.
+                    AddTriangle(b, a, centerIndex);
+                }
+                else
+                {
+                    AddTriangle(centerIndex, a, b);
+                }
             }
         }
 

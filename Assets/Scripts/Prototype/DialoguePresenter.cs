@@ -26,6 +26,7 @@ namespace PostSchool.Prototype
         private Button _advanceButton;
         private Text _advanceLabel;
         private int _fontSize = 25;
+        private string _lastAnnouncedNode;
 
         public bool IsActive => _panel != null && _panel.gameObject.activeSelf;
 
@@ -91,13 +92,22 @@ namespace PostSchool.Prototype
             _title.text = string.IsNullOrWhiteSpace(title) ? string.Empty : title;
         }
 
+        /// <summary>
+        /// Raised with the node id every time the visible node changes. The scene uses it to stage a
+        /// beat --- Q turning, the protagonist looking at their own hands --- without putting stage
+        /// directions into the authored text. Nothing here may alter what the panel shows.
+        /// </summary>
+        public event Action<string> NodeShown;
+
         public void Begin()
         {
             if (IsActive) return;
             _panel.gameObject.SetActive(true);
+            _lastAnnouncedNode = null;
             _runner.Begin();
             _onStarted.Invoke();
             Render();
+            AnnounceNode();
         }
 
         public void SetVisible(bool visible)
@@ -154,6 +164,7 @@ namespace PostSchool.Prototype
         {
             _runner.Choose(index);
             Render();
+            AnnounceNode();
         }
 
         private void AdvanceOrClose()
@@ -167,6 +178,16 @@ namespace PostSchool.Prototype
 
             _runner.Advance();
             Render();
+            AnnounceNode();
+        }
+
+        /// <summary>Reports the current node to any listener, once per node change.</summary>
+        private void AnnounceNode()
+        {
+            string id = _runner != null && _runner.Current != null ? _runner.Current.id : null;
+            if (string.IsNullOrEmpty(id) || id == _lastAnnouncedNode) return;
+            _lastAnnouncedNode = id;
+            NodeShown?.Invoke(id);
         }
 
         private void Render()
