@@ -418,3 +418,30 @@ python3 tools/teacher_n_proof.py docs/images/teacher-n-proof.png
 1. `Carve()` 的 `Rectangle` 合并与浮点比较——离线镜像用的是同一套容差（1e-4），但 C# 侧没跑过。
 2. `new Material(material)` 复制 + `_BaseColor`：若 URP/Lit 属性名不符，外壳会全灰（不会污染教室材质，因为复制的是副本）。
 3. 网格线仍是几十根 0.06 m 的细 Cube，加上 60 片翼片，Draw call 数量偏多。
+
+## 校园外壳第三轮：立面与门廊细节（2026-11-26）
+
+第二轮把外壳建成了几何，但证明图放大看，**三个地方是坏的**，不是风格问题：
+
+1. **层与层之间是 0.32 m 的通缝。** 每层盒子只建到 `FloorTop`（层高减板厚），上一层从 `FloorBase` 起算，中间那条结构板谁也没建——竖着看，光从三层楼的每一条楼板线里穿过去。顶上同样如此：顶层顶面停在 8.08，屋面板从 8.4 才开始，屋顶浮在 0.32 m 的空气上。
+2. **北门浮在半空。** `openGround` 跳过 0 层，而离线证明脚本根本不画墩子与门楣——中庭视角里门廊那一块只有 1 层以上的体量悬着，下面什么都没有。C# 画了，图上没有：两边不一致，图是审的那份。
+3. **门楣埋在墙里。** `porch.lintel` 0.6 m 的门楣画在 `[0, 0.6]`，可门的 1 层实体从 `FloorBase(1)=0` 起算、满幅铺到 3.88——门楣整个落在实体内部，还和它的四个侧面共面。数据里声明了门楣，图上永远看不见。
+
+### 这一轮怎么修
+
+- **楼板线变成带（band）。** 每层 ≥1 的结构板现在建出来：`[FloorBase(f)−slab, FloorBase(f)]`，脚印是块外扩 `facade.bandProjection`（0.1 m）后的矩形，用**同一层的 void** 切——所以带在教室开口处断掉，不跨过去。带比墙宽 0.1，楼板线因此是立面上一条真正挑出的浅色横线，不再是透光的缝。0 层不带板（它站在街上），改由**勒脚**收头：`[street, street+plinthHeight]`，外扩 `plinthProjection`（0.12 m），深色。
+- **顶层接到冠。** 顶层实体 `y1 = FloorBase(top)+floorHeight`（= crown），屋面板直接坐在混凝土上；连廊同理，栏板落在实体顶面。
+- **门廊例外。** `openGround` 的 1 层不建板（板会把门洞封上），实体从 `FloorBase(1)+porch.lintel` 起算——门楣 `[0, 0.6]` 露在门洞顶上，墩子从街道长到 0，门洞净高仍是 4.2 m。证明脚本新增 `porch_boxes`，墩、楣与 C# 同参数各写一遍。
+- **窗台。** 每层每个贴面一片 `[y0−sillThickness, y0]`（`sillProjection` 0.16 / `sillThickness` 0.12），浅色，压在窗带底下。
+
+教室那两道槽没有动：楼板 0.17 的凹槽还在（带被 void 切开，正好不填它）；顶槽从 0.54 变成 0.22（2 层的带填掉了层间那 0.32），**不再去追**。女儿墙满幅、翼片穿门洞下部，也都没碰。
+
+### 数据与测试
+
+JSON 新增 `facade{bandProjection, plinthHeight, plinthProjection}`，`windows` 加 `sillProjection`/`sillThickness`；C# 对应 `ShellFacade` + 字段 + `Validate` 规则，data-class 测试同步。新测试五条 + 镜像三条：
+
+- **连续性**：每块取 inset 0.3 的角点与边中点，竖向扫描的每个洞必须落在「void 那一层（板+实体）∪ 门廊门洞」里——层间通缝在这条测试下活不过去；
+- **门楣可见**：证明里门楣在 `FloorBase(1)` 上、其上没有任何盒子跨过它的顶面；C# 文本断言 `layout.porch.lintel`；
+- 带/勒脚/窗台存在且外扩量等于数据；facade 三投影只许从文件读（C# 里出现 `0.16f` 这类字面量即失败）；validation 镜像补 facade 规则与三个反例。
+
+120 项 CI 全绿，tree-sitter 56 个 C# 文件 0 语法错误，checker 288/198 通过。**仍然没有 Unity**：`CampusShellMassing.cs` 依旧从未编译，风险条目不变。

@@ -98,6 +98,12 @@ def reject(data: dict) -> str | None:
         elif spec["slabThickness"] <= 0:
             return "a roof with no thickness"
 
+    facade = data.get("facade")
+    if facade is None:
+        return "no facade"
+    if facade["bandProjection"] < 0 or facade["plinthHeight"] <= 0 or facade["plinthProjection"] < 0:
+        return "facade unusable"
+
     for louvre in data.get("louvres") or []:
         if louvre["count"] < 2:
             return "a fin run of one"
@@ -194,6 +200,21 @@ class EveryRuleCanFail(unittest.TestCase):
         data["roofs"]["open"]["kerbHeight"] = 0.0
         self.assertEqual(reject(data), "a link with neither deck nor kerb")
 
+    def test_a_shell_with_no_facade_is_rejected(self):
+        data = base()
+        data.pop("facade")
+        self.assertEqual(reject(data), "no facade")
+
+    def test_a_plinth_with_no_height_is_rejected(self):
+        data = base()
+        data["facade"]["plinthHeight"] = 0.0
+        self.assertEqual(reject(data), "facade unusable")
+
+    def test_a_band_that_cannot_project_is_rejected(self):
+        data = base()
+        data["facade"]["bandProjection"] = -0.1
+        self.assertEqual(reject(data), "facade unusable")
+
 
 class TheMirrorMatchesTheCSharp(unittest.TestCase):
     """The mirror above is only worth having if it checks the same fields as the C#."""
@@ -208,7 +229,8 @@ class TheMirrorMatchesTheCSharp(unittest.TestCase):
         body = self.validate_body()
         for marker in ("floorCount", "floorHeight", "slabThickness", "blocks.Length",
                        "classroom_opening", "Covers", "ContainsAnyBlock", "fall_slot",
-                       "liftedSlabs", "thickness", "roofs", "kerbHeight", "louvres", "count",
+                       "liftedSlabs", "thickness", "roofs", "kerbHeight", "facade",
+                       "bandProjection", "plinthHeight", "louvres", "count",
                        "projection", "gridSpacing"):
             self.assertIn(marker, body, f"the C# Validate no longer checks '{marker}'")
 

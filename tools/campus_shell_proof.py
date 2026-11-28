@@ -124,6 +124,12 @@ def floor_top(data: dict, floor: int) -> float:
     return floor_base(data, floor) + data["frame"]["floorHeight"] - data["frame"]["slabThickness"]
 
 
+def expand(block: dict, by: float) -> dict:
+    """The block grown on every side by a projection: bands and plinths stand proud of the wall."""
+    return {**block, "minX": block["minX"] - by, "maxX": block["maxX"] + by,
+            "minZ": block["minZ"] - by, "maxZ": block["maxZ"] + by}
+
+
 def voids_on(data: dict, block: dict, floor: int) -> list[dict]:
     """Every declared void that cuts into this block on this floor."""
     out = []
@@ -204,19 +210,40 @@ def carve(data: dict, block: dict, floor: int) -> list[tuple[float, float, float
 
 
 def block_boxes(data: dict) -> list[Box]:
-    """Each storey of each block, cut by the voids, plus whatever roof the data asks for."""
+    """Each storey of each block, cut by the voids, plus its plinth, its floor band and its roof.
+
+    Three things this does that a box-per-storey cannot: the structural slab of each storey is built as
+    a band proud of the wall (the floor lines were slots of air between floating boxes before), the
+    top storey runs to the crown so the roof sits on concrete, and the porch's first storey starts
+    above its lintel so the lintel heads the opening instead of hiding inside the wall.
+    """
     out: list[Box] = []
     concrete = hexc("concrete", data)
     pale = hexc("concretePale", data)
     deep = hexc("concreteDeep", data)
     t = data["frame"]["slabThickness"]
+    facade = data["facade"]
+    street = data["frame"]["streetY"]
 
     for block in data["blocks"]:
-        for floor in block["floors"]:
+        floors = sorted(block["floors"])
+        top = floors[-1]
+
+        for floor in floors:
             if block.get("openGround") and floor == 0:
                 continue
-            y0 = floor_base(data, floor)
-            y1 = y0 + data["frame"]["floorHeight"] - t
+            base = floor_base(data, floor)
+
+            if floor == 0:
+                for x0, x1, z0, z1 in carve(data, expand(block, facade["plinthProjection"]), 0):
+                    out.append(Box(x0, x1, z0, z1, street, street + facade["plinthHeight"],
+                                   deep, kind="plinth"))
+            elif not (block.get("openGround") and floor == 1):
+                for x0, x1, z0, z1 in carve(data, expand(block, facade["bandProjection"]), floor):
+                    out.append(Box(x0, x1, z0, z1, base - t, base, pale, kind="band"))
+
+            y0 = base + data["porch"]["lintel"] if (block.get("openGround") and floor == 1) else base
+            y1 = base + data["frame"]["floorHeight"] if floor == top else floor_top(data, floor)
             for x0, x1, z0, z1 in carve(data, block, floor):
                 out.append(Box(x0, x1, z0, z1, y0, y1, concrete))
 
@@ -225,6 +252,34 @@ def block_boxes(data: dict) -> list[Box]:
     for slab in data.get("liftedSlabs", []):
         out.append(Box(slab["minX"], slab["maxX"], slab["minZ"], slab["maxZ"],
                        slab["y"], slab["y"] + slab["thickness"], pale, kind="lifted"))
+
+    return out
+
+
+def porch_boxes(data: dict) -> list[Box]:
+    """The gate's porch: two piers standing on the street and the lintel they carry.
+
+    The ground floor of an openGround block is never built, so without these the gate floats a storey
+    above its own street and the lintel the data declares has nothing to sit on.
+    """
+    out: list[Box] = []
+    concrete = hexc("concrete", data)
+    pale = hexc("concretePale", data)
+    street = data["frame"]["streetY"]
+
+    for block in data["blocks"]:
+        if not block.get("openGround"):
+            continue
+        porch = data["porch"]
+        pier_width = min((block["maxX"] - block["minX"]) * porch["pierFraction"],
+                         (block["maxZ"] - block["minZ"]) - porch["pierClearance"])
+        pier_top = floor_base(data, 1)
+        out.append(Box(block["minX"], block["minX"] + pier_width, block["minZ"], block["maxZ"],
+                       street, pier_top, concrete, kind="pier"))
+        out.append(Box(block["maxX"] - pier_width, block["maxX"], block["minZ"], block["maxZ"],
+                       street, pier_top, concrete, kind="pier"))
+        out.append(Box(block["minX"], block["maxX"], block["minZ"], block["maxZ"],
+                       pier_top, pier_top + porch["lintel"], pale, kind="lintel"))
 
     return out
 
@@ -275,6 +330,7 @@ def window_bands(data: dict) -> list[Box]:
     out: list[Box] = []
     glass = hexc("glass", data)
     void = hexc("void", data)
+    pale = hexc("concretePale", data)
     w = data["windows"]
 
     for block in data["blocks"]:
@@ -300,7 +356,14 @@ def window_bands(data: dict) -> list[Box]:
                 if face in ("east", "west"):
                     span = (z1 - z0) - 2 * w["margin"]
                     outer = block["maxX"] if face == "east" else block["minX"]
-                    for i in range(int(span / step)):
+                    count = int(span / step)
+                    if count > 0:
+                        # One sill per face piece, under the whole band: a ledge, not a shelf.
+                        outward = 1.0 if face == "east" else -1.0
+                        sill_outer = outer + outward * w["sillProjection"]
+                        out.append(Box(min(outer, sill_outer), max(outer, sill_outer), z0, z1,
+                                       y0 - w["sillThickness"], y0, pale, kind="sill"))
+                    for i in range(count):
                         a = z0 + w["margin"] + i * step
                         b = a + step * w["glassFraction"]
                         out.append(Box(outer - 0.02, outer + 0.02, a, b, y0, y1, void))
@@ -308,7 +371,11 @@ def window_bands(data: dict) -> list[Box]:
                                    else Box(outer - 0.10, outer, a, b, y0, y1, glass))
                 elif face == "south":
                     span = (x1 - x0) - 2 * w["margin"]
-                    for i in range(int(span / step)):
+                    count = int(span / step)
+                    if count > 0:
+                        out.append(Box(x0, x1, block["minZ"] - w["sillProjection"], block["minZ"],
+                                       y0 - w["sillThickness"], y0, pale, kind="sill"))
+                    for i in range(count):
                         a = x0 + w["margin"] + i * step
                         b = a + step * w["glassFraction"]
                         out.append(Box(a, b, block["minZ"] - 0.02, block["minZ"] + 0.02, y0, y1, void))
@@ -454,7 +521,7 @@ def visible_poly(camera: Camera, corners, near: float | None = None):
 
 
 def draw_scene(ax, data, camera: Camera, *, line_width: float = 0.35):
-    boxes = [b for b in block_boxes(data) + louvre_boxes(data) + window_bands(data)]
+    boxes = [b for b in block_boxes(data) + porch_boxes(data) + louvre_boxes(data) + window_bands(data)]
 
     # The plan is a rectangle of the world; without a far plane the street grid behind the camera
     # would be drawn across the picture as a straight line. Keep only what is in front, and near.

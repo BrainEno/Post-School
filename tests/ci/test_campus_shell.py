@@ -278,6 +278,165 @@ class TheDeliberateMistakesSurvive(unittest.TestCase):
         self.assertGreater(mat["maxZ"], room["minZ"])
 
 
+class TheFacadeIsBuiltFromTheGroundUp(unittest.TestCase):
+    """The round that gave the shell a face: floor bands, a plinth, sills, and a lintel you can see.
+
+    The three defects these tests replace were all invisible in the C# and obvious in the proof image:
+    every floor line was a slot of air you could see daylight through, the gate floated a storey above
+    its own street because the proof never drew the porch, and the lintel the data declares was buried
+    inside the storey it was meant to head.
+    """
+
+    def test_the_layout_declares_its_facade(self):
+        layout = data()
+        facade = layout["facade"]
+        self.assertGreater(facade["bandProjection"], 0.0, "a band with no projection is not a band")
+        self.assertGreater(facade["plinthHeight"], 0.0, "a plinth with no height is a plane")
+        self.assertGreater(facade["plinthProjection"], 0.0)
+        for key in ("sillProjection", "sillThickness"):
+            self.assertGreater(layout["windows"][key], 0.0, f"windows.{key} is missing or zero")
+
+    def test_every_facade_dimension_is_read_from_the_file(self):
+        """No projection may be written into the C#: the same number in two places eventually forks."""
+        source = MASSING.read_text(encoding="utf-8")
+        for marker in ("facade.bandProjection", "facade.plinthProjection", "facade.plinthHeight",
+                       "windows.sillProjection", "windows.sillThickness", "porch.lintel"):
+            self.assertIn(marker, source, f"CampusShellMassing does not read {marker}")
+        for forbidden in ("0.16f", "0.12f", "0.55f", "0.1f"):
+            self.assertNotIn(forbidden, source, f"{forbidden} is written into the C#, not read from the file")
+
+    def test_the_shell_has_no_gap_that_a_void_does_not_explain(self):
+        """Every vertical hole in the massing must be a declared void or the gate's own opening.
+
+        Sampled inset from the block edges, so a gap hiding exactly on a wall cannot pass: each hole
+        has to be covered by the layer the void takes out (the storey plus its band) or, at the gate,
+        by the opening between the piers.
+        """
+        p = proof()
+        layout = p.load()
+        boxes = p.block_boxes(layout) + p.porch_boxes(layout)
+        slab = layout["frame"]["slabThickness"]
+        tol = 1e-6
+
+        for declared in layout["blocks"]:
+            floors = sorted(declared["floors"])
+            lowest, top = floors[0], floors[-1]
+            bottom = p.floor_base(layout, lowest) - (slab if lowest >= 1 else 0.0)
+            crown = p.floor_base(layout, top) + layout["frame"]["floorHeight"]
+
+            inset = 0.3
+            mid_x = (declared["minX"] + declared["maxX"]) * 0.5
+            mid_z = (declared["minZ"] + declared["maxZ"]) * 0.5
+            points = [
+                (declared["minX"] + inset, declared["minZ"] + inset),
+                (declared["maxX"] - inset, declared["minZ"] + inset),
+                (declared["minX"] + inset, declared["maxZ"] - inset),
+                (declared["maxX"] - inset, declared["maxZ"] - inset),
+                (mid_x, declared["minZ"] + inset),
+                (mid_x, declared["maxZ"] - inset),
+                (declared["minX"] + inset, mid_z),
+                (declared["maxX"] - inset, mid_z),
+            ]
+
+            for x, z in points:
+                spans = sorted((max(b.y0, bottom), min(b.y1, crown))
+                               for b in boxes
+                               if b.x0 - tol <= x <= b.x1 + tol and b.z0 - tol <= z <= b.z1 + tol
+                               and b.y1 > bottom + tol and b.y0 < crown - tol)
+                merged: list[tuple[float, float]] = []
+                for lo, hi in spans:
+                    if merged and lo <= merged[-1][1] + tol:
+                        merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+                    else:
+                        merged.append((lo, hi))
+
+                gaps: list[tuple[float, float]] = []
+                cursor = bottom
+                for lo, hi in merged:
+                    if lo > cursor + tol:
+                        gaps.append((cursor, lo))
+                    cursor = max(cursor, hi)
+                if cursor < crown - tol:
+                    gaps.append((cursor, crown))
+
+                explained: list[tuple[float, float]] = []
+                if declared.get("openGround"):
+                    # The gate's ground floor: between the piers, from the street to the floor line.
+                    explained.append((p.floor_base(layout, 0), p.floor_base(layout, 1)))
+                for floor in floors:
+                    in_void = any(g["minX"] < x < g["maxX"] and g["minZ"] < z < g["maxZ"]
+                                  for g in p.voids_on(layout, declared, floor))
+                    if not in_void:
+                        continue
+                    lo = p.floor_base(layout, floor) - (slab if floor >= 1 else 0.0)
+                    hi = crown if floor == top else p.floor_top(layout, floor)
+                    explained.append((lo, hi))
+                explained.sort()
+
+                for gap in gaps:
+                    cursor = gap[0]
+                    for lo, hi in explained:
+                        if hi <= cursor + tol:
+                            continue
+                        if lo > cursor + tol:
+                            break
+                        cursor = hi
+                        if cursor >= gap[1] - tol:
+                            break
+                    self.assertGreaterEqual(
+                        cursor, gap[1] - tol,
+                        f"{declared['id']} at ({x:.2f}, {z:.2f}) has an unexplained hole "
+                        f"from {gap[0]:.2f} to {gap[1]:.2f}; explained layers: {explained}")
+
+    def test_the_gate_lintel_heads_the_opening_instead_of_hiding_in_the_wall(self):
+        p = proof()
+        layout = p.load()
+        gate = next(b for b in layout["blocks"] if b["id"] == "north_gate")
+        boxes = p.block_boxes(layout) + p.porch_boxes(layout)
+        x = (gate["minX"] + gate["maxX"]) * 0.5
+        z = (gate["minZ"] + gate["maxZ"]) * 0.5
+        covering = [b for b in boxes if b.x0 <= x <= b.x1 and b.z0 <= z <= b.z1]
+
+        lintel = [b for b in covering if b.kind == "lintel"]
+        self.assertTrue(lintel, "the porch has no lintel, so the opening has no head")
+        head = lintel[0]
+        self.assertAlmostEqual(head.y0, p.floor_base(layout, 1), places=6,
+                               msg="the lintel must sit on the floor line the piers reach")
+        self.assertAlmostEqual(head.y1 - head.y0, layout["porch"]["lintel"], places=6)
+
+        straddling = [b for b in covering
+                      if b.y0 < head.y1 - 1e-6 and b.y1 > head.y1 + 1e-6 and b.kind != "lintel"]
+        self.assertFalse(straddling,
+                         "the storey above starts below the lintel's top, so the lintel is buried in it")
+
+        # And the C# has to lift the storey the same way; text, because CI cannot run Unity.
+        source = MASSING.read_text(encoding="utf-8")
+        self.assertIn("layout.porch.lintel", source,
+                      "the storey above the porch must start at the lintel, not below it")
+        builder = BUILDER.read_text(encoding="utf-8")
+        self.assertIn("gate lintel", builder, "the builder no longer draws the lintel")
+
+    def test_the_bands_plinths_and_sills_exist_as_geometry(self):
+        p = proof()
+        layout = p.load()
+        boxes = p.block_boxes(layout)
+        self.assertTrue(any(b.kind == "band" for b in boxes), "no floor band is built anywhere")
+        self.assertTrue(any(b.kind == "plinth" for b in boxes), "no plinth is built anywhere")
+        self.assertTrue(any(b.kind == "sill" for b in p.window_bands(layout)), "no window sill is built")
+
+        # The band is proud of the wall it carries, or it is just a colour change.
+        facade = layout["facade"]
+        wing = next(b for b in layout["blocks"] if b["id"] == "teaching_block_wing")
+        self.assertTrue(any(b.kind == "band"
+                            and abs((wing["minX"] - b.x0) - facade["bandProjection"]) < 1e-6
+                            for b in boxes),
+                        "no band stands proud of the wing's west face by bandProjection")
+        self.assertTrue(any(b.kind == "plinth"
+                            and abs((wing["minX"] - b.x0) - facade["plinthProjection"]) < 1e-6
+                            for b in boxes),
+                        "no plinth stands proud of the wing's west face by plinthProjection")
+
+
 class TheViewpointsAreCameras(unittest.TestCase):
 
     def test_every_viewpoint_is_a_camera_the_proof_can_place(self):
@@ -401,6 +560,13 @@ class TheBuilderMirrorsTheData(unittest.TestCase):
             if key == "note":
                 continue
             self.assertIn(f"public float {key};", definitions, f"ShellRoofType has no field for '{key}'")
+
+        # The facade round: the band, the plinth and the sill are all sized in the file.
+        self.assertIn("public ShellFacade facade", definitions)
+        for key in layout["facade"]:
+            if key == "note":
+                continue
+            self.assertIn(f"public float {key};", definitions, f"ShellFacade has no field for '{key}'")
 
     def test_the_materials_the_builder_uses_are_all_in_the_palette(self):
         definitions = DEFINITIONS.read_text(encoding="utf-8")

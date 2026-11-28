@@ -479,12 +479,21 @@
     "glassFraction": 0.62,
     "note": "Window bands on the face of each block that looks into the courtyard. The two arms keep different spacings (the spacing is a property of the face, in the builder) because the join at the inside corner is one of the things that is wrong on purpose. A band breaks at a void: it cannot cross the classroom's opening, and a piece of slab that was cut back from the face gets no band at all.",
     "reveal": 0.04,
-    "glassDepth": 0.1
+    "glassDepth": 0.1,
+    "sillProjection": 0.16,
+    "sillThickness": 0.12,
+    "note": "Window bands on the face of each block that looks into the courtyard. The two arms keep different spacings (the spacing is a property of the face, in the builder) because the join at the inside corner is one of the things that is wrong on purpose. A band breaks at a void: it cannot cross the classroom's opening, and a piece of slab that was cut back from the face gets no band at all. Each face piece also gets one sill under its band: thinner than it is proud, so it reads as a ledge rather than a shelf."
   },
   "porch": {
     "lintel": 0.6,
     "pierFraction": 0.18,
     "pierClearance": 0.4,
     "note": "The north gate's opening at ground level: two piers of this fraction of the porch's width (but never deeper than its depth minus the clearance) and a lintel this tall on top."
+  },
+  "facade": {
+    "bandProjection": 0.1,
+    "plinthHeight": 0.55,
+    "plinthProjection": 0.12,
+    "note": "How the facade steps out of the mass. Each storey's structural slab is built as a band proud of the wall, so the floor lines that used to be air between floating boxes are now the building's horizontal rhythm; the ground floor stands on a plinth a little wider than the wall above it. The band is carved by the same voids as the storey it carries, so it stops at the classroom's opening instead of bridging it."
   }
 }

@@ -145,6 +145,9 @@ namespace PostSchool.World
         public float glassFraction;
         public float reveal;
         public float glassDepth;
+        /// <summary>How far the sill under a band stands out of the wall, and how thick it is.</summary>
+        public float sillProjection;
+        public float sillThickness;
         public string note;
     }
 
@@ -155,6 +158,20 @@ namespace PostSchool.World
         public float lintel;
         public float pierFraction;
         public float pierClearance;
+        public string note;
+    }
+
+    /// <summary>
+    /// How the facade steps out of the mass: the band each storey's structural slab makes proud of the
+    /// wall, and the plinth the ground floor stands on. These are the floor lines — they were air between
+    /// floating boxes before they were geometry, and a facade with no floor lines is a stack of crates.
+    /// </summary>
+    [Serializable]
+    public sealed class ShellFacade
+    {
+        public float bandProjection;
+        public float plinthHeight;
+        public float plinthProjection;
         public string note;
     }
 
@@ -229,6 +246,7 @@ namespace PostSchool.World
         public ShellObject[] objects = Array.Empty<ShellObject>();
         public ShellWindows windows = new ShellWindows();
         public ShellPorch porch = new ShellPorch();
+        public ShellFacade facade = new ShellFacade();
         public ShellRoofs roofs = new ShellRoofs();
         public ShellImpossibility[] impossibilities = Array.Empty<ShellImpossibility>();
 
@@ -390,6 +408,16 @@ namespace PostSchool.World
                     error = $"Roof type '{block.roof}' has no thickness, so '{block.id}' would be built roofless.";
                     return false;
                 }
+            }
+
+            // The facade's three projections become boxes: a band with no projection is a slot in the
+            // massing, a plinth with no height is a plane at the street, and both read as a broken file.
+            if (facade == null || facade.bandProjection < 0f || facade.plinthHeight <= 0f
+                               || facade.plinthProjection < 0f)
+            {
+                error = "Facade is missing or unusable: needs bandProjection >= 0, plinthHeight > 0 "
+                        + "and plinthProjection >= 0.";
+                return false;
             }
 
             foreach (ShellLouvre louvre in louvres ?? Array.Empty<ShellLouvre>())
