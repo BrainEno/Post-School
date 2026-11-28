@@ -31,7 +31,7 @@ namespace PostSchool.Tests.EditMode
             // moved between each other, so the target has to fit the budget: 1 + 7 = 8 points total.
             int[] values = build.CopyValues();
             int spent = 0;
-            foreach (int value in values) spent += value - CharacterBuild.BaseValue;
+            foreach (int currentValue in values) spent += currentValue - CharacterBuild.BaseValue;
 
             while (build.GetValue(attribute) < value)
             {

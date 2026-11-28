@@ -54,15 +54,48 @@ namespace PostSchool.World
             var pieces = new List<ShellPiece>();
             foreach (ShellBox block in layout.blocks)
             {
+                int top = block.floors[0];
+                foreach (int floor in block.floors) top = Mathf.Max(top, floor);
+                float street = layout.frame.streetY;
+
                 foreach (int floor in block.floors)
                 {
                     if (block.openGround && floor == 0) continue;
 
+                    float baseY = layout.FloorBase(floor);
+
+                    if (floor == 0)
+                    {
+                        // The plinth: the ground floor's own slab, a little wider than the wall it
+                        // carries, so the mass meets the street with a foot instead of a knife edge.
+                        foreach (Rectangle part in Carve(layout, Expand(block, layout.facade.plinthProjection), 0))
+                        {
+                            pieces.Add(ShellPiece.Of($"{block.id} plinth",
+                                part.minX, part.maxX, part.minZ, part.maxZ,
+                                street, street + layout.facade.plinthHeight, "concreteDeep"));
+                        }
+                    }
+                    else if (!(block.openGround && floor == 1))
+                    {
+                        // This storey's structural slab, expressed as a band proud of the wall: the floor
+                        // line that used to be a slot of air between two floating boxes. The porch is the
+                        // exception — its slab would cap the opening the piers frame.
+                        foreach (Rectangle part in Carve(layout, Expand(block, layout.facade.bandProjection), floor))
+                        {
+                            pieces.Add(ShellPiece.Of($"{block.id} band",
+                                part.minX, part.maxX, part.minZ, part.maxZ,
+                                baseY - layout.frame.slabThickness, baseY, "concretePale"));
+                        }
+                    }
+
                     List<Rectangle> parts = Carve(layout, block, floor);
                     if (parts.Count == 0) continue;
 
-                    float y0 = layout.FloorBase(floor);
-                    float y1 = y0 + layout.frame.floorHeight - layout.frame.slabThickness;
+                    // The storey itself. The top storey runs to the crown so the roof sits on concrete
+                    // instead of hovering over a slot; the porch's first storey starts above its lintel,
+                    // or the lintel is a pale stripe buried in the wall it is meant to head.
+                    float y0 = block.openGround && floor == 1 ? baseY + layout.porch.lintel : baseY;
+                    float y1 = floor == top ? baseY + layout.frame.floorHeight : layout.FloorTop(floor);
                     for (int i = 0; i < parts.Count; i++)
                     {
                         Rectangle part = parts[i];
@@ -74,6 +107,17 @@ namespace PostSchool.World
 
             return pieces;
         }
+
+        /// <summary>The block grown on every side by a projection: bands and plinths stand proud of the wall.</summary>
+        private static ShellBox Expand(ShellBox block, float by) =>
+            new ShellBox
+            {
+                id = block.id,
+                minX = block.minX - by,
+                maxX = block.maxX + by,
+                minZ = block.minZ - by,
+                maxZ = block.maxZ + by,
+            };
 
         /// <summary>The pieces of one block's storey, with every void already taken out of it.</summary>
         public static List<Rectangle> Carve(CampusShellLayout layout, ShellBox block, int floor)
@@ -265,6 +309,15 @@ namespace PostSchool.World
                             int count = Mathf.FloorToInt(span / step);
                             float outer = block.windowFace == "east" ? block.maxX : block.minX;
                             float outward = block.windowFace == "east" ? 1f : -1f;
+                            if (count > 0)
+                            {
+                                // One sill per face piece, under the whole band: a ledge, not a shelf.
+                                float sillOuter = outer + outward * layout.windows.sillProjection;
+                                pieces.Add(ShellPiece.Of($"{block.id} sill",
+                                    Mathf.Min(outer, sillOuter), Mathf.Max(outer, sillOuter),
+                                    part.minZ, part.maxZ,
+                                    y0 - layout.windows.sillThickness, y0, "concretePale"));
+                            }
                             for (int i = 0; i < count; i++)
                             {
                                 float z0 = part.minZ + layout.windows.margin + i * step;
@@ -282,6 +335,13 @@ namespace PostSchool.World
                         {
                             float span = part.maxX - part.minX - 2f * layout.windows.margin;
                             int count = Mathf.FloorToInt(span / step);
+                            if (count > 0)
+                            {
+                                pieces.Add(ShellPiece.Of($"{block.id} sill",
+                                    part.minX, part.maxX,
+                                    block.minZ - layout.windows.sillProjection, block.minZ,
+                                    y0 - layout.windows.sillThickness, y0, "concretePale"));
+                            }
                             for (int i = 0; i < count; i++)
                             {
                                 float x0 = part.minX + layout.windows.margin + i * step;
