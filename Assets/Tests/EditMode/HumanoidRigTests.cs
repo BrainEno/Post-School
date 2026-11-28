@@ -153,8 +153,8 @@ namespace PostSchool.Tests.EditMode
 
             HumanoidProportions floating = HumanoidProportions.Protagonist();
             floating.thigh = new Vector3(0.086f, -0.2f, 0f);
-            Assert.IsFalse(floating.Validate(out string error));
-            Assert.IsNotEmpty(error);
+            Assert.IsFalse(floating.Validate(out string floatingError));
+            Assert.IsNotEmpty(floatingError);
         }
 
         [Test]
